@@ -2,6 +2,7 @@ package pipe
 import Messages.Message
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
 import com.typesafe.config.ConfigFactory
+import messages.Messages.TunnelEndpoint
 
 /**
   * Created by dda on 23.04.16.
@@ -29,13 +30,16 @@ class ActorToQueue(url: String) extends Actor with ActorLogging {
   }
 
   override def receive: Receive = {
-    case WriteToQueue(target, topic) => clients += target -> topic; context.watch(target)
+    case WriteToQueue(target, topic) =>
+      clients += target -> topic
+      context.watch(target)
+      target ! TunnelEndpoint
     case Terminated => clients -= sender()
-    case m: Message =>
+    case Message(data) =>
       if (clients.contains(sender())) {
-        log.info("Message {} with topic {} from {}", m.data, clients(sender()), sender())
-        dealer.send(clients(sender()) + " " + m.data)
+//        log.info("Message {} with topic {} from {}", data, clients(sender()), sender())
+        dealer.send(clients(sender()) + " " + data)
       }
-    case _ =>
+    case other => log.error("Other {} from {}", other, sender())
   }
 }

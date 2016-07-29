@@ -47,7 +47,7 @@ class QueueToActor(url: String) extends Actor with ActorLogging {
         val data = ByteString(bytes).utf8String
         val topicWithMessage = data.splitAt(data.indexOf(" "))
         if (clients.contains(topicWithMessage._1)) {
-          log.info("Message {} with topic {} for {}", topicWithMessage._2, topicWithMessage._1, clients(topicWithMessage._1))
+//          log.info("Message {} with topic {} for {}", topicWithMessage._2, topicWithMessage._1, clients(topicWithMessage._1))
           clients(topicWithMessage._1) ! Messages.Message(topicWithMessage._2.drop(1))
         }
         if (router.hasReceiveMore) readQueue()

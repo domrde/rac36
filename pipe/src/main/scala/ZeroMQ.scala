@@ -1,5 +1,6 @@
 package pipe
 import akka.actor.ActorSystem
+import akka.cluster.pubsub.DistributedPubSub
 import org.zeromq.ZMQ
 
 /**
@@ -7,6 +8,7 @@ import org.zeromq.ZMQ
   */
 object ZeroMQ {
   val system = ActorSystem("LocalSystem")
+  val mediator = DistributedPubSub(system).mediator
   private val zmqContext = ZMQ.context(1)
 
   system.registerOnTermination {
