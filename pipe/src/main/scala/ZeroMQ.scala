@@ -7,7 +7,7 @@ import org.zeromq.ZMQ
   * Created by dda on 23.04.16.
   */
 object ZeroMQ {
-  val system = ActorSystem("LocalSystem")
+  val system = ActorSystem("PipeSystem")
   val mediator = DistributedPubSub(system).mediator
   private val zmqContext = ZMQ.context(1)
 

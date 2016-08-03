@@ -19,7 +19,7 @@ import scala.language.postfixOps
 /**
   * Created by dda on 7/27/16.
   */
-class PipeIT(_system: ActorSystem) extends TestKit(_system) with WordSpecLike with Matchers with BeforeAndAfterAll {
+class PipeTests(_system: ActorSystem) extends TestKit(_system) with WordSpecLike with Matchers with BeforeAndAfterAll {
   def this() = this(ZeroMQ.system)
   implicit val timeout: Timeout = 3 second
   val zmqContext = ZMQ.context(1)
@@ -123,6 +123,12 @@ class PipeIT(_system: ActorSystem) extends TestKit(_system) with WordSpecLike wi
         }
       }
       routerDealerPairs.foreach { case (remoteActor, tunnel, router, dealer) => router.close(); dealer.close()}
+    }
+  }
+
+  "Pipe balancer" must {
+    "exist" in {
+      fail()
     }
   }
 
