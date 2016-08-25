@@ -2,6 +2,7 @@ import akka.actor.ActorDSL._
 import akka.cluster.Cluster
 import akka.cluster.MemberStatus.Up
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
+import akka.testkit.TestProbe
 import com.typesafe.config.ConfigFactory
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 
@@ -49,11 +50,11 @@ abstract class MultiJvmAvatarTests extends MultiNodeSpec(MultiNodeAvatarTestsCon
 
       val expected =
         Set(firstAddress, secondAddress, thirdAddress)
-      // on all nodes, verify that all becomes members
+
       awaitCond(
         Cluster(system).state.members.
           map(_.address) == expected)
-      // and shifted to status Up
+
       awaitCond(
         Cluster(system).state.members.
           forall(_.status == Up))
@@ -63,35 +64,44 @@ abstract class MultiJvmAvatarTests extends MultiNodeSpec(MultiNodeAvatarTestsCon
 
     "create actors" in {
       runOn(first, second, third) {
-        actor(new Act {
+        val created = actor(new Act {
           become {
-            case _ =>
+            case other => sender() ! other
           }
         })
+
+        val probe = TestProbe()
+        created.tell("test", probe.ref)
+        probe.expectMsg("test")
       }
 
       testConductor.enter()
     }
 
-    //    "share data in cluster" in {
-    //
-    //    }
-    //
-    //    "create avatar by request" in {
-    //
-    //    }
-    //
-    //    "save avatars on nodes shutdown" in {
-    //
-    //    }
-    //
-    //    "save robot's commands list with arguments ranges" in {
-    //
-    //    }
-    //
-    //    "work under load of multiple sensors" in {
-    //
-    //    }
+    // todo: avatar tests
+//    "share data in cluster" in {
+//
+//    }
+//
+//    "create avatar by request" in {
+//
+//    }
+//
+//    "save avatars on nodes shutdown" in {
+//
+//    }
+//
+//    "save robot's commands list with arguments ranges" in {
+//
+//    }
+//
+//    "work under load of multiple sensors" in {
+//
+//    }
+//
+//    "choose one node to react to request" in {
+//
+//    }
 
     enterBarrier()
 

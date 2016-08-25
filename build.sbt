@@ -29,7 +29,8 @@ lazy val pipe = (project in file("pipe")).
     name := "pipe",
     libraryDependencies ++= Seq(
       "ch.qos.logback" % "logback-classic" % "1.0.13",
-      "org.zeromq" % "jeromq" % "0.3.5"
+      "org.zeromq" % "jeromq" % "0.3.5",
+      "com.typesafe.play" %% "play-json" % "2.5.4"
     )
   ).
   dependsOn(messages)
@@ -61,7 +62,8 @@ lazy val avatar = (project in file("avatar")).
   settings(
     name := "avatar",
     libraryDependencies ++= Seq(
-      "com.typesafe.akka" %% "akka-multi-node-testkit" % akkaVersion % "test"
+      "com.typesafe.akka" %% "akka-multi-node-testkit" % akkaVersion % "test",
+      "com.typesafe.akka" %% "akka-cluster-sharding" % akkaVersion
     )
   ).
   dependsOn(messages)

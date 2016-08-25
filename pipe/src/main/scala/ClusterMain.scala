@@ -24,7 +24,7 @@ class ClusterMain extends Actor with ActorLogging {
   }
 
   def startMainSystem() = {
-    context.system.actorOf(Props[TunnelManager], "TunnelManager")
+    context.actorOf(Props[TunnelManager], "TunnelManager")
     context.become(initialised)
     log.info("MessageRouter initialised")
   }
