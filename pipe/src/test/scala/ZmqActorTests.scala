@@ -6,8 +6,8 @@ import messages.Messages._
 import org.scalatest.concurrent.TimeLimitedTests
 import org.scalatest.time.Span
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
-import pipe.ZeroMQActor.WorkWithQueue
-import pipe.{ZeroMQ, ZeroMQActor}
+import pipe.ZmqActor.WorkWithQueue
+import pipe.{ZeroMQ, ZmqActor}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -18,7 +18,7 @@ import scala.util.Random
 /**
   * Created by dda on 8/24/16.
   */
-class ZeroMQActorTests(_system: ActorSystem) extends TestKit(_system) with WordSpecLike with Matchers
+class ZmqActorTests(_system: ActorSystem) extends TestKit(_system) with WordSpecLike with Matchers
   with BeforeAndAfterAll with TimeLimitedTests {
   def this() = this(ZeroMQ.system)
   val config = ConfigFactory.load()
@@ -31,7 +31,7 @@ class ZeroMQActorTests(_system: ActorSystem) extends TestKit(_system) with WordS
       val messagesAmount = 5
       val port = 31000 + Random.nextInt(1000)
       val address = "tcp://localhost:" + port
-      val zeroMqActor = system.actorOf(ZeroMQActor(port))
+      val zeroMqActor = system.actorOf(ZmqActor(port))
 
       val probes = (1 to clientsAmount).map { i =>
         val probe = TestProbe()
@@ -66,7 +66,7 @@ class ZeroMQActorTests(_system: ActorSystem) extends TestKit(_system) with WordS
       val messagesAmount = 5
       val port = 31000 + Random.nextInt(1000)
       val address = "tcp://localhost:" + port
-      val zeroMqActor = system.actorOf(ZeroMQActor(port))
+      val zeroMqActor = system.actorOf(ZmqActor(port))
 
       val probes = (1 to clientsAmount).map { i =>
         val probe = TestProbe()
@@ -101,7 +101,7 @@ class ZeroMQActorTests(_system: ActorSystem) extends TestKit(_system) with WordS
       val messagesAmount = 5
       val port = 31000 + Random.nextInt(1000)
       val address = "tcp://localhost:" + port
-      val zeroMqActor = system.actorOf(ZeroMQActor(port))
+      val zeroMqActor = system.actorOf(ZmqActor(port))
 
       val probes = (1 to clientsAmount).map { i =>
         val probe = TestProbe()

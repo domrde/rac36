@@ -1,11 +1,12 @@
 package pipe
 import java.util.UUID
 
-import akka.actor.{Actor, ActorLogging}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.cluster.pubsub.DistributedPubSubMediator.Publish
 import com.typesafe.config.ConfigFactory
 import messages.Constants._
 import messages.Messages.{AvatarCreated, _}
+import pipe.Sharer.{ToReturnAddress, ToTmWithLowestLoad}
 
 import scala.util.Random
 
@@ -14,25 +15,40 @@ import scala.util.Random
   */
 
 object TunnelManager {
-  @SerialVersionUID(2131232L)
-  case class CreateTunnel(uuid: String, api: Api)
-  @SerialVersionUID(2131233L)
-  case class TunnelCreated(topic: String)
+  @SerialVersionUID(1L) case class CreateTunnelRequest(uuid: String, api: Api) extends Serializable
 }
 
 class TunnelManager extends Actor with ActorLogging {
   import TunnelManager._
 
   val config = ConfigFactory.load()
-  val worker = context.actorOf(ZeroMQActor(config.getInt("my.own.ports.input")), "QueueToActor" + Random.nextLong())
+  val worker = context.actorOf(ZmqActor(config.getInt("my.own.ports.input")), "QueueToActor" + Random.nextLong())
+  val sharer = context.actorOf(Props[Sharer], "Sharer")
+  worker.tell(ZmqActor.HowManyClients, sharer)
 
-  override def receive: Receive = {
-    case CreateTunnel(uuid, api) =>
-      ZeroMQ.mediator ! Publish(ACTOR_CREATION_SUBSCRIPTION, CreateAvatar(UUID.fromString(uuid), api))
-      log.debug("Tunnel create request")
-    case AvatarCreated(uuid) =>
-      worker ! ZeroMQActor.WorkWithQueue(uuid.toString, sender())
-      log.info("Creating tunnel with topic {} to actor {}.", uuid, sender())
+  override def receive = receiveWithClientsStorage(Map.empty)
+
+  def receiveWithClientsStorage(clients: Map[String, ActorRef]): Receive = {
+    case ctr: CreateTunnelRequest =>
+      sharer ! ToTmWithLowestLoad(ctr, self)
+      log.info("Tunnel create request, sending to lowest load")
+
+    case ToTmWithLowestLoad(ctr, returnAddress) =>
+      //todo перейти на Send, для того, чтоб получатель был один, проверить, что балансировка в шарде работает
+      ZeroMQ.mediator ! Publish(ACTOR_CREATION_SUBSCRIPTION, CreateAvatar(UUID.fromString(ctr.uuid), ctr.api))
+      log.info("I'm with lowest load, requesting avatar")
+      context.become(receiveWithClientsStorage(clients + (ctr.uuid -> returnAddress)))
+
+    case ac @ AvatarCreated(uuid, actor) =>
+      clients(uuid.toString) ! ToReturnAddress(ac)
+      context.become(receiveWithClientsStorage(clients - uuid.toString))
+      log.info("Avatar created with uuid [{}], sending it to original sender [{}]", uuid, sender())
+
+    case ToReturnAddress(ac) =>
+      val uuid = ac.uuid.toString
+      worker ! ZmqActor.WorkWithQueue(uuid, ac.actor)
+      log.info("I'm the original sender. Creating tunnel with topic [{}] to actor [{}].", uuid, sender())
+
     case other => log.error("Other {} from {}", other, sender())
   }
 

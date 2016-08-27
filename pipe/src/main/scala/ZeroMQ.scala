@@ -4,7 +4,10 @@ import akka.cluster.pubsub.DistributedPubSub
 import akka.util.ByteString
 import org.zeromq.ZMQ
 
+import scala.concurrent.{Await, Future}
 import scala.language.postfixOps
+import scala.concurrent.duration._
+import scala.concurrent.ExecutionContext.Implicits.global
 
 /**
   * Created by dda on 23.04.16.
@@ -42,36 +45,12 @@ object ZeroMQ {
     dealer
   }
 
-  def bindSubSocket(url: String): ZMQ.Socket = {
-    val router = zmqContext.socket(ZMQ.SUB)
-    router.bind(url)
-    router
-  }
-
-  def bindPubSocket(url: String): ZMQ.Socket = {
-    val dealer = zmqContext.socket(ZMQ.PUB)
-    dealer.bind(url)
-    dealer
-  }
-
-  def connectSubToPort(url: String): ZMQ.Socket = {
-    val router = zmqContext.socket(ZMQ.SUB)
-    router.connect(url)
-    router
-  }
-
-  def connectPubToPort(url: String): ZMQ.Socket = {
-    val dealer = zmqContext.socket(ZMQ.PUB)
-    dealer.connect(url)
-    dealer
-  }
-
-  def receiveMessage(socket: ZMQ.Socket): String = {
-    var data = socket.recv(ZMQ.NOBLOCK)
+  def receiveMessage(socket: ZMQ.Socket): String = Await.result(Future {
+    var data = socket.recv()
     while (socket.hasReceiveMore) {
       data = data ++ socket.recv()
     }
     ByteString(data).utf8String
-  }
+  }, 5.seconds)
 
 }
