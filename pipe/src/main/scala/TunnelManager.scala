@@ -21,6 +21,7 @@ object TunnelManager {
 class TunnelManager extends Actor with ActorLogging {
   import TunnelManager._
 
+  // todo: перейти на пул воркеров для снижения нагрузки на сокет http://doc.akka.io/docs/akka/current/scala/routing.html
   val config = ConfigFactory.load()
   val worker = context.actorOf(ZmqActor(config.getInt("my.own.ports.input")), "QueueToActor" + Random.nextLong())
   val sharer = context.actorOf(Props[Sharer], "Sharer")

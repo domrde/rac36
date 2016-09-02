@@ -11,11 +11,11 @@ class AvatarTests() extends TestKit(ActorSystem("AvatarTestsSpec")) with WordSpe
   "Avatar" must {
     "Redirect correct command to robot" in {
       val avatar = system.actorOf(Props[Avatar])
-
+      fail()
     }
 
     "Ignore incorrect commands" in {
-
+      fail()
     }
   }
 

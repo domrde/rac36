@@ -1,12 +1,21 @@
-import akka.actor.ActorDSL._
+import java.util.UUID
+
+import akka.actor.Props
 import akka.cluster.Cluster
 import akka.cluster.MemberStatus.Up
+import akka.cluster.pubsub.DistributedPubSub
+import akka.cluster.pubsub.DistributedPubSubMediator.Publish
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
-import akka.testkit.TestProbe
+import akka.util.Timeout
+import avatar.ClusterMain
 import com.typesafe.config.ConfigFactory
+import messages.Constants._
+import messages.Messages.{Api, Command, YourApi}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 
+import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
+import scala.concurrent.ExecutionContext.Implicits.global
 
 /**
   * Created by dda on 8/2/16.
@@ -22,13 +31,14 @@ object MultiNodeAvatarTestsConfig extends MultiNodeConfig {
   commonConfig(ConfigFactory.parseString(
     """
        akka.actor.provider = "akka.cluster.ClusterActorRefProvider"
-       akka.cluster.auto-join = off
+       akka.cluster.sharding.state-store-mode = ddata
+       akka.loglevel = "INFO"
     """))
 }
 
-class MultiJvmAvatarSpecNode1 extends MultiJvmAvatarTests
-class MultiJvmAvatarSpecNode2 extends MultiJvmAvatarTests
-class MultiJvmAvatarSpecNode3 extends MultiJvmAvatarTests
+class SampleMultiJvmAvatarSpecNode1 extends MultiJvmAvatarTests
+class SampleMultiJvmAvatarSpecNode2 extends MultiJvmAvatarTests
+class SampleMultiJvmAvatarSpecNode3 extends MultiJvmAvatarTests
 
 abstract class MultiJvmAvatarTests extends MultiNodeSpec(MultiNodeAvatarTestsConfig) with WordSpecLike with Matchers with BeforeAndAfterAll {
   import MultiNodeAvatarTestsConfig._
@@ -37,13 +47,29 @@ abstract class MultiJvmAvatarTests extends MultiNodeSpec(MultiNodeAvatarTestsCon
   override def afterAll() = multiNodeSpecAfterAll()
   override def initialParticipants = roles.size
 
+  implicit val timeout: Timeout = 10.seconds
+
   val firstAddress = node(first).address
   val secondAddress = node(second).address
   val thirdAddress = node(third).address
 
-  "Multiple nodes".must {
+  "Multiple nodes" must {
 
-    "connect in cluster during tests" in within(10 seconds) {
+    "start cluster on each node" in {
+      runOn(first, second, third) {
+        system.actorOf(Props[ClusterMain], "ClusterMain")
+      }
+
+      val clusters = Await.result(Future.sequence(List(
+        system.actorSelection(firstAddress + "/user/ClusterMain").resolveOne(timeout.duration),
+        system.actorSelection(secondAddress + "/user/ClusterMain").resolveOne(timeout.duration),
+        system.actorSelection(thirdAddress + "/user/ClusterMain").resolveOne(timeout.duration)
+      )), timeout.duration)
+
+      assert(clusters.map(_.path.toString).count(_.contains("/user/ClusterMain")) == roles.size)
+
+      testConductor.enter("ClusterMain started")
+
       runOn(first, second, third) {
         Cluster(system) join firstAddress
       }
@@ -59,34 +85,34 @@ abstract class MultiJvmAvatarTests extends MultiNodeSpec(MultiNodeAvatarTestsCon
         Cluster(system).state.members.
           forall(_.status == Up))
 
-      testConductor.enter("all-joined")
-    }
+      testConductor.enter("Nodes connected in cluster")
 
-    "create actors" in {
-      runOn(first, second, third) {
-        val created = actor(new Act {
-          become {
-            case other => sender() ! other
-          }
-        })
+      val shardMasters = Await.result(Future.sequence(List(
+        system.actorSelection(firstAddress + "/user/ClusterMain/ShardMaster").resolveOne(timeout.duration),
+        system.actorSelection(secondAddress + "/user/ClusterMain/ShardMaster").resolveOne(timeout.duration),
+        system.actorSelection(thirdAddress + "/user/ClusterMain/ShardMaster").resolveOne(timeout.duration)
+      )), timeout.duration)
 
-        val probe = TestProbe()
-        created.tell("test", probe.ref)
-        probe.expectMsg("test")
-      }
-
-      testConductor.enter()
+      assert(shardMasters.map(_.path.toString).count(_.contains("/user/ClusterMain/ShardMaster")) == roles.size)
+      testConductor.enter("Shard masters started")
     }
 
     // todo: avatar tests
 //    "share data in cluster" in {
 //
 //    }
-//
-//    "create avatar by request" in {
-//
-//    }
-//
+
+    "create avatar by request" in {
+      runOn(first) {
+        val uuid = UUID.randomUUID()
+        val api = Api(List(Command("TestCommand", Option.empty)))
+        val mediator = DistributedPubSub(system).mediator
+        mediator ! Publish(ACTOR_CREATION_SUBSCRIPTION, YourApi(uuid, api))
+      }
+
+      testConductor.enter("Waiting avatar creation")
+    }
+
 //    "save avatars on nodes shutdown" in {
 //
 //    }
@@ -102,6 +128,8 @@ abstract class MultiJvmAvatarTests extends MultiNodeSpec(MultiNodeAvatarTestsCon
 //    "choose one node to react to request" in {
 //
 //    }
+//
+//    "migrate avatars on new shard connect"
 
     enterBarrier()
 
