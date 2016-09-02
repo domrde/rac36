@@ -21,6 +21,7 @@ class Sharer extends Actor with ActorLogging {
 
   override def receive = initial
 
+  //todo: проверить, что паб/саб не перемешиваются и не мешают друг другу
   val initial: Receive = {
     case ZmqActor.ClientsInfo(url, amount) =>
       ZeroMQ.mediator ! Publish(PIPE_SUBSCRIPTION, PipeInfo(context.parent, url, amount))

@@ -4,18 +4,16 @@ import akka.actor.Props
 import akka.cluster.Cluster
 import akka.cluster.MemberStatus.Up
 import akka.cluster.pubsub.DistributedPubSub
-import akka.cluster.pubsub.DistributedPubSubMediator.Publish
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.util.Timeout
 import avatar.ClusterMain
 import com.typesafe.config.ConfigFactory
-import messages.Constants._
-import messages.Messages.{Api, Command, YourApi}
+import messages.Messages.{Api, Command}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 
-import scala.concurrent.{Await, Future}
-import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 
 /**
   * Created by dda on 8/2/16.
@@ -107,7 +105,7 @@ abstract class MultiJvmAvatarTests extends MultiNodeSpec(MultiNodeAvatarTestsCon
         val uuid = UUID.randomUUID()
         val api = Api(List(Command("TestCommand", Option.empty)))
         val mediator = DistributedPubSub(system).mediator
-        mediator ! Publish(ACTOR_CREATION_SUBSCRIPTION, YourApi(uuid, api))
+//        mediator ! Publish(ACTOR_CREATION_SUBSCRIPTION, YourApi(uuid, api))
       }
 
       testConductor.enter("Waiting avatar creation")

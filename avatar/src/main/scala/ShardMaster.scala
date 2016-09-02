@@ -2,11 +2,10 @@ package avatar
 import akka.actor.{Actor, ActorLogging, Props}
 import akka.cluster.ddata.DistributedData
 import akka.cluster.pubsub.DistributedPubSub
-import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe, SubscribeAck}
+import akka.cluster.pubsub.DistributedPubSubMediator.Put
 import akka.cluster.sharding.{ClusterSharding, ClusterShardingSettings, ShardRegion}
 import com.typesafe.config.ConfigFactory
-import messages.Constants._
-import messages.Messages.{AvatarCreated, NumeratedMessage}
+import messages.Messages.NumeratedMessage
 
 class ShardMaster extends Actor with ActorLogging {
 
@@ -29,31 +28,22 @@ class ShardMaster extends Actor with ActorLogging {
     extractShardId = extractShardId
   )
 
-  // todo: do something that only one mediator gets message
   val mediator = DistributedPubSub(context.system).mediator
-  mediator ! Subscribe(ACTOR_CREATION_SUBSCRIPTION, self)
+  mediator ! Put(self)
 
   override def receive: Receive = {
+
+    // CreateAvatar is NumeratedMessage
     case nm: NumeratedMessage =>
       log.info("\nShard master received NumeratedMessage [{}]", nm)
       shard ! nm
 
-    case SubscribeAck(Subscribe(ACTOR_CREATION_SUBSCRIPTION, None, `self`)) =>
-      log.info("\nShard master successfully subscribed")
-
-    // todo: replace this horrible condition to a smooth message flow
-    case a: AvatarCreated if sender != self =>
-      mediator ! Publish(ACTOR_CREATION_SUBSCRIPTION, a)
-      log.info("\nResending [{}]", a)
-
-    case a: AvatarCreated =>
-
     case other =>
-      log.error("ShardMaster: other [{}] from [{}]", other, sender())
+      log.error("\nShardMaster: other [{}] from [{}]", other, sender())
   }
 
   val config = ConfigFactory.load()
 
-  log.info("Shard master started")
+  log.info("\nShard master started")
 
 }

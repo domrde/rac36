@@ -1,6 +1,6 @@
 package avatar
 import akka.actor.{Actor, ActorLogging, ActorRef}
-import messages.Messages.{AvatarCreated, Command, TunnelEndpoint, YourApi}
+import messages.Messages._
 
 /**
   * Created by dda on 8/2/16.
@@ -12,9 +12,9 @@ class Avatar extends Actor with ActorLogging {
   override def receive = behaviour(ActorRef.noSender, List.empty)
 
   def behaviour(tunnel: ActorRef, commands: List[Command]): Receive = {
-    case YourApi(id, api) =>
+    case CreateAvatar(id, api, returnAddress) =>
       context.become(behaviour(tunnel, api.commands))
-      sender() ! AvatarCreated(id, self)
+      returnAddress ! AvatarCreated(id, self)
 
     case TunnelEndpoint =>
       context.become(behaviour(sender(), commands))

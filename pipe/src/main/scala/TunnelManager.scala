@@ -2,9 +2,8 @@ package pipe
 import java.util.UUID
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import akka.cluster.pubsub.DistributedPubSubMediator.Publish
+import akka.cluster.pubsub.DistributedPubSubMediator.Send
 import com.typesafe.config.ConfigFactory
-import messages.Constants._
 import messages.Messages.{AvatarCreated, _}
 import pipe.Sharer.{ToReturnAddress, ToTmWithLowestLoad}
 
@@ -35,8 +34,7 @@ class TunnelManager extends Actor with ActorLogging {
       log.info("Tunnel create request, sending to lowest load")
 
     case ToTmWithLowestLoad(ctr, returnAddress) =>
-      //todo перейти на Send, для того, чтоб получатель был один, проверить, что балансировка в шарде работает
-      ZeroMQ.mediator ! Publish(ACTOR_CREATION_SUBSCRIPTION, CreateAvatar(UUID.fromString(ctr.uuid), ctr.api))
+      ZeroMQ.mediator ! Send("*/ShardMaster", CreateAvatar(UUID.fromString(ctr.uuid), ctr.api, self), localAffinity = false)
       log.info("I'm with lowest load, requesting avatar")
       context.become(receiveWithClientsStorage(clients + (ctr.uuid -> returnAddress)))
 
@@ -50,7 +48,8 @@ class TunnelManager extends Actor with ActorLogging {
       worker ! ZmqActor.WorkWithQueue(uuid, ac.actor)
       log.info("I'm the original sender. Creating tunnel with topic [{}] to actor [{}].", uuid, sender())
 
-    case other => log.error("Other {} from {}", other, sender())
+    case other =>
+      log.error("Other {} from {}", other, sender())
   }
 
   log.debug("TunnelManager initialized for parent {}", context.parent)
