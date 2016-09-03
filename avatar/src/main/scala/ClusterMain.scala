@@ -1,7 +1,12 @@
 package avatar
 import akka.actor.{Actor, ActorLogging, Props}
 import akka.cluster.ClusterEvent.{CurrentClusterState, MemberRemoved, MemberUp}
+import akka.cluster.ddata.DistributedData
+import akka.cluster.pubsub.DistributedPubSub
+import akka.cluster.pubsub.DistributedPubSubMediator.Put
+import akka.cluster.sharding.{ClusterSharding, ClusterShardingSettings, ShardRegion}
 import akka.cluster.{Cluster, ClusterEvent}
+import messages.Messages.NumeratedMessage
 
 class ClusterMain extends Actor with ActorLogging {
   val cluster = Cluster(context.system)
@@ -23,9 +28,31 @@ class ClusterMain extends Actor with ActorLogging {
     case MemberRemoved(member, _) => log.info("MemberRemoved {} with roles {}", member.uniqueAddress, member.roles)
   }
 
+  val extractEntityId: ShardRegion.ExtractEntityId = {
+    case m: NumeratedMessage => (m.uuid.toString, m)
+  }
+
+  val numberOfShards = 100 // ten times of expected
+  val extractShardId: ShardRegion.ExtractShardId = {
+    case m: NumeratedMessage => Math.floorMod(m.uuid.getMostSignificantBits, numberOfShards).toString
+  }
+
+  val replicator = DistributedData(context.system).replicator
+
+  val shard = ClusterSharding(context.system).start(
+    typeName = "Avatar",
+    entityProps = Props[Avatar],
+    settings = ClusterShardingSettings(context.system),
+    extractEntityId = extractEntityId,
+    extractShardId = extractShardId
+  )
+
+  val mediator = DistributedPubSub(context.system).mediator
+
   def startMainSystem() = {
-    context.actorOf(Props[ShardMaster], "ShardMaster")
+    mediator ! Put(shard)
     context.become(initialised)
-    log.info("\nAvatar cluster started")
+    log.info("\nAvatar cluster started with mediator [{}], shard [{}] and replicator [{}]",
+      mediator, shard, replicator)
   }
 }

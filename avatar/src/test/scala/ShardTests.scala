@@ -1,12 +1,12 @@
 import java.util.UUID
 
-import akka.actor.{ActorSystem, Props}
+import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator._
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
 import avatar.ClusterMain
-import messages.Messages.{Api, AvatarCreated, Command, CreateAvatar}
+import messages.Messages._
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 
 import scala.concurrent.duration._
@@ -21,28 +21,34 @@ class ShardTests(_system: ActorSystem) extends TestKit(_system) with WordSpecLik
 
   implicit val timeout: Timeout = 3.seconds
   val shardMaster = system.actorOf(Props[ClusterMain], "ClusterMain")
-  val mediator = DistributedPubSub(system).mediator
-  val pipe = {
-    val inner = TestProbe("TunnelManager")
-    mediator ! Put(inner.ref)
-    inner
-  }
 
   "Shard" must {
-    "Create avatar" in {
+    "create avatar" in {
       val uuid = UUID.randomUUID()
+      val pipe = TestProbe()
+      val mediator = DistributedPubSub(system).mediator
+      mediator ! Put(pipe.ref)
       val api = Api(List(Command("TestCommand", Option.empty)))
-      mediator.tell(Send (
-        path = "/user/ClusterMain/ShardMaster",
-        msg = CreateAvatar(uuid, api, pipe.ref),
-        localAffinity = false
-      ), pipe.ref)
-      val messages = pipe.receiveWhile(timeout.duration) { case smthg => smthg }
-      println(messages)
-      assert(messages.exists {
-        case a: AvatarCreated => true
-        case _ => false
-      })
+
+      def sendMessageToMediator(msg: AnyRef, from: ActorRef): Unit = {
+        mediator.tell(Send(
+          path = "/system/AvatarSharding/Avatar",
+          msg = msg,
+          localAffinity = false
+        ), from)
+      }
+
+      sendMessageToMediator(CreateAvatar(uuid, api), pipe.ref)
+      val a: AvatarCreated = pipe.expectMsgType[AvatarCreated](timeout.duration)
+      a.uuid shouldBe uuid
+
+      val messagesSent = (1 to 5).map { i =>
+        val msg = ParrotMessage(uuid, "testMessage" + i)
+        sendMessageToMediator(msg, pipe.ref)
+        msg
+      }
+
+      pipe.receiveN(5) shouldBe messagesSent
     }
   }
 
