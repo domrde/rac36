@@ -1,5 +1,5 @@
 package avatar
-import akka.actor.{Actor, ActorLogging, Props}
+import akka.actor.{Actor, ActorLogging}
 import akka.cluster.ClusterEvent.{CurrentClusterState, MemberRemoved, MemberUp}
 import akka.cluster.ddata.DistributedData
 import akka.cluster.pubsub.DistributedPubSub
@@ -39,9 +39,11 @@ class ClusterMain extends Actor with ActorLogging {
 
   val replicator = DistributedData(context.system).replicator
 
+  val cache = context.actorOf(ReplicatedSet())
+
   val shard = ClusterSharding(context.system).start(
     typeName = "Avatar",
-    entityProps = Props[Avatar],
+    entityProps = Avatar(cache),
     settings = ClusterShardingSettings(context.system),
     extractEntityId = extractEntityId,
     extractShardId = extractShardId

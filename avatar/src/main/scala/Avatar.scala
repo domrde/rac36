@@ -1,7 +1,7 @@
 package avatar
 import java.util.UUID
 
-import akka.actor.{ActorLogging, ActorRef}
+import akka.actor.{ActorLogging, ActorRef, Props}
 import akka.persistence.{PersistentActor, SnapshotOffer}
 import avatar.Avatar.AvatarState
 import messages.Messages._
@@ -16,9 +16,11 @@ import messages.Messages._
 // todo: snapshots and journal are stored locally, so state won't be recovered during migration, use shared db
 object Avatar {
   case class AvatarState(uuid: UUID, commands: List[Command], tunnel: ActorRef)
+
+  def apply(cache: ActorRef) = Props(classOf[Avatar], cache)
 }
 
-class Avatar extends PersistentActor with ActorLogging {
+class Avatar(cache: ActorRef) extends PersistentActor with ActorLogging {
   log.info("\nAVATAR CREATED")
 
   override val persistenceId: String = "Avatar" + self.path.name
@@ -49,7 +51,8 @@ class Avatar extends PersistentActor with ActorLogging {
     case p: GetState =>
       sender() ! state
 
-    case Sensory(id, sensorType, data) =>
+    case Sensory(id, sensoryPayload) =>
+      cache ! ReplicatedSet.AddAll(sensoryPayload)
 
     // Control from API
     case c @ Control(id, command) if state.commands.contains(command) =>

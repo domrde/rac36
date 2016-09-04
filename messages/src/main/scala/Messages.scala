@@ -20,7 +20,9 @@ object Messages {
   @SerialVersionUID(1L) case class CreateAvatar(uuid: UUID, api: Api) extends Serializable with NumeratedMessage
   @SerialVersionUID(1L) case class GetState(uuid: UUID) extends Serializable with NumeratedMessage
   @SerialVersionUID(1L) case class Control(uuid: UUID, command: Command) extends Serializable with NumeratedMessage
-  @SerialVersionUID(1L) case class Sensory(uuid: UUID, sensorType: String, data: String) extends Serializable with NumeratedMessage
+  // todo: replace when it comes to different sensor types
+  case class CoordinateWithType(x: Int, y: Int, typ: Int)
+  @SerialVersionUID(1L) case class Sensory(uuid: UUID, sensoryPayload: Set[CoordinateWithType]) extends Serializable with NumeratedMessage
   @SerialVersionUID(1L) case class TunnelEndpoint(uuid: UUID, endpoint: ActorRef) extends Serializable with NumeratedMessage
   @SerialVersionUID(1L) case class AvatarCreated(uuid: UUID) extends Serializable with NumeratedMessage
 }
