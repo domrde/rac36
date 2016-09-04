@@ -66,6 +66,7 @@ lazy val avatar = (project in file("avatar")).
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-multi-node-testkit" % akkaVersion % "test",
       "com.typesafe.akka" %% "akka-cluster-sharding" % akkaVersion,
+      "com.typesafe.akka" %% "akka-persistence" % akkaVersion,
       "com.typesafe.akka" %% "akka-distributed-data-experimental" % akkaVersion
     )
   ).

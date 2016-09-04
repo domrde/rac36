@@ -64,7 +64,7 @@ class ZmqActor(url: String) extends Actor with ActorLogging {
 
     case WorkWithQueue(topic) =>
       clients = clients + topic
-      sendToAvatar(TunnelEndpoint(topic))
+      sendToAvatar(TunnelEndpoint(topic, self))
 
     case t @ TunnelCreated(tunnelUrl, topic) =>
       router.sendMore(topic.toString.getBytes)
@@ -84,7 +84,7 @@ class ZmqActor(url: String) extends Actor with ActorLogging {
   def receiveWithSharer(sharer: ActorRef): Receive = {
     case WorkWithQueue(topic) =>
       clients = clients + topic
-      sendToAvatar(TunnelEndpoint(topic))
+      sendToAvatar(TunnelEndpoint(topic, self))
       sharer ! ClientsInfo(url, clients.size)
 
     case t @ TunnelCreated(tunnelUrl, topic) =>

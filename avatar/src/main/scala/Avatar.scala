@@ -1,5 +1,9 @@
 package avatar
-import akka.actor.{Actor, ActorLogging, ActorRef}
+import java.util.UUID
+
+import akka.actor.{ActorLogging, ActorRef}
+import akka.persistence.{PersistentActor, SnapshotOffer}
+import avatar.Avatar.AvatarState
 import messages.Messages._
 
 /**
@@ -7,29 +11,52 @@ import messages.Messages._
   */
 
 // todo: auto-kill if client disconnected
-// todo: persist tunnel and api
 // todo: distributed data
-class Avatar extends Actor with ActorLogging {
+// todo: how often take snapshots? is there automatic call to take snapshot?
+// todo: snapshots and journal are stored locally, so state won't be recovered during migration, use shared db
+object Avatar {
+  case class AvatarState(uuid: UUID, commands: List[Command], tunnel: ActorRef)
+}
+
+class Avatar extends PersistentActor with ActorLogging {
   log.info("\nAVATAR CREATED")
 
-  override def receive = behaviour(ActorRef.noSender, List.empty)
+  override val persistenceId: String = "Avatar" + self.path.name
 
-  def behaviour(tunnel: ActorRef, commands: List[Command]): Receive = {
+  var state = AvatarState(null, List.empty, ActorRef.noSender)
+
+  override def receiveRecover: Receive = {
     case CreateAvatar(id, api) =>
-      context.become(behaviour(tunnel, api.commands))
+      state = AvatarState(id, api.commands, state.tunnel)
+
+    case TunnelEndpoint(id, endpoint) =>
+      state = AvatarState(id, state.commands, endpoint)
+
+    case SnapshotOffer(_, snapshot: AvatarState) =>
+      state = snapshot
+  }
+
+  override def receiveCommand: Receive = {
+    case CreateAvatar(id, api) =>
+      persist(AvatarState(id, api.commands, state.tunnel)) (newState => state = newState)
+      saveSnapshot(state)
       sender() ! AvatarCreated(id)
 
-    case TunnelEndpoint =>
-      context.become(behaviour(sender(), commands))
+    case TunnelEndpoint(id, endpoint) =>
+      persist(AvatarState(id, state.commands, endpoint)) (newState => state = newState)
+      saveSnapshot(state)
 
-    case p: ParrotMessage =>
-      sender() ! p
+    case p: GetState =>
+      sender() ! state
 
-    case c: Command if commands.contains(c) =>
-      tunnel ! c
+    case Sensory(id, sensorType, data) =>
+
+    // Control from API
+    case c @ Control(id, command) if state.commands.contains(command) =>
+      state.tunnel ! c
 
     case other =>
-      log.error("\nAvatar: other [{}] from [{}]. Parroting it back", other, sender())
-      sender() ! other
+      log.error("\nAvatar: other [{}] from [{}]", other, sender())
   }
+
 }

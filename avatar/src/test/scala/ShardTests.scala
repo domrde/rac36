@@ -5,6 +5,7 @@ import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator._
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
+import avatar.Avatar.AvatarState
 import avatar.ClusterMain
 import messages.Messages._
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
@@ -42,13 +43,9 @@ class ShardTests(_system: ActorSystem) extends TestKit(_system) with WordSpecLik
       val a: AvatarCreated = pipe.expectMsgType[AvatarCreated](timeout.duration)
       a.uuid shouldBe uuid
 
-      val messagesSent = (1 to 5).map { i =>
-        val msg = ParrotMessage(uuid, "testMessage" + i)
-        sendMessageToMediator(msg, pipe.ref)
-        msg
-      }
+      (1 to 5).foreach( i => sendMessageToMediator(GetState(uuid), pipe.ref) )
 
-      pipe.receiveN(5) shouldBe messagesSent
+      pipe.receiveN(5) shouldBe List.fill(5)(AvatarState(uuid, api.commands, ActorRef.noSender))
     }
   }
 
