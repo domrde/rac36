@@ -25,7 +25,7 @@ import scala.language.postfixOps
 /**
   * Created by dda on 7/27/16.
   */
-
+// todo: tests doesn't work in parallel
 class PipeTests(_system: ActorSystem) extends TestKit(_system) with WordSpecLike with Matchers
   with BeforeAndAfterAll  with TimeLimitedTests {
   def this() = this(ZeroMQ.system)

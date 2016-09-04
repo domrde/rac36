@@ -7,8 +7,6 @@ import akka.util.ByteString
 import com.typesafe.config.ConfigFactory
 import messages.Messages._
 import org.zeromq.ZMQ
-import pipe.TunnelManager.CreateTunnelRequest
-import play.api.libs.functional.syntax._
 import play.api.libs.json._
 
 import scala.concurrent.duration._
@@ -23,15 +21,15 @@ import scala.util.{Failure, Success, Try}
 object ZmqActor {
   val config = ConfigFactory.load()
 
-  def apply(port: Int) = {
-    Props(classOf[ZmqActor], "tcp://" + config.getString("akka.remote.netty.tcp.hostname") + ":" + port)
+  def apply(url: String) = {
+    Props(classOf[ZmqActor], url)
   }
 
   case class WorkWithQueue(topic: UUID)
   case object Poll
   case object HowManyClients
   case class ClientsInfo(url: String, amount: Int)
-  @SerialVersionUID(1L) case class TunnelCreated(url: String, topic: String) extends Serializable
+  case class TunnelCreated(url: String, topic: String)
 }
 
 
@@ -67,16 +65,18 @@ class ZmqActor(url: String) extends Actor with ActorLogging {
     case WorkWithQueue(topic) =>
       clients = clients + topic
       sendToAvatar(TunnelEndpoint(topic))
+
+    case t @ TunnelCreated(tunnelUrl, topic) =>
       router.sendMore(topic.toString.getBytes)
-      router.send("|" + Json.stringify(Json.toJson(TunnelCreated(url, topic.toString))))
+      router.send("|" + Json.stringify(Json.toJson(t)))
 
     case Poll =>
       val received = router.recv(ZMQ.DONTWAIT)
       if (received != null) readQueue(received)
 
-    case ZMQMessage(uuid, data) if clients.contains(uuid) =>
+    case c @ Control(uuid, command) if clients.contains(uuid) =>
       router.sendMore(uuid.toString.getBytes)
-      router.send("|" + data)
+      router.send("|" + Json.stringify(Json.toJson(c)))
 
     case other => log.error("Other {} from {}", other, sender())
   }
@@ -85,17 +85,19 @@ class ZmqActor(url: String) extends Actor with ActorLogging {
     case WorkWithQueue(topic) =>
       clients = clients + topic
       sendToAvatar(TunnelEndpoint(topic))
-      router.sendMore(topic.toString.getBytes)
-      router.send("|" + Json.stringify(Json.toJson(TunnelCreated(url, topic.toString))))
       sharer ! ClientsInfo(url, clients.size)
+
+    case t @ TunnelCreated(tunnelUrl, topic) =>
+      router.sendMore(topic.toString.getBytes)
+      router.send("|" + Json.stringify(Json.toJson(t)))
 
     case Poll =>
       val received = router.recv(ZMQ.DONTWAIT)
       if (received != null) readQueue(received)
 
-    case ZMQMessage(uuid, data) if clients.contains(uuid) =>
+    case c @ Control(uuid, command) if clients.contains(uuid) =>
       router.sendMore(uuid.toString.getBytes)
-      router.send("|" + data)
+      router.send("|" + Json.stringify(Json.toJson(c)))
 
     case other => log.error("Other {} from {}", other, sender())
   }
@@ -106,25 +108,30 @@ class ZmqActor(url: String) extends Actor with ActorLogging {
 
   def processBytes(bytes: Array[Byte]) = {
     val bytesAsString = ByteString(bytes).utf8String
-    val (topic, data) = bytesAsString.splitAt(bytesAsString.indexOf("|"))
+    val (_, data) = bytesAsString.splitAt(bytesAsString.indexOf("|"))
     Try(Json.parse(data.drop(1))) match {
-      case Failure(exception) => processMessage(topic, data.drop(1))
       case Success(parsedJson) =>
-        parsedJson.validate[CreateTunnelRequest] match {
-          case JsSuccess(value, path) =>
-            log.debug("CreateTunnelRequest on [{}]", self)
-            context.parent ! value
-          case JsError(errors) => processMessage(topic, data.drop(1))
-        }
+        validateJson(parsedJson)
+      case Failure(exception) =>
+        log.error("Malformed message [{}] caused exception [{}]", bytesAsString, exception.getMessage)
     }
   }
 
-  def processMessage(topic: String, data: String) = {
-    val uuid = UUID.fromString(topic)
-    if (clients.contains(uuid)) {
-      sendToAvatar(ZMQMessage(uuid, data))
-    } else {
-      log.error("Undefined target [{}] for message [{}]", topic, data)
+  def validateJson(json: JsValue) = {
+    json.validate[CreateAvatar] match {
+      case JsSuccess(value, path) =>
+        log.debug("CreateAvatar on [{}]", self)
+        context.parent ! value
+
+      case JsError(_) =>
+        json.validate[Sensory] match {
+          case JsSuccess(value, path) =>
+            log.debug("Sensory info on [{}]", self)
+            sendToAvatar(value)
+
+          case JsError(_) =>
+            log.error("Failed to validate json [{}]", json)
+        }
     }
   }
 
@@ -134,30 +141,23 @@ class ZmqActor(url: String) extends Actor with ActorLogging {
 
 
 
-  /* Play json parsing reads */
+  /* Play json parsing */
 
-  implicit val rangeReads: Reads[ArgumentRange] = (
-    (JsPath \ "lower").read[Long] and
-      (JsPath \ "upper").read[Long]
-    )(ArgumentRange.apply _)
+  implicit val rangeReads = Json.reads[ArgumentRange]
 
-  implicit val commandReads: Reads[Command] = (
-    (JsPath \ "name").read[String] and
-      (JsPath \ "range").readNullable[ArgumentRange]
-    )(Command.apply _)
+  implicit val commandReads = Json.reads[Command]
 
-  implicit val apiReads: Reads[Api] =
-    (JsPath \ "commands").read[List[Command]].map { commands => Api(commands) }
+  implicit val apiReads = Json.reads[Api]
 
-  implicit val createTunnelReads: Reads[CreateTunnelRequest] = (
-    (JsPath \ "uuid").read[String] and
-      (JsPath \ "api").read[Api]
-    )(CreateTunnelRequest.apply _)
+  implicit val createAvatarReads = Json.reads[CreateAvatar]
 
-  implicit val tunnelInfoWrites = new Writes[TunnelCreated] {
-    def writes(tunnel: TunnelCreated) = Json.obj(
-      "url" -> tunnel.url,
-      "topic" -> tunnel.topic
-    )
-  }
+  implicit val sensoryReads = Json.reads[Sensory]
+
+  implicit val tunnelInfoWrites = Json.writes[TunnelCreated]
+
+  implicit val rangeWrites = Json.writes[ArgumentRange]
+
+  implicit val commandWrites = Json.writes[Command]
+
+  implicit val controlWrites = Json.writes[Control]
 }

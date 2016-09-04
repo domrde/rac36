@@ -3,16 +3,15 @@ import akka.actor.{Actor, ActorLogging, ActorRef}
 import akka.cluster.client.ClusterClient.Publish
 import akka.cluster.pubsub.DistributedPubSubMediator.{Subscribe, SubscribeAck}
 import messages.Constants._
-import messages.Messages.AvatarCreated
-import pipe.TunnelManager.CreateTunnelRequest
+import messages.Messages.{AvatarCreated, CreateAvatar}
 
 /**
   * Created by dda on 8/25/16.
   */
 object LowestLoadFinder {
   @SerialVersionUID(1L) case class PipeInfo(tm: ActorRef, url: String, load: Int) extends Serializable
-  @SerialVersionUID(1L) case class ToTmWithLowestLoad(ctr: CreateTunnelRequest, returnAddress: ActorRef) extends Serializable
-  @SerialVersionUID(1L) case class ToReturnAddress(at: AvatarCreated) extends Serializable
+  @SerialVersionUID(1L) case class ToTmWithLowestLoad(ctr: CreateAvatar, returnAddress: ActorRef) extends Serializable
+  @SerialVersionUID(1L) case class ToReturnAddress(at: AvatarCreated, url: String) extends Serializable
 }
 
 class LowestLoadFinder extends Actor with ActorLogging {
