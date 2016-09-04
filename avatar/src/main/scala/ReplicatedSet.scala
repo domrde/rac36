@@ -13,6 +13,8 @@ object ReplicatedSet {
   case class AddAll(values: Set[CoordinateWithType])
   case object Lookup
   case class LookupResult(result: Option[Set[CoordinateWithType]])
+
+  val Key = ORSetKey[CoordinateWithType]("SensoryInfoSet")
 }
 
 class ReplicatedSet extends Actor with ActorLogging {
@@ -20,11 +22,12 @@ class ReplicatedSet extends Actor with ActorLogging {
 
   val replicator = DistributedData(context.system).replicator
   implicit val cluster = Cluster(context.system)
-  val Key = ORSetKey[CoordinateWithType]("SensoryInfoSet")
 
   def receive = {
     case AddAll(values) =>
       values.foreach(value => replicator ! Update(Key, ORSet(), WriteLocal)(_ + value))
+
+    case UpdateSuccess(_, _) =>
 
     case Lookup =>
       replicator ! Get(Key, ReadLocal, Some(sender()))

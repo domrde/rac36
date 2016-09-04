@@ -3,13 +3,15 @@ import java.util.UUID
 import akka.actor.{ActorRef, Props}
 import akka.cluster.Cluster
 import akka.cluster.MemberStatus.Up
+import akka.cluster.ddata.{DistributedData, ORSet}
+import akka.cluster.ddata.Replicator.{Get, GetSuccess, ReadLocal}
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.{Put, Send}
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.TestProbe
 import akka.util.Timeout
 import avatar.Avatar.AvatarState
-import avatar.ClusterMain
+import avatar.{ClusterMain, ReplicatedSet}
 import com.typesafe.config.ConfigFactory
 import messages.Messages._
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
@@ -17,6 +19,7 @@ import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
+import scala.util.Random
 
 /**
   * Created by dda on 8/2/16.
@@ -35,6 +38,7 @@ object MultiNodeAvatarTestsConfig extends MultiNodeConfig {
        akka.cluster.auto-down-unreachable-after = 1s
        akka.persistence.journal.plugin = "akka.persistence.journal.inmem"
        akka.persistence.snapshot-store.plugin = "akka.persistence.snapshot-store.local"
+       akka.persistence.snapshot-store.local.dir = "target/example/snapshots"
        akka.loglevel = "INFO"
     """))
 }
@@ -140,6 +144,27 @@ abstract class MultiJvmAvatarTests extends MultiNodeSpec(MultiNodeAvatarTestsCon
       testConductor.enter("Waiting avatar creation")
     }
 
+    "share data in cluster" in {
+      runOn(first, second, third) {
+        val probe = TestProbe()
+        val uuids = (1 to 3).map(_ => createSingleAvatar())
+        val result = uuids.flatMap { uuid =>
+          val coords = (1 to 3).map(_ => CoordinateWithType(Random.nextInt(), Random.nextInt(), Random.nextInt())).toSet
+          sendMessageToMediator(Sensory(uuids.head, coords), probe.ref)
+          coords
+        }
+
+        val replicator = DistributedData(system).replicator
+        awaitAssert {
+          replicator.tell(Get(ReplicatedSet.Key, ReadLocal, None), probe.ref)
+          val set = probe.expectMsgType[GetSuccess[ORSet[CoordinateWithType]]].dataValue.elements
+          result.foreach(coord => assert(set.contains(coord)))
+        }
+      }
+
+      testConductor.enter("Waiting share check")
+    }
+
     "save avatars with state on nodes shutdown" in {
 
       runOn (second, third) {
@@ -158,7 +183,7 @@ abstract class MultiJvmAvatarTests extends MultiNodeSpec(MultiNodeAvatarTestsCon
           sendMessageToMediator(GetState(uuid), probe.ref)
           val state = probe.expectMsgType[AvatarState]
           // todo: that check should be enabled when snapshot and journal problem will be resolved
-//          state shouldBe AvatarState(uuid, api.commands, probe.ref)
+          //          state shouldBe AvatarState(uuid, api.commands, probe.ref)
         }
 
         checkAvatarsReachable()
@@ -184,23 +209,6 @@ abstract class MultiJvmAvatarTests extends MultiNodeSpec(MultiNodeAvatarTestsCon
       }
 
     }
-
-    //    "share data in cluster" in {
-    //
-    //    }
-    //    "save robot's commands list with arguments ranges" in {
-    //
-    //    }
-    //
-    //    "work under load of multiple sensors" in {
-    //
-    //    }
-    //
-    //    "choose one node to react to request" in {
-    //
-    //    }
-    //
-    //    "migrate avatars on new shard connect"
 
   }
 

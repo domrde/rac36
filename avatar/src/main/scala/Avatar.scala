@@ -2,7 +2,7 @@ package avatar
 import java.util.UUID
 
 import akka.actor.{ActorLogging, ActorRef, Props}
-import akka.persistence.{PersistentActor, SnapshotOffer}
+import akka.persistence.{PersistentActor, SaveSnapshotFailure, SaveSnapshotSuccess, SnapshotOffer}
 import avatar.Avatar.AvatarState
 import messages.Messages._
 
@@ -11,7 +11,6 @@ import messages.Messages._
   */
 
 // todo: auto-kill if client disconnected
-// todo: distributed data
 // todo: how often take snapshots? is there automatic call to take snapshot?
 // todo: snapshots and journal are stored locally, so state won't be recovered during migration, use shared db
 object Avatar {
@@ -47,6 +46,10 @@ class Avatar(cache: ActorRef) extends PersistentActor with ActorLogging {
     case TunnelEndpoint(id, endpoint) =>
       persist(AvatarState(id, state.commands, endpoint)) (newState => state = newState)
       saveSnapshot(state)
+
+    case s: SaveSnapshotSuccess =>
+
+    case s: SaveSnapshotFailure =>
 
     case p: GetState =>
       sender() ! state
