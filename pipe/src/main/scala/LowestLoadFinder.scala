@@ -9,14 +9,14 @@ import pipe.TunnelManager.CreateTunnelRequest
 /**
   * Created by dda on 8/25/16.
   */
-object Sharer {
+object LowestLoadFinder {
   @SerialVersionUID(1L) case class PipeInfo(tm: ActorRef, url: String, load: Int) extends Serializable
   @SerialVersionUID(1L) case class ToTmWithLowestLoad(ctr: CreateTunnelRequest, returnAddress: ActorRef) extends Serializable
   @SerialVersionUID(1L) case class ToReturnAddress(at: AvatarCreated) extends Serializable
 }
 
-class Sharer extends Actor with ActorLogging {
-  import Sharer._
+class LowestLoadFinder extends Actor with ActorLogging {
+  import LowestLoadFinder._
   ZeroMQ.mediator ! Subscribe(PIPE_SUBSCRIPTION, self)
 
   override def receive = initial

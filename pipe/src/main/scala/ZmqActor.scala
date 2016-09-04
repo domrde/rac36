@@ -1,5 +1,8 @@
 package pipe
-import akka.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
+import java.util.UUID
+
+import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.cluster.pubsub.DistributedPubSubMediator.Send
 import akka.util.ByteString
 import com.typesafe.config.ConfigFactory
 import messages.Messages._
@@ -9,6 +12,7 @@ import play.api.libs.functional.syntax._
 import play.api.libs.json._
 
 import scala.concurrent.duration._
+import scala.util.{Failure, Success, Try}
 
 /**
   * Created by dda on 23.04.16.
@@ -23,20 +27,24 @@ object ZmqActor {
     Props(classOf[ZmqActor], "tcp://" + config.getString("akka.remote.netty.tcp.hostname") + ":" + port)
   }
 
-  case class WorkWithQueue(topic: String, target: ActorRef)
+  case class WorkWithQueue(topic: UUID)
   case object Poll
   case object HowManyClients
   case class ClientsInfo(url: String, amount: Int)
   @SerialVersionUID(1L) case class TunnelCreated(url: String, topic: String) extends Serializable
 }
 
+
+// todo: remove dead clients
 class ZmqActor(url: String) extends Actor with ActorLogging {
   import ZmqActor._
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
   val router = ZeroMQ.bindRouterSocket(url)
-  var clients: Map[ActorRef, String] = Map.empty
+  val mediator = ZeroMQ.mediator
+  var clients: Set[UUID] = Set.empty
+  val avatarAddress = config.getString("application.avatarAddress")
 
   @scala.throws[Exception](classOf[Exception])
   override def postStop(): Unit = {
@@ -46,51 +54,47 @@ class ZmqActor(url: String) extends Actor with ActorLogging {
 
   override def receive = receiveWithoutSharer
 
+  def sendToAvatar(msg: AnyRef) = {
+    mediator ! Send(avatarAddress, msg, localAffinity = false)
+    log.debug("Sending message [{}] to avatar [{}]", msg, avatarAddress)
+  }
+
   val receiveWithoutSharer: Receive = {
     case HowManyClients =>
       context.become(receiveWithSharer(sender()))
       sender() ! ClientsInfo(url, clients.size)
 
-    case WorkWithQueue(topic, target) =>
-      clients += target -> topic
-      context.watch(target)
-      target ! TunnelEndpoint
-      router.sendMore(topic.getBytes)
-      router.send("|" + Json.stringify(Json.toJson(TunnelCreated(url, topic))))
-
-    case Terminated =>
-      clients -= sender()
+    case WorkWithQueue(topic) =>
+      clients = clients + topic
+      sendToAvatar(TunnelEndpoint(topic))
+      router.sendMore(topic.toString.getBytes)
+      router.send("|" + Json.stringify(Json.toJson(TunnelCreated(url, topic.toString))))
 
     case Poll =>
       val received = router.recv(ZMQ.DONTWAIT)
       if (received != null) readQueue(received)
 
-    case ZMQMessage(data) if clients.contains(sender()) =>
-      router.sendMore(clients(sender()))
+    case ZMQMessage(uuid, data) if clients.contains(uuid) =>
+      router.sendMore(uuid.toString.getBytes)
       router.send("|" + data)
 
     case other => log.error("Other {} from {}", other, sender())
   }
 
   def receiveWithSharer(sharer: ActorRef): Receive = {
-    case WorkWithQueue(topic, target) =>
-      clients += target -> topic
-      context.watch(target)
-      target ! TunnelEndpoint
-      router.sendMore(topic.getBytes)
-      router.send("|" + Json.stringify(Json.toJson(TunnelCreated(url, topic))))
-      sharer ! ClientsInfo(url, clients.size)
-
-    case Terminated =>
-      clients -= sender()
+    case WorkWithQueue(topic) =>
+      clients = clients + topic
+      sendToAvatar(TunnelEndpoint(topic))
+      router.sendMore(topic.toString.getBytes)
+      router.send("|" + Json.stringify(Json.toJson(TunnelCreated(url, topic.toString))))
       sharer ! ClientsInfo(url, clients.size)
 
     case Poll =>
       val received = router.recv(ZMQ.DONTWAIT)
       if (received != null) readQueue(received)
 
-    case ZMQMessage(data) if clients.contains(sender()) =>
-      router.sendMore(clients(sender()))
+    case ZMQMessage(uuid, data) if clients.contains(uuid) =>
+      router.sendMore(uuid.toString.getBytes)
       router.send("|" + data)
 
     case other => log.error("Other {} from {}", other, sender())
@@ -103,18 +107,24 @@ class ZmqActor(url: String) extends Actor with ActorLogging {
   def processBytes(bytes: Array[Byte]) = {
     val bytesAsString = ByteString(bytes).utf8String
     val (topic, data) = bytesAsString.splitAt(bytesAsString.indexOf("|"))
-    Json.parse(data.drop(1)).validate[CreateTunnelRequest] match {
-      case JsSuccess(value, path) => context.parent ! value
-      case JsError(errors) => processMessage(topic, data.drop(1))
+    Try(Json.parse(data.drop(1))) match {
+      case Failure(exception) => processMessage(topic, data.drop(1))
+      case Success(parsedJson) =>
+        parsedJson.validate[CreateTunnelRequest] match {
+          case JsSuccess(value, path) =>
+            log.debug("CreateTunnelRequest on [{}]", self)
+            context.parent ! value
+          case JsError(errors) => processMessage(topic, data.drop(1))
+        }
     }
   }
 
   def processMessage(topic: String, data: String) = {
-    val target = clients.find { case (actor, uuid) => uuid == topic }
-    if (target.isDefined) {
-      target.get._1 ! ZMQMessage(data)
+    val uuid = UUID.fromString(topic)
+    if (clients.contains(uuid)) {
+      sendToAvatar(ZMQMessage(uuid, data))
     } else {
-      log.info("Undefined target [{}] for message [{}]", topic, data)
+      log.error("Undefined target [{}] for message [{}]", topic, data)
     }
   }
 

@@ -17,8 +17,7 @@ object Messages {
   sealed trait NumeratedMessage { val uuid: UUID }
   @SerialVersionUID(1L) case class CreateAvatar(uuid: UUID, api: Api) extends Serializable with NumeratedMessage
   @SerialVersionUID(1L) case class ParrotMessage(uuid: UUID, data: String) extends Serializable with NumeratedMessage
-
-  @SerialVersionUID(1L) case class AvatarCreated(uuid: UUID) extends Serializable
-  @SerialVersionUID(1L) case object TunnelEndpoint extends Serializable
-  @SerialVersionUID(1L) case class  ZMQMessage(data: String) extends Serializable
+  @SerialVersionUID(1L) case class TunnelEndpoint(uuid: UUID) extends Serializable with NumeratedMessage
+  @SerialVersionUID(1L) case class AvatarCreated(uuid: UUID) extends Serializable with NumeratedMessage
+  @SerialVersionUID(1L) case class  ZMQMessage(uuid: UUID, data: String) extends Serializable with NumeratedMessage
 }

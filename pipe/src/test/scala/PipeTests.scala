@@ -3,12 +3,11 @@ import java.util.concurrent.ConcurrentLinkedQueue
 
 import akka.actor.ActorDSL._
 import akka.actor.{ActorRef, ActorSystem, Props}
-import akka.cluster.pubsub.DistributedPubSubMediator.Subscribe
+import akka.cluster.pubsub.DistributedPubSubMediator.Put
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.{ByteString, Timeout}
 import com.typesafe.config.ConfigFactory
-import messages.Constants._
-import messages.Messages.{Api, AvatarCreated, CreateAvatar, TunnelEndpoint}
+import messages.Messages.{AvatarCreated, CreateAvatar, TunnelEndpoint}
 import org.scalatest.concurrent.TimeLimitedTests
 import org.scalatest.time.Span
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
@@ -43,16 +42,13 @@ class PipeTests(_system: ActorSystem) extends TestKit(_system) with WordSpecLike
       (JsPath \ "topic").read[String]
     )(TunnelCreated.apply _)
 
-  val parrot = actor(new Act {
+  val avatarMaster = actor("TestAvatarSharding")(new Act {
+    ZeroMQ.mediator ! Put(self)
     become {
-      case TunnelEndpoint =>
+      case CreateAvatar(uuid, api) => sender.tell(AvatarCreated(uuid), self)
+      case a: TunnelEndpoint =>
       case anything => sender ! anything
     }
-  })
-
-  val avatarMaster = actor(new Act {
-    ZeroMQ.mediator ! Subscribe(ACTOR_CREATION_SUBSCRIPTION, self)
-    become { case CreateAvatar(uuid: UUID, api: Api) => sender.tell(AvatarCreated(uuid, parrot), parrot) }
   })
 
   val reader = actor(new Act {
@@ -69,7 +65,7 @@ class PipeTests(_system: ActorSystem) extends TestKit(_system) with WordSpecLike
 
     become {
       case "new" =>
-        val dealer = ZeroMQ.connectDealerToPort("tcp://localhost:" + config.getInt("my.own.ports.input"))
+        val dealer = ZeroMQ.connectDealerToPort("tcp://localhost:" + config.getInt("application.ports.input"))
         val uuid = UUID.randomUUID().toString
         dealer.setIdentity(uuid.getBytes())
         val storage = new ConcurrentLinkedQueue[String]()
@@ -117,7 +113,7 @@ class PipeTests(_system: ActorSystem) extends TestKit(_system) with WordSpecLike
     }
 
     "async create multiple tunnels" in {
-      val futures = (1 to 5).map(i => Future {
+      val futures = (1 to 3).map(i => Future {
         println(i)
         createTunnel(TestProbe().ref)
         println("Done")
@@ -126,7 +122,7 @@ class PipeTests(_system: ActorSystem) extends TestKit(_system) with WordSpecLike
     }
 
     "work correctly if getting malformed json as tunnel created message" in {
-      val dealer = ZeroMQ.connectDealerToPort("tcp://localhost:" + config.getInt("my.own.ports.input"))
+      val dealer = ZeroMQ.connectDealerToPort("tcp://localhost:" + config.getInt("application.ports.input"))
       dealer.send("|malformed message 1")
       dealer.send("malformed message 2")
       dealer.setIdentity(UUID.randomUUID().toString.getBytes())

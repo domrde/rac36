@@ -6,9 +6,9 @@ import messages.Messages._
   * Created by dda on 8/2/16.
   */
 
-//todo: auto-kill if client disconnected
-// ERROR: interaction must be made by uuid, not actorref through mediator
-// definitely persistent actor
+// todo: auto-kill if client disconnected
+// todo: persist tunnel and api
+// todo: distributed data
 class Avatar extends Actor with ActorLogging {
   log.info("\nAVATAR CREATED")
 
@@ -29,7 +29,7 @@ class Avatar extends Actor with ActorLogging {
       tunnel ! c
 
     case other =>
-      log.error("\n-->Avatar: other [{}] from [{}]. Parroting it back", other, sender())
+      log.error("\nAvatar: other [{}] from [{}]. Parroting it back", other, sender())
       sender() ! other
   }
 }

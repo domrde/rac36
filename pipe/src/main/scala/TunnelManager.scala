@@ -5,7 +5,7 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.cluster.pubsub.DistributedPubSubMediator.Send
 import com.typesafe.config.ConfigFactory
 import messages.Messages.{AvatarCreated, _}
-import pipe.Sharer.{ToReturnAddress, ToTmWithLowestLoad}
+import pipe.LowestLoadFinder.{ToReturnAddress, ToTmWithLowestLoad}
 
 import scala.util.Random
 
@@ -22,30 +22,31 @@ class TunnelManager extends Actor with ActorLogging {
 
   // todo: перейти на пул воркеров для снижения нагрузки на сокет http://doc.akka.io/docs/akka/current/scala/routing.html
   val config = ConfigFactory.load()
-  val worker = context.actorOf(ZmqActor(config.getInt("my.own.ports.input")), "QueueToActor" + Random.nextLong())
-  val sharer = context.actorOf(Props[Sharer], "Sharer")
-  worker.tell(ZmqActor.HowManyClients, sharer)
+  val worker = context.actorOf(ZmqActor(config.getInt("application.ports.input")), "QueueToActor" + Random.nextLong())
+  val lowestFinder = context.actorOf(Props[LowestLoadFinder], "Sharer")
+  val avatarAddress = config.getString("application.avatarAddress")
+  worker.tell(ZmqActor.HowManyClients, lowestFinder)
 
   override def receive = receiveWithClientsStorage(Map.empty)
 
   def receiveWithClientsStorage(clients: Map[String, ActorRef]): Receive = {
     case ctr: CreateTunnelRequest =>
-      sharer ! ToTmWithLowestLoad(ctr, self)
+      lowestFinder ! ToTmWithLowestLoad(ctr, self)
       log.info("Tunnel create request, sending to lowest load")
 
     case ToTmWithLowestLoad(ctr, returnAddress) =>
-      ZeroMQ.mediator ! Send("*/ShardMaster", CreateAvatar(UUID.fromString(ctr.uuid), ctr.api, self), localAffinity = false)
+      ZeroMQ.mediator ! Send(avatarAddress, CreateAvatar(UUID.fromString(ctr.uuid), ctr.api), localAffinity = false)
       log.info("I'm with lowest load, requesting avatar")
       context.become(receiveWithClientsStorage(clients + (ctr.uuid -> returnAddress)))
 
-    case ac @ AvatarCreated(uuid, actor) =>
+    case ac @ AvatarCreated(uuid) =>
       clients(uuid.toString) ! ToReturnAddress(ac)
       context.become(receiveWithClientsStorage(clients - uuid.toString))
       log.info("Avatar created with uuid [{}], sending it to original sender [{}]", uuid, sender())
 
     case ToReturnAddress(ac) =>
-      val uuid = ac.uuid.toString
-      worker ! ZmqActor.WorkWithQueue(uuid, ac.actor)
+      val uuid = ac.uuid
+      worker ! ZmqActor.WorkWithQueue(uuid)
       log.info("I'm the original sender. Creating tunnel with topic [{}] to actor [{}].", uuid, sender())
 
     case other =>
