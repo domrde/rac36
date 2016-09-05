@@ -1,10 +1,12 @@
 package pipe
 import akka.actor.{Actor, ActorLogging, Props}
 import akka.cluster.ClusterEvent.{CurrentClusterState, MemberRemoved, MemberUp}
+import akka.cluster.metrics.ClusterMetricsExtension
 import akka.cluster.{Cluster, ClusterEvent}
 
 class ClusterMain extends Actor with ActorLogging {
   val cluster = Cluster(context.system)
+  ClusterMetricsExtension(context.system)
 
   cluster.subscribe(self, classOf[ClusterEvent.MemberUp], classOf[ClusterEvent.MemberRemoved])
 

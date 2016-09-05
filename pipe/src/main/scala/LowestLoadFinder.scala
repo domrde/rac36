@@ -33,7 +33,7 @@ class LowestLoadFinder extends Actor with ActorLogging {
     case s: SubscribeAck =>
 
     case other =>
-      log.error("Other {} from {}", other, sender())
+      log.error("LowestLoadFinder: other {} from {}", other, sender())
   }
 
 
@@ -49,6 +49,6 @@ class LowestLoadFinder extends Actor with ActorLogging {
 
     case s: SubscribeAck =>
 
-    case other => log.error("Other {} from {}", other, sender())
+    case other => log.error("LowestLoadFinder: other {} from {}", other, sender())
   }
 }

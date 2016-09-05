@@ -78,7 +78,7 @@ class ZmqActor(url: String) extends Actor with ActorLogging {
       router.sendMore(uuid.toString.getBytes)
       router.send("|" + Json.stringify(Json.toJson(c)))
 
-    case other => log.error("Other {} from {}", other, sender())
+    case other => log.error("ZmqActor: other {} from {}", other, sender())
   }
 
   def receiveWithSharer(sharer: ActorRef): Receive = {
@@ -99,7 +99,7 @@ class ZmqActor(url: String) extends Actor with ActorLogging {
       router.sendMore(uuid.toString.getBytes)
       router.send("|" + Json.stringify(Json.toJson(c)))
 
-    case other => log.error("Other {} from {}", other, sender())
+    case other => log.error("ZmqActor: other {} from {}", other, sender())
   }
 
   def readQueue(readed: Array[Byte]): Unit =

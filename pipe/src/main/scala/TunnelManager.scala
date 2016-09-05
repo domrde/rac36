@@ -12,9 +12,10 @@ import scala.util.Random
 /**
   * Created by dda on 24.04.16.
   */
+//todo: use cluster metrics-based selection of lowest loaded TM
+//todo: use pool of ZmqActor to lower socket load http://doc.akka.io/docs/akka/current/scala/routing.html
 class TunnelManager extends Actor with ActorLogging {
 
-  // todo: перейти на пул воркеров для снижения нагрузки на сокет http://doc.akka.io/docs/akka/current/scala/routing.html
   val config = ConfigFactory.load()
   val url = "tcp://" + config.getString("akka.remote.netty.tcp.hostname") + ":" + config.getInt("application.ports.input")
   val worker = context.actorOf(ZmqActor(url), "QueueToActor" + Random.nextLong())
@@ -46,7 +47,7 @@ class TunnelManager extends Actor with ActorLogging {
       log.info("I'm the original sender. Printing tunnel info with topic [{}] to client.", uuid)
 
     case other =>
-      log.error("Other {} from {}", other, sender())
+      log.error("TunnelManager: other {} from {}", other, sender())
   }
 
   log.debug("TunnelManager initialized for parent {}", context.parent)

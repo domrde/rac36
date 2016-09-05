@@ -1,3 +1,4 @@
+
 resolvers += "OSS Sonatype" at "https://repo1.maven.org/maven2/"
 
 lazy val akkaVersion = "2.4.8"
@@ -13,8 +14,11 @@ lazy val commonSettings = Seq(
       "com.typesafe.akka" %% "akka-cluster-tools" % akkaVersion,
       "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
       "com.typesafe.akka" %% "akka-contrib" % akkaVersion,
+      "com.typesafe.akka" %% "akka-cluster-metrics" % akkaVersion,
       "com.typesafe.akka" %% "akka-testkit" % akkaVersion % "test",
-      "org.scalatest" %% "scalatest" % "2.2.6" % "test"
+      "com.typesafe.akka" %% "akka-distributed-data-experimental" % akkaVersion,
+      "org.scalatest" %% "scalatest" % "2.2.6" % "test",
+      "io.kamon" % "sigar-loader" % "1.6.6-rev002"
     )
   }
 )
@@ -66,9 +70,17 @@ lazy val avatar = (project in file("avatar")).
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-multi-node-testkit" % akkaVersion % "test",
       "com.typesafe.akka" %% "akka-cluster-sharding" % akkaVersion,
-      "com.typesafe.akka" %% "akka-persistence" % akkaVersion,
-      "com.typesafe.akka" %% "akka-distributed-data-experimental" % akkaVersion
+      "com.typesafe.akka" %% "akka-persistence" % akkaVersion
     )
+  ).
+  dependsOn(messages)
+
+lazy val status = (project in file("status")).
+  settings(commonSettings: _*).
+  settings(
+    name := "status",
+    libraryDependencies ++= Seq(
+      "com.typesafe.akka" %% "akka-cluster-sharding" % akkaVersion)
   ).
   dependsOn(messages)
 
@@ -77,5 +89,5 @@ lazy val root = (project in file(".")).
   settings(
     name := "root"
   ).
-  dependsOn(pipe)
+  dependsOn(pipe, avatar)
 

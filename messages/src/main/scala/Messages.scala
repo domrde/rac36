@@ -3,12 +3,15 @@ import java.io.Serializable
 import java.util.UUID
 
 import akka.actor.ActorRef
+import akka.cluster.ddata.ORSetKey
+import messages.Messages.CoordinateWithType
 
 /**
   * Created by dda on 7/28/16.
   */
 object Constants {
   val PIPE_SUBSCRIPTION = "PIPE_SUBSCRIPTION"
+  val DdataSetKey = ORSetKey[CoordinateWithType]("SensoryInfoSet")
 }
 
 object Messages {

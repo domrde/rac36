@@ -13,7 +13,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
   * Created by dda on 23.04.16.
   */
 object ZeroMQ {
-  val system = ActorSystem("PipeSystem")
+  val system = ActorSystem("ClusterSystem")
   val mediator = DistributedPubSub(system).mediator
   private val zmqContext = ZMQ.context(1)
 
