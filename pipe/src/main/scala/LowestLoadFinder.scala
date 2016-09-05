@@ -27,7 +27,6 @@ class LowestLoadFinder extends Actor with ActorLogging {
       context.become(receiveWithLoadInfo(Map(context.parent -> (url, amount))))
 
     case PipeInfo(tm, url, load) =>
-      log.debug("Info update for subscription")
       context.become(receiveWithLoadInfo(Map(tm -> (url, load))))
 
     case s: SubscribeAck =>

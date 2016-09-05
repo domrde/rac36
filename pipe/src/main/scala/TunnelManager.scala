@@ -50,5 +50,5 @@ class TunnelManager extends Actor with ActorLogging {
       log.error("TunnelManager: other {} from {}", other, sender())
   }
 
-  log.debug("TunnelManager initialized for parent {}", context.parent)
+  log.info("TunnelManager initialized for parent {}", context.parent)
 }

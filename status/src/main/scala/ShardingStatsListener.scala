@@ -16,14 +16,14 @@ class ShardingStatsListener extends Actor with ActorLogging {
   val config = ConfigFactory.load()
   val avatarAddress = config.getString("application.avatarAddress")
 
-  context.system.scheduler.schedule(0.seconds, 3.seconds, mediator,
-    Send(avatarAddress, ShardRegion.GetClusterShardingStats, localAffinity = false))
+  context.system.scheduler.schedule(1.seconds, 3.seconds, mediator,
+    Send(avatarAddress, ShardRegion.GetShardRegionState, localAffinity = false))
 
   override def receive: Receive = {
-    case stats: ShardRegion.ClusterShardingStats =>
-      stats.regions.foreach { region =>
-        log.info("\n\n---------------SHARD-{}-------------------", region._1)
-        log.info(region._2.stats.toString())
+    case stats: ShardRegion.CurrentShardRegionState =>
+      stats.shards.foreach { shard =>
+        log.info("\n\n---------------SHARD-{}-------------------", shard.shardId)
+        log.info(shard.entityIds.toString())
       }
     case other => log.error("ShardingStatsListener: other {} from {}", other, sender())
   }

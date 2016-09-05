@@ -34,6 +34,8 @@ class ClusterMain extends Actor with ActorLogging {
   def startMainSystem() = {
     context.become(initialised)
     context.actorOf(Props[MetricsListener], "MetricsListener")
+    context.actorOf(Props[DdataListener], "DdataListener")
+    context.actorOf(Props[ShardingStatsListener], "ShardingStatsListener")
     log.info("\nAvatar cluster started with mediator [{}] and replicator [{}]",
       mediator, replicator)
   }

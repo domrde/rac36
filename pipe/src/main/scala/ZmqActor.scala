@@ -54,7 +54,6 @@ class ZmqActor(url: String) extends Actor with ActorLogging {
 
   def sendToAvatar(msg: AnyRef) = {
     mediator ! Send(avatarAddress, msg, localAffinity = false)
-    log.debug("Sending message [{}] to avatar [{}]", msg, avatarAddress)
   }
 
   val receiveWithoutSharer: Receive = {
@@ -120,13 +119,12 @@ class ZmqActor(url: String) extends Actor with ActorLogging {
   def validateJson(json: JsValue) = {
     json.validate[CreateAvatar] match {
       case JsSuccess(value, path) =>
-        log.debug("CreateAvatar on [{}]", self)
+        log.info("CreateAvatar on [{}]", self)
         context.parent ! value
 
       case JsError(_) =>
         json.validate[Sensory] match {
           case JsSuccess(value, path) =>
-            log.debug("Sensory info on [{}]", self)
             sendToAvatar(value)
 
           case JsError(_) =>
@@ -137,7 +135,7 @@ class ZmqActor(url: String) extends Actor with ActorLogging {
 
   context.system.scheduler.schedule(0.second, 1.millis, self, Poll)
 
-  log.debug("ZeroMQActor initialized for parent {}", context.parent)
+  log.info("ZeroMQActor initialized for parent {}", context.parent)
 
 
 
