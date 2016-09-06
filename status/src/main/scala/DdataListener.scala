@@ -5,14 +5,19 @@ import akka.cluster.ddata.{DistributedData, ORSet}
 import messages.Constants.DdataSetKey
 import messages.Messages.CoordinateWithType
 
-import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
 
 /**
   * Created by dda on 9/5/16.
   */
 // todo: test in real-life simulation
+object DdataListener {
+  case class DdataStatus(data: Set[CoordinateWithType], t: String = "DdataStatus")
+}
+
 class DdataListener extends Actor with ActorLogging {
+  import DdataListener._
   val replicator = DistributedData(context.system).replicator
   implicit val cluster = Cluster(context.system)
 
@@ -22,8 +27,8 @@ class DdataListener extends Actor with ActorLogging {
     case g @ GetSuccess(DdataSetKey, None) =>
       g.dataValue match {
         case data: ORSet[CoordinateWithType] =>
-          log.info("-----------------Ddata--------------")
-          log.info(data.elements.toString())
+          context.parent ! DdataStatus(data.elements)
+
         case _ => log.info("no ddata collected with GetSuccess")
       }
 

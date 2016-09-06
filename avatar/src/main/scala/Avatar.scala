@@ -14,6 +14,7 @@ import messages.Messages._
 // todo: how often take snapshots? is there automatic call to take snapshot?
 // todo: snapshots and journal are stored locally, so state won't be recovered during migration, use shared db
 // todo: avatar must have local storage of sensory info so it's only updates the difference http://www.lightbend.com/activator/template/akka-sample-distributed-data-scala
+// todo: think about using ddata instead of persistence
 object Avatar {
   case class AvatarState(uuid: UUID, commands: List[Command], tunnel: ActorRef)
 

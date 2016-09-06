@@ -1,0 +1,78 @@
+<html>
+<head>
+    <title>Dashboard</title>
+</head>
+<body>
+<table id="mainTable"></table>
+
+
+<script language="javascript">
+    var ws = new WebSocket("ws://" + window.location.host + "/ws");
+    var mainTable = null;
+    var knownInfo = {};
+
+    ws.onmessage = function (evt) {
+        var parsedData = JSON.parse(evt.data);
+        switch (parsedData.t) {
+            case "ShardMetrics":
+                console.log("ShardMetrics: " + parsedData.metrics);
+                break;
+
+            case "MemoryMetrics":
+                if (addrString(parsedData.address) in knownInfo) {
+                    knownInfo[addrString(parsedData.address)].mem = parsedData.usedHeap;
+                } else {
+                    knownInfo[addrString(parsedData.address)] = { mem: parsedData.usedHeap, cpu: null};
+                }
+                refillTable(mainTable, knownInfo);
+                console.log("MemoryMetrics: " + addrString(parsedData.address) + " - " +
+                        parsedData.usedHeap);
+                break;
+
+            case "CpuMetrics":
+                if (addrString(parsedData.address) in knownInfo) {
+                    knownInfo[addrString(parsedData.address)].cpu = parsedData.average + "/" + parsedData.processors;
+                } else {
+                    knownInfo[addrString(parsedData.address)] = { mem: null, cpu: parsedData.average + "/" + parsedData.processors};
+                }
+                refillTable(mainTable, knownInfo);
+                console.log("CpuMetrics: " + addrString(parsedData.address) + " - " +
+                        parsedData.average + "/" + parsedData.processors);
+                break;
+
+            case "DdataStatus":
+                console.log("DdataStatus: " + parsedData.data);
+                break;
+
+            default:
+                console.log(parsedData);
+        }
+    };
+
+    function addrString(address) {
+        return address.protocol + "://" + address.system + "@" + address.host + ":" + address.port;
+    }
+    
+    function refillTable(table, knownInfo) {
+        for(var i = 0; i < table.rows.length;) {
+            table.deleteRow(i);
+        }
+        for(var info in knownInfo) {
+            insertCpuMemIntoTable(info + "   CPU:" + knownInfo[info].cpu + "  MEM:" + knownInfo[info].mem, table)
+        }
+    }
+
+    function insertCpuMemIntoTable(cpumem, table) {
+        var tr = document.createElement('TR');
+        var td = document.createElement('TD');
+        td.textContent = cpumem;
+        tr.appendChild(td);
+        table.appendChild(tr);
+    }
+
+    ws.onopen = function (evt) {
+        mainTable = document.getElementById("mainTable");
+    };
+</script>
+</body>
+</html>

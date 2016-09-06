@@ -80,7 +80,11 @@ lazy val status = (project in file("status")).
   settings(
     name := "status",
     libraryDependencies ++= Seq(
-      "com.typesafe.akka" %% "akka-cluster-sharding" % akkaVersion)
+      "com.typesafe.akka" %% "akka-cluster-sharding" % akkaVersion,
+      "com.typesafe.akka" %% "akka-http-core" % akkaVersion,
+      "com.typesafe.akka" %% "akka-http-experimental" % akkaVersion,
+      "com.typesafe.play" %% "play-json" % "2.5.4"
+    )
   ).
   dependsOn(messages)
 

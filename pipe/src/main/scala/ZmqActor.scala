@@ -34,6 +34,7 @@ object ZmqActor {
 
 
 // todo: remove dead clients
+// todo: shouldn't forward messages to avatar that wasn't CREATED
 class ZmqActor(url: String) extends Actor with ActorLogging {
   import ZmqActor._
 
@@ -148,6 +149,8 @@ class ZmqActor(url: String) extends Actor with ActorLogging {
   implicit val apiReads = Json.reads[Api]
 
   implicit val createAvatarReads = Json.reads[CreateAvatar]
+
+  implicit val coordReads = Json.reads[CoordinateWithType]
 
   implicit val sensoryReads = Json.reads[Sensory]
 
