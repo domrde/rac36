@@ -1,3 +1,4 @@
+import ServerClient.LaunchCommand
 import akka.NotUsed
 import akka.actor._
 import akka.http.scaladsl.Http
@@ -5,9 +6,7 @@ import akka.http.scaladsl.model.ws.{Message, TextMessage}
 import akka.http.scaladsl.server.Directives
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.stream.{ActorMaterializer, OverflowStrategy}
-
-import scala.concurrent.Await
-import scala.concurrent.duration._
+import com.typesafe.config.ConfigFactory
 /**
   * Created by dda on 9/6/16.
   */
@@ -19,6 +18,7 @@ class Server extends Actor with ActorLogging {
   import Directives._
   implicit val system = context.system
   implicit val materializer = ActorMaterializer()
+  val config = ConfigFactory.load()
 
   def newUser(): Flow[Message, Message, NotUsed] = {
     val userActor = context.actorOf(Props[ServerClient])
@@ -51,11 +51,14 @@ class Server extends Actor with ActorLogging {
       }
     }
 
-  val binding = Await.result(Http().bindAndHandle(route, "127.0.0.1", 8080), 3.seconds)
+  Http().bindAndHandle(route, "127.0.0.1", config.getInt("application.httpBindingPort"))
 
   override def receive= receiveWithClients(List.empty)
 
   def receiveWithClients(clients: List[ActorRef]): Receive = {
+    case l: LaunchCommand =>
+      context.parent forward l
+
     case Server.Join =>
       context.become(receiveWithClients(sender() :: clients))
 

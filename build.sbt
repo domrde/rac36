@@ -75,7 +75,7 @@ lazy val avatar = (project in file("avatar")).
   ).
   dependsOn(messages)
 
-lazy val status = (project in file("status")).
+lazy val dashboard = (project in file("dashboard")).
   settings(commonSettings: _*).
   settings(
     name := "status",

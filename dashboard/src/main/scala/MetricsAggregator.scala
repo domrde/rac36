@@ -1,3 +1,4 @@
+import ServerClient.LaunchCommand
 import akka.actor.{Actor, ActorLogging, Props}
 
 /**
@@ -12,8 +13,13 @@ class MetricsAggregator extends Actor with ActorLogging {
 
   val server = context.actorOf(Props[Server], "Server")
 
+  val starter = context.actorOf(Props[OpenstackActor], "OpenstackActor")
+
 
   override def receive: Receive = {
+    case l: LaunchCommand =>
+      starter forward l
+
     case anything if listeners.contains(sender()) =>
       server ! anything
 

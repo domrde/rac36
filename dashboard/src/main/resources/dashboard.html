@@ -1,9 +1,32 @@
 <html>
 <head>
     <title>Dashboard</title>
+    <style>
+        table {
+            border-collapse:separate;
+            border-spacing:1em;
+        }
+        td {
+            height: 40px;
+            padding: 10px;
+        }
+        tr {
+            box-shadow: 0px 0px 10px 0px rgba(0,0,0,0.5);
+            border: 1px solid black;
+        }
+    </style>
 </head>
 <body>
-<table id="mainTable"></table>
+<table>
+    <tr>
+        <td>
+            Running actor systems:
+            <table id="mainTable"></table>
+        </td>
+    </tr>
+</table>
+<button onclick="launchVm('Pipe')" id="Pipe">Launch pipe VM</button>
+<button onclick="launchVm('Avatar')" id="Avatar">Launch avatar VM</button>
 
 
 <script language="javascript">
@@ -20,9 +43,9 @@
 
             case "MemoryMetrics":
                 if (addrString(parsedData.address) in knownInfo) {
-                    knownInfo[addrString(parsedData.address)].mem = parsedData.usedHeap;
+                    knownInfo[addrString(parsedData.address)].mem = Math.round(parsedData.usedHeap);
                 } else {
-                    knownInfo[addrString(parsedData.address)] = { mem: parsedData.usedHeap, cpu: null};
+                    knownInfo[addrString(parsedData.address)] = { mem: Math.round(parsedData.usedHeap), cpu: null};
                 }
                 refillTable(mainTable, knownInfo);
                 console.log("MemoryMetrics: " + addrString(parsedData.address) + " - " +
@@ -44,6 +67,9 @@
                 console.log("DdataStatus: " + parsedData.data);
                 break;
 
+            case "Launched":
+                document.getElementById(parsedData.image).disabled = false;
+
             default:
                 console.log(parsedData);
         }
@@ -52,13 +78,13 @@
     function addrString(address) {
         return address.protocol + "://" + address.system + "@" + address.host + ":" + address.port;
     }
-    
+
     function refillTable(table, knownInfo) {
         for(var i = 0; i < table.rows.length;) {
             table.deleteRow(i);
         }
         for(var info in knownInfo) {
-            insertCpuMemIntoTable(info + "   CPU:" + knownInfo[info].cpu + "  MEM:" + knownInfo[info].mem, table)
+            insertCpuMemIntoTable(info + "   CPU: " + knownInfo[info].cpu + "  MEM: " + knownInfo[info].mem + "MB", table)
         }
     }
 
@@ -68,6 +94,11 @@
         td.textContent = cpumem;
         tr.appendChild(td);
         table.appendChild(tr);
+    }
+
+    function launchVm(image) {
+        document.getElementById(image).disabled = true;
+        ws.send(JSON.stringify({t: "Launch", image: image}));
     }
 
     ws.onopen = function (evt) {

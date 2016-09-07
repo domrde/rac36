@@ -1,6 +1,6 @@
 import akka.actor.{Actor, ActorLogging, ActorRef, Address}
 import messages.Messages.CoordinateWithType
-import play.api.libs.json.Json
+import play.api.libs.json.{JsError, JsSuccess, Json}
 
 /**
   * Created by dda on 9/6/16.
@@ -9,6 +9,8 @@ object ServerClient {
   case class Connected(connection: ActorRef)
   case class IncomingMessage(text: String)
   case class OutgoingMessage(text: String)
+  case class LaunchCommand(image: String, t: String = "Launch")
+  case class Launched(image: String, t: String = "Launched")
 }
 
 class ServerClient extends Actor with ActorLogging {
@@ -21,6 +23,8 @@ class ServerClient extends Actor with ActorLogging {
   implicit val ddataStatusWrite = Json.writes[DdataListener.DdataStatus]
   implicit val shardMetricWrite = Json.writes[ShardingStatsListener.ShardMetric]
   implicit val shardMetricsWrite = Json.writes[ShardingStatsListener.ShardMetrics]
+  implicit val launchCommandReads = Json.reads[LaunchCommand]
+  implicit val launchedWrite = Json.writes[Launched]
 
   override def receive: Receive = {
     case Connected(connection) =>
@@ -30,7 +34,16 @@ class ServerClient extends Actor with ActorLogging {
 
   def connected(connection: ActorRef): Receive = {
       case IncomingMessage(text) =>
-        connection ! OutgoingMessage(text)
+        Json.parse(text).validate[LaunchCommand] match {
+          case JsSuccess(value, _) =>
+            context.parent ! value
+
+          case JsError(_) =>
+            log.error("Failed to validate json [{}]", text)
+        }
+
+      case c: Launched =>
+        connection ! OutgoingMessage(Json.stringify(Json.toJson(c)))
 
       case c: ClusterMetricsListener.MemoryMetrics =>
         connection ! OutgoingMessage(Json.stringify(Json.toJson(c)))
