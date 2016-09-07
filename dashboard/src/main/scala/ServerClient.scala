@@ -1,3 +1,4 @@
+import ShardingStatsListener.ShardingStats
 import akka.actor.{Actor, ActorLogging, ActorRef, Address}
 import messages.Messages.CoordinateWithType
 import play.api.libs.json.{JsError, JsSuccess, Json}
@@ -21,10 +22,11 @@ class ServerClient extends Actor with ActorLogging {
   implicit val cpuMetricsWrite = Json.writes[ClusterMetricsListener.CpuMetrics]
   implicit val coordWrite = Json.writes[CoordinateWithType]
   implicit val ddataStatusWrite = Json.writes[DdataListener.DdataStatus]
-  implicit val shardMetricWrite = Json.writes[ShardingStatsListener.ShardMetric]
-  implicit val shardMetricsWrite = Json.writes[ShardingStatsListener.ShardMetrics]
+  implicit val shardMetricWrite = Json.writes[ShardingStatsListener.RegionMetric]
+  implicit val shardMetricsWrite = Json.writes[ShardingStatsListener.RegionMetrics]
   implicit val launchCommandReads = Json.reads[LaunchCommand]
   implicit val launchedWrite = Json.writes[Launched]
+  implicit val shardingStatsWrite = Json.writes[ShardingStats]
 
   override def receive: Receive = {
     case Connected(connection) =>
@@ -45,6 +47,9 @@ class ServerClient extends Actor with ActorLogging {
       case c: Launched =>
         connection ! OutgoingMessage(Json.stringify(Json.toJson(c)))
 
+      case c: ShardingStats =>
+        connection ! OutgoingMessage(Json.stringify(Json.toJson(c)))
+
       case c: ClusterMetricsListener.MemoryMetrics =>
         connection ! OutgoingMessage(Json.stringify(Json.toJson(c)))
 
@@ -54,7 +59,7 @@ class ServerClient extends Actor with ActorLogging {
       case c: DdataListener.DdataStatus =>
         connection ! OutgoingMessage(Json.stringify(Json.toJson(c)))
 
-      case c: ShardingStatsListener.ShardMetrics =>
+      case c: ShardingStatsListener.RegionMetrics =>
         connection ! OutgoingMessage(Json.stringify(Json.toJson(c)))
 
       case other =>
