@@ -41,9 +41,10 @@ class Server extends Actor with ActorLogging {
 
   val route =
     path("") {
-      get {
-        getFromResource("webapp/index.html")
-      }
+      getFromResource("webapp/index.html")
+    } ~
+    pathPrefix("") {
+      getFromResourceDirectory("webapp/")
     } ~
     path("ws") {
       get {

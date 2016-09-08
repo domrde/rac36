@@ -1,7 +1,7 @@
 
 resolvers += "OSS Sonatype" at "https://repo1.maven.org/maven2/"
 
-lazy val akkaVersion = "2.4.8"
+lazy val akkaVersion = "2.4.10"
 
 lazy val commonSettings = Seq(
   version := "1.0",

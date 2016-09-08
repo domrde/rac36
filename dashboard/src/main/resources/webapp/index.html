@@ -1,116 +1,20 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-    <!-- http://getbootstrap.com/getting-started/ -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Dashboard</title>
-    <style>
-        .base {
-            color: black;
-        }
-        body {
-            background-color: #f7f7f7;
-        }
-        table {
-            border-collapse: separate;
-            border-spacing: 1em;
-            column-gap: 1em;
-        }
-        tr {
-            height: 40px;
-            background: rgb(66, 133, 244);
-            border: 0;
-            border-radius: 2px;
-            color: #f7f7f7;
-            box-shadow: 0px 0px 10px 0px rgba(0,0,0,0.5);
-        }
-    </style>
+    <link href="libs/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
-<div class="base">
-    Running actor systems:
-    <table id="mainTable"></table>
-</div>
+<ul class="list-group" id="mainList"></ul>
 <button onclick="launchVm('Pipe')" id="Pipe">Launch pipe VM</button>
 <button onclick="launchVm('Avatar')" id="Avatar">Launch avatar VM</button>
 
+<script src="libs/js/jquery.min.js"></script>
+<script src="libs/js/bootstrap.min.js"></script>
 
-<script language="javascript">
-    var ws = new WebSocket("ws://" + window.location.host + "/ws");
-    var mainTable = null;
-    var knownInfo = {"akka.tcp://ClusterSystem@localhost:34052": {
-        mem: "293",
-        cpu: "1.3/4"
-    }};
-
-    ws.onmessage = function (evt) {
-        var parsedData = JSON.parse(evt.data);
-        switch (parsedData.t) {
-            case "ShardMetrics":
-                console.log("ShardMetrics: " + parsedData.metrics);
-                break;
-
-            case "MemoryMetrics":
-                if (addrString(parsedData.address) in knownInfo) {
-                    knownInfo[addrString(parsedData.address)].mem = Math.round(parsedData.usedHeap);
-                } else {
-                    knownInfo[addrString(parsedData.address)] = { mem: Math.round(parsedData.usedHeap), cpu: null};
-                }
-                refillTable(mainTable, knownInfo);
-                console.log("MemoryMetrics: " + addrString(parsedData.address) + " - " +
-                        parsedData.usedHeap);
-                break;
-
-            case "CpuMetrics":
-                if (addrString(parsedData.address) in knownInfo) {
-                    knownInfo[addrString(parsedData.address)].cpu = parsedData.average + "/" + parsedData.processors;
-                } else {
-                    knownInfo[addrString(parsedData.address)] = { mem: null, cpu: parsedData.average + "/" + parsedData.processors};
-                }
-                refillTable(mainTable, knownInfo);
-                console.log("CpuMetrics: " + addrString(parsedData.address) + " - " +
-                        parsedData.average + "/" + parsedData.processors);
-                break;
-
-            case "DdataStatus":
-                console.log("DdataStatus: " + parsedData.data);
-                break;
-
-            case "Launched":
-                document.getElementById(parsedData.image).disabled = false;
-
-            default:
-                console.log(parsedData);
-        }
-    };
-
-    function addrString(address) {
-        return address.protocol + "://" + address.system + "@" + address.host + ":" + address.port;
-    }
-
-    function refillTable(table, knownInfo) {
-        for(var i = 0; i < table.rows.length;) {
-            table.deleteRow(i);
-        }
-        for(var info in knownInfo) {
-            insertCpuMemIntoTable(info + "   CPU: " + knownInfo[info].cpu + "  MEM: " + knownInfo[info].mem + "MB", table)
-        }
-    }
-
-    function insertCpuMemIntoTable(cpumem, table) {
-        var tr = document.createElement('TR');
-        var td = document.createElement('TD');
-        td.textContent = cpumem;
-        tr.appendChild(td);
-        table.appendChild(tr);
-    }
-
-    function launchVm(image) {
-        document.getElementById(image).disabled = true;
-        ws.send(JSON.stringify({t: "Launch", image: image}));
-    }
-
-    ws.onopen = function (evt) {
-        mainTable = document.getElementById("mainTable");
-    };
-</script>
+<script src="js/dashboard.js"></script>
 </body>
 </html>
