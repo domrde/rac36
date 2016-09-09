@@ -6,15 +6,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Dashboard</title>
     <link href="libs/css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/app.css" rel="stylesheet">
 </head>
 <body>
-<ul class="list-group" id="mainList"></ul>
-<button onclick="launchVm('Pipe')" id="Pipe">Launch pipe VM</button>
-<button onclick="launchVm('Avatar')" id="Avatar">Launch avatar VM</button>
+    <script src="libs/js/jquery.min.js"></script>
+    <script src="libs/js/bootstrap.min.js"></script>
+    <script src="js/dashboard.js"></script>
 
-<script src="libs/js/jquery.min.js"></script>
-<script src="libs/js/bootstrap.min.js"></script>
 
-<script src="js/dashboard.js"></script>
+    <div class="panel panel-default avatar-panel">
+        <div class="panel-heading">Avatar systems</div>
+        <div class="panel-body" id="mainPanelBody"></div>
+    </div>
+
+    <!--<div class="panel panel-default">-->
+        <!--<div class="panel-heading">Ddata state</div>-->
+        <!--<div class="panel-body" id="ddataPanelBody"></div>-->
+    <!--</div>-->
+
+    <button onclick="launchVm('Pipe')" id="Pipe">Launch pipe VM</button>
+    <button onclick="launchVm('Avatar')" id="Avatar">Launch avatar VM</button>
 </body>
 </html>

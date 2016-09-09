@@ -1,0 +1,38 @@
+body {
+    background-color: #ededed;
+}
+
+.avatar-panel {
+    margin: 10px;
+}
+
+.panel-default, .panel-default>.panel-heading {
+    background-color: #ffd8af;
+    /*color: #dc7816;*/
+    color: black;
+
+}
+
+.panel {
+    box-shadow: 1px 1px 1px rgba(0, 0, 0, 0.5);
+}
+
+.little-panel {
+    width: 350px;
+}
+
+.vm-pipe-panel {
+    background-color: #e7a35c;
+}
+
+.vm-avatar-panel {
+    background-color: #fba582;
+}
+
+.vm-dashboard-panel {
+    background-color: #fbd283;
+}
+
+.vm-unknown {
+    background-color: #aaaaaa;
+}

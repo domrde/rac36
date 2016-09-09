@@ -27,6 +27,8 @@ class ServerClient extends Actor with ActorLogging {
   implicit val launchCommandReads = Json.reads[LaunchCommand]
   implicit val launchedWrite = Json.writes[Launched]
   implicit val shardingStatsWrite = Json.writes[ShardingStats]
+  implicit val nodesInfoWrite = Json.writes[ClusterMetricsListener.NodeInfo]
+  implicit val nodesStatusWrite = Json.writes[ClusterMetricsListener.NodesStatus]
 
   override def receive: Receive = {
     case Connected(connection) =>
@@ -43,6 +45,9 @@ class ServerClient extends Actor with ActorLogging {
           case JsError(_) =>
             log.error("Failed to validate json [{}]", text)
         }
+
+      case c: ClusterMetricsListener.NodesStatus =>
+        connection ! OutgoingMessage(Json.stringify(Json.toJson(c)))
 
       case c: Launched =>
         connection ! OutgoingMessage(Json.stringify(Json.toJson(c)))
