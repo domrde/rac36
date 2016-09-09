@@ -1,6 +1,6 @@
 var ws = new WebSocket("ws://" + window.location.host + "/ws");
 var mainPanel = null;
-var knownInfo = {};
+var nodesInfo = {};
 
 ws.onopen = function (evt) {
     mainPanel = document.getElementById("mainPanelBody");
@@ -14,7 +14,7 @@ function addNodeInfo(infoStorage, addr, mem, cpu, role) {
     var address = addrString(addr);
     if (address in infoStorage) {
         if (mem != null) infoStorage[address].mem = Math.round(mem);
-        if (cpu != null) infoStorage[address].cpu = Math.round(cpu * 100) / 100;
+        if (cpu != null) infoStorage[address].cpu = cpu;
         if (role != null) infoStorage[address].role = role;
     } else {
         infoStorage[address] = { address: address, mem: Math.round(mem), cpu: cpu, role: role};
@@ -28,33 +28,39 @@ ws.onmessage = function (evt) {
             console.log("ShardMetrics: " + JSON.stringify(parsedData));
             break;
 
+        case "RegionMetrics":
+            console.log("RegionMetrics: " + JSON.stringify(parsedData));
+            break;
+
         case "MemoryMetrics":
             console.log("MemoryMetrics: " + JSON.stringify(parsedData));
-            addNodeInfo(knownInfo, parsedData.address, parsedData.usedHeap, null, null);
-            redraw(mainPanel, knownInfo);
+            addNodeInfo(nodesInfo, parsedData.address, parsedData.usedHeap, null, null);
+            redraw(mainPanel, nodesInfo);
             break;
 
         case "CpuMetrics":
             console.log("CpuMetrics: " + JSON.stringify(parsedData));
-            addNodeInfo(knownInfo, parsedData.address, null,
+            addNodeInfo(nodesInfo, parsedData.address, null,
                 parsedData.average + "/" + parsedData.processors, null);
-            redraw(mainPanel, knownInfo);
+            redraw(mainPanel, nodesInfo);
             break;
 
-        case "NodesStatus":
-            console.log("NodesStatus: " + JSON.stringify(parsedData));
-            parsedData.status.forEach(function (item) {
-                addNodeInfo(knownInfo, item.address, null, null, item.role);
-            });
-            redraw(mainPanel, knownInfo);
+        case "NodeUp":
+            console.log("NodeUp: " + JSON.stringify(parsedData));
+            addNodeInfo(nodesInfo, parsedData.address, null, null, parsedData.role);
+            document.getElementById(parsedData.role).disabled = false;
+            redraw(mainPanel, nodesInfo);
+            break;
+
+        case "NodeDown":
+            console.log("NodeDown: " + JSON.stringify(parsedData));
+            delete nodesInfo[parsedData.address];
+            redraw(mainPanel, nodesInfo);
             break;
 
         case "DdataStatus":
             console.log("DdataStatus: " + JSON.stringify(parsedData));
             break;
-
-        case "Launched":
-            document.getElementById(parsedData.image).disabled = false;
 
         default:
             console.log(parsedData);
@@ -104,5 +110,5 @@ function createPanels(info, panel) {
 
 function launchVm(image) {
     document.getElementById(image).disabled = true;
-    ws.send(JSON.stringify({t: "Launch", image: image}));
+    ws.send(JSON.stringify({t: "Launch", role: image}));
 }

@@ -1,5 +1,4 @@
 import akka.actor.{Actor, ActorLogging, Address}
-import akka.cluster.ClusterEvent.CurrentClusterState
 import akka.cluster.metrics.StandardMetrics.{Cpu, HeapMemory}
 import akka.cluster.metrics.{ClusterMetricsChanged, ClusterMetricsExtension, NodeMetrics}
 
@@ -7,8 +6,6 @@ import akka.cluster.metrics.{ClusterMetricsChanged, ClusterMetricsExtension, Nod
 object ClusterMetricsListener {
   case class MemoryMetrics(address: Address, usedHeap: Double, t: String = "MemoryMetrics")
   case class CpuMetrics(address: Address, average: Double, processors: Int, t: String = "CpuMetrics")
-  case class NodeInfo(address: Address, status: String, role: String)
-  case class NodesStatus(status: Set[NodeInfo], t: String = "NodesStatus")
 }
 
 class ClusterMetricsListener extends Actor with ActorLogging {
@@ -25,10 +22,6 @@ class ClusterMetricsListener extends Actor with ActorLogging {
         logHeap(nodeMetrics)
         logCpu(nodeMetrics)
       }
-
-    case state: CurrentClusterState =>
-      context.parent ! NodesStatus(state.members.map(member =>
-        NodeInfo(member.address, member.status.toString, member.roles.head)))
 
     case other => log.error("ClusterMetricsListener: other {} from {}", other, sender())
   }

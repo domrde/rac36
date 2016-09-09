@@ -10,8 +10,7 @@ object ServerClient {
   case class Connected(connection: ActorRef)
   case class IncomingMessage(text: String)
   case class OutgoingMessage(text: String)
-  case class LaunchCommand(image: String, t: String = "Launch")
-  case class Launched(image: String, t: String = "Launched")
+  case class LaunchCommand(role: String, t: String = "Launch")
 }
 
 class ServerClient extends Actor with ActorLogging {
@@ -25,10 +24,9 @@ class ServerClient extends Actor with ActorLogging {
   implicit val shardMetricWrite = Json.writes[ShardingStatsListener.RegionMetric]
   implicit val shardMetricsWrite = Json.writes[ShardingStatsListener.RegionMetrics]
   implicit val launchCommandReads = Json.reads[LaunchCommand]
-  implicit val launchedWrite = Json.writes[Launched]
   implicit val shardingStatsWrite = Json.writes[ShardingStats]
-  implicit val nodesInfoWrite = Json.writes[ClusterMetricsListener.NodeInfo]
-  implicit val nodesStatusWrite = Json.writes[ClusterMetricsListener.NodesStatus]
+  implicit val nodeUpWrite = Json.writes[ClusterMain.NodeUp]
+  implicit val nodeDownWrite = Json.writes[ClusterMain.NodeDown]
 
   override def receive: Receive = {
     case Connected(connection) =>
@@ -36,6 +34,8 @@ class ServerClient extends Actor with ActorLogging {
       context.parent ! Server.Join
   }
 
+
+  //todo: organize metrics in trait
   def connected(connection: ActorRef): Receive = {
       case IncomingMessage(text) =>
         Json.parse(text).validate[LaunchCommand] match {
@@ -46,10 +46,10 @@ class ServerClient extends Actor with ActorLogging {
             log.error("Failed to validate json [{}]", text)
         }
 
-      case c: ClusterMetricsListener.NodesStatus =>
+      case c: ClusterMain.NodeUp =>
         connection ! OutgoingMessage(Json.stringify(Json.toJson(c)))
 
-      case c: Launched =>
+      case c: ClusterMain.NodeDown =>
         connection ! OutgoingMessage(Json.stringify(Json.toJson(c)))
 
       case c: ShardingStats =>

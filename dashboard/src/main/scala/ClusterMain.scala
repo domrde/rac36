@@ -1,11 +1,18 @@
-import akka.actor.{Actor, ActorLogging, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, Address, Props}
 import akka.cluster.ClusterEvent.{CurrentClusterState, MemberRemoved, MemberUp}
 import akka.cluster.ddata.DistributedData
 import akka.cluster.metrics.ClusterMetricsExtension
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.{Cluster, ClusterEvent}
 
+object ClusterMain {
+  case class NodeUp(address: Address, role: String, t: String = "NodeUp")
+  case class NodeDown(address: Address, t: String = "NodeDown")
+}
+
 class ClusterMain extends Actor with ActorLogging {
+  import ClusterMain._
+
   val cluster = Cluster(context.system)
 
   cluster.subscribe(self, classOf[ClusterEvent.MemberUp], classOf[ClusterEvent.MemberRemoved])
@@ -20,9 +27,20 @@ class ClusterMain extends Actor with ActorLogging {
     case MemberRemoved(member, _) => log.info("MemberRemoved {} with roles {}", member.uniqueAddress, member.roles)
   }
 
-  val initialised: Receive = {
-    case MemberUp(member) => log.info("MemberUp {} with roles {}", member.uniqueAddress, member.roles)
-    case MemberRemoved(member, _) => log.info("MemberRemoved {} with roles {}", member.uniqueAddress, member.roles)
+  def startMainSystem() = {
+    context.become(initialised(context.actorOf(Props[MetricsAggregator], "MetricsAggregator")))
+    log.info("\nAvatar cluster started with mediator [{}] and replicator [{}]",
+      mediator, replicator)
+  }
+
+  def initialised(aggregator: ActorRef): Receive = {
+    case MemberUp(member) =>
+      log.info("MemberUp {} with roles {}", member.uniqueAddress, member.roles)
+      aggregator ! NodeUp(member.address, member.roles.head)
+
+    case MemberRemoved(member, _) =>
+      log.info("MemberRemoved {} with roles {}", member.uniqueAddress, member.roles)
+      aggregator ! NodeDown(member.address)
   }
 
   val replicator = DistributedData(context.system).replicator
@@ -30,11 +48,4 @@ class ClusterMain extends Actor with ActorLogging {
   val mediator = DistributedPubSub(context.system).mediator
 
   ClusterMetricsExtension(context.system)
-
-  def startMainSystem() = {
-    context.become(initialised)
-    context.actorOf(Props[MetricsAggregator], "MetricsAggregator")
-    log.info("\nAvatar cluster started with mediator [{}] and replicator [{}]",
-      mediator, replicator)
-  }
 }
