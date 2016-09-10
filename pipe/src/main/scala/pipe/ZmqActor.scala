@@ -1,7 +1,9 @@
 package pipe
+
 import java.util.UUID
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.Send
 import akka.util.ByteString
 import com.typesafe.config.ConfigFactory
@@ -41,7 +43,7 @@ class ZmqActor(url: String) extends Actor with ActorLogging {
   import scala.concurrent.ExecutionContext.Implicits.global
 
   val router = ZeroMQ.bindRouterSocket(url)
-  val mediator = ZeroMQ.mediator
+  val mediator = DistributedPubSub(context.system).mediator
   var clients: Set[UUID] = Set.empty
   val avatarAddress = config.getString("application.avatarAddress")
 
@@ -136,7 +138,7 @@ class ZmqActor(url: String) extends Actor with ActorLogging {
 
   context.system.scheduler.schedule(0.second, 1.millis, self, Poll)
 
-  log.info("ZeroMQActor initialized for parent {}", context.parent)
+  log.info("ZeroMQActor initialized for parent {} and avatarAddress {}", context.parent, avatarAddress)
 
 
 

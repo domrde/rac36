@@ -1,5 +1,7 @@
-import ShardingStatsListener.ShardingStats
+package dashboard
+
 import akka.actor.{Actor, ActorLogging, ActorRef, Address}
+import dashboard.ShardingStatsListener.ShardingStats
 import messages.Messages.CoordinateWithType
 import play.api.libs.json.{JsError, JsSuccess, Json}
 
@@ -68,6 +70,6 @@ class ServerClient extends Actor with ActorLogging {
         connection ! OutgoingMessage(Json.stringify(Json.toJson(c)))
 
       case other =>
-        log.error("ServerClient: other {} from {}", other, sender())
+        log.error("dashboard.ServerClient: other {} from {}", other, sender())
   }
 }

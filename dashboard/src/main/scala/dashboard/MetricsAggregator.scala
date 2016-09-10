@@ -1,7 +1,9 @@
-import ServerClient.LaunchCommand
+package dashboard
+
 import akka.actor.ActorDSL._
 import akka.actor.{Actor, ActorLogging, Address, Props}
 import com.typesafe.config.ConfigFactory
+import dashboard.ServerClient.LaunchCommand
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -39,15 +41,15 @@ class MetricsAggregator extends Actor with ActorLogging {
     }))
   } else {
     Set(
-      context.actorOf(Props[ClusterMetricsListener], "ClusterMetricsListener"),
-      context.actorOf(Props[DdataListener], "DdataListener"),
-      context.actorOf(Props[ShardingStatsListener], "ShardingStatsListener")
+      context.actorOf(Props[ClusterMetricsListener], "dashboard.ClusterMetricsListener"),
+      context.actorOf(Props[DdataListener], "dashboard.DdataListener"),
+      context.actorOf(Props[ShardingStatsListener], "dashboard.ShardingStatsListener")
     )
   }
 
-  val server = context.actorOf(Props[Server], "Server")
+  val server = context.actorOf(Props[Server], "dashboard.Server")
 
-  val starter = context.actorOf(Props[OpenstackActor], "OpenstackActor")
+  val starter = context.actorOf(Props[OpenstackActor], "dashboard.OpenstackActor")
 
   override def receive: Receive = {
     case l: LaunchCommand =>
@@ -60,6 +62,6 @@ class MetricsAggregator extends Actor with ActorLogging {
       server ! anything
 
     case other =>
-      log.error("MetricsAggregator: other {} from {}", other, sender())
+      log.error("dashboard.MetricsAggregator: other {} from {}", other, sender())
   }
 }

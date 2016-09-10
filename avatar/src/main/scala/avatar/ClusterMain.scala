@@ -1,4 +1,5 @@
 package avatar
+
 import akka.actor.{Actor, ActorLogging}
 import akka.cluster.ClusterEvent.{CurrentClusterState, MemberRemoved, MemberUp}
 import akka.cluster.ddata.DistributedData
@@ -57,7 +58,9 @@ class ClusterMain extends Actor with ActorLogging {
   def startMainSystem() = {
     mediator ! Put(shard)
     context.become(initialised)
-    log.info("\nAvatar cluster started with mediator [{}], shard [{}] and replicator [{}]",
+    log.info("\n---------------------------------------------------------------------------")
+    log.info("\n\nAvatar cluster started with mediator [{}], shard [{}] and replicator [{}]\n",
       mediator, shard, replicator)
+    log.info("\n---------------------------------------------------------------------------")
   }
 }

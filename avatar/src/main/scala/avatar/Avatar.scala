@@ -1,4 +1,5 @@
 package avatar
+
 import java.util.UUID
 
 import akka.actor.{ActorLogging, ActorRef, Props}
@@ -22,7 +23,7 @@ object Avatar {
 }
 
 class Avatar(cache: ActorRef) extends PersistentActor with ActorLogging {
-  log.info("\nAVATAR CREATED")
+  log.info("\nAVATAR CREATED {}", self)
 
   override val persistenceId: String = "Avatar" + self.path.name
 

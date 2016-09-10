@@ -1,8 +1,10 @@
-import ServerClient.LaunchCommand
+package dashboard
+
 import akka.actor.{Actor, ActorLogging}
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.Put
 import com.typesafe.config.ConfigFactory
+import dashboard.ServerClient.LaunchCommand
 
 /**
   * Created by dda on 9/7/16.
@@ -35,6 +37,6 @@ class OpenstackActor extends Actor with ActorLogging {
       }
 
     case other =>
-      log.error("OpenstackActor: other {} from {}", other, sender())
+      log.error("dashboard.OpenstackActor: other {} from {}", other, sender())
   }
 }

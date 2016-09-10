@@ -3,15 +3,15 @@ import java.util.UUID
 import akka.actor.{ActorRef, Props}
 import akka.cluster.Cluster
 import akka.cluster.MemberStatus.Up
-import akka.cluster.ddata.{DistributedData, ORSet}
 import akka.cluster.ddata.Replicator.{Get, GetSuccess, ReadLocal}
+import akka.cluster.ddata.{DistributedData, ORSet}
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.{Put, Send}
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.TestProbe
 import akka.util.Timeout
 import avatar.Avatar.AvatarState
-import avatar.{ClusterMain, ReplicatedSet}
+import avatar.ClusterMain
 import com.typesafe.config.ConfigFactory
 import messages.Messages._
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
@@ -40,6 +40,10 @@ object MultiNodeAvatarTestsConfig extends MultiNodeConfig {
        akka.persistence.snapshot-store.plugin = "akka.persistence.snapshot-store.local"
        akka.persistence.snapshot-store.local.dir = "target/example/snapshots"
        akka.loglevel = "INFO"
+       akka.cluster.metrics.enabled = off
+       akka.cluster.metrics.collector.enabled = off
+       akka.cluster.metrics.periodic-tasks-initial-delay = 10m
+       kamon.sigar.folder = ""
     """))
 }
 
@@ -156,7 +160,7 @@ abstract class MultiJvmAvatarTests extends MultiNodeSpec(MultiNodeAvatarTestsCon
 
         val replicator = DistributedData(system).replicator
         awaitAssert {
-          replicator.tell(Get(ReplicatedSet.Key, ReadLocal, None), probe.ref)
+          replicator.tell(Get(messages.Constants.DdataSetKey, ReadLocal, None), probe.ref)
           val set = probe.expectMsgType[GetSuccess[ORSet[CoordinateWithType]]].dataValue.elements
           result.foreach(coord => assert(set.contains(coord)))
         }

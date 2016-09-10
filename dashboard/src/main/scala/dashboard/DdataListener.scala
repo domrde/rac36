@@ -1,3 +1,5 @@
+package dashboard
+
 import akka.actor.{Actor, ActorLogging}
 import akka.cluster.Cluster
 import akka.cluster.ddata.Replicator._
@@ -35,6 +37,6 @@ class DdataListener extends Actor with ActorLogging {
     case NotFound(DdataSetKey, _) =>
 
     case other =>
-      log.error("DdataListener: other [{}] from [{}]", other, sender())
+      log.error("dashboard.DdataListener: other [{}] from [{}]", other, sender())
   }
 }

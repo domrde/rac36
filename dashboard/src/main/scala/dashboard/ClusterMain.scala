@@ -1,3 +1,5 @@
+package dashboard
+
 import akka.actor.{Actor, ActorLogging, ActorRef, Address, Props}
 import akka.cluster.ClusterEvent.{CurrentClusterState, MemberRemoved, MemberUp}
 import akka.cluster.ddata.DistributedData
@@ -28,7 +30,7 @@ class ClusterMain extends Actor with ActorLogging {
   }
 
   def startMainSystem() = {
-    context.become(initialised(context.actorOf(Props[MetricsAggregator], "MetricsAggregator")))
+    context.become(initialised(context.actorOf(Props[MetricsAggregator], "dashboard.MetricsAggregator")))
     log.info("\nAvatar cluster started with mediator [{}] and replicator [{}]",
       mediator, replicator)
   }

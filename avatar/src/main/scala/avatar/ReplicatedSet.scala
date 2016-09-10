@@ -1,10 +1,11 @@
 package avatar
+
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.cluster.Cluster
 import akka.cluster.ddata.Replicator._
 import akka.cluster.ddata._
-import messages.Messages.CoordinateWithType
 import messages.Constants.DdataSetKey
+import messages.Messages.CoordinateWithType
 
 // todo: extend example so it may be used with different sensor types
 object ReplicatedSet {

@@ -1,3 +1,5 @@
+package dashboard
+
 import akka.actor.{Actor, ActorLogging, Address}
 import akka.cluster.metrics.StandardMetrics.{Cpu, HeapMemory}
 import akka.cluster.metrics.{ClusterMetricsChanged, ClusterMetricsExtension, NodeMetrics}
@@ -23,7 +25,7 @@ class ClusterMetricsListener extends Actor with ActorLogging {
         logCpu(nodeMetrics)
       }
 
-    case other => log.error("ClusterMetricsListener: other {} from {}", other, sender())
+    case other => log.error("dashboard.ClusterMetricsListener: other {} from {}", other, sender())
   }
 
   def logHeap(nodeMetrics: NodeMetrics): Unit = nodeMetrics match {

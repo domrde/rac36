@@ -1,12 +1,15 @@
 package pipe
+
 import akka.actor.{Actor, ActorLogging, Props}
 import akka.cluster.ClusterEvent.{CurrentClusterState, MemberRemoved, MemberUp}
 import akka.cluster.metrics.ClusterMetricsExtension
+import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.{Cluster, ClusterEvent}
 
 class ClusterMain extends Actor with ActorLogging {
   val cluster = Cluster(context.system)
   ClusterMetricsExtension(context.system)
+  DistributedPubSub(context.system).mediator
 
   cluster.subscribe(self, classOf[ClusterEvent.MemberUp], classOf[ClusterEvent.MemberRemoved])
 
@@ -28,6 +31,8 @@ class ClusterMain extends Actor with ActorLogging {
   def startMainSystem() = {
     context.actorOf(Props[TunnelManager], "TunnelManager")
     context.become(initialised)
-    log.info("MessageRouter initialised")
+    log.info("\n---------------------------------------------------------------------------")
+    log.info("\n\nTunnelManager initialised")
+    log.info("\n---------------------------------------------------------------------------")
   }
 }

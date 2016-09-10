@@ -1,3 +1,5 @@
+package dashboard
+
 import akka.actor.{Actor, ActorLogging, Address}
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.Send
@@ -43,6 +45,6 @@ class ShardingStatsListener extends Actor with ActorLogging {
         context.parent ! ShardingStats(address, shardRegionStats.stats)
       }
 
-    case other => log.error("ShardingStatsListener: other {} from {}", other, sender())
+    case other => log.error("dashboard.ShardingStatsListener: other {} from {}", other, sender())
   }
 }

@@ -1,7 +1,9 @@
 package pipe
+
 import java.util.UUID
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.Send
 import com.typesafe.config.ConfigFactory
 import messages.Messages.{AvatarCreated, _}
@@ -21,6 +23,7 @@ class TunnelManager extends Actor with ActorLogging {
   val worker = context.actorOf(ZmqActor(url), "QueueToActor" + Random.nextLong())
   val lowestFinder = context.actorOf(Props[LowestLoadFinder], "Sharer")
   val avatarAddress = config.getString("application.avatarAddress")
+  val mediator = DistributedPubSub(context.system).mediator
   worker.tell(ZmqActor.HowManyClients, lowestFinder)
 
   override def receive = receiveWithClientsStorage(Map.empty)
@@ -31,7 +34,7 @@ class TunnelManager extends Actor with ActorLogging {
       log.info("Tunnel create request, sending to lowest load")
 
     case ToTmWithLowestLoad(ctr, returnAddress) =>
-      ZeroMQ.mediator ! Send(avatarAddress, ctr, localAffinity = false)
+      mediator ! Send(avatarAddress, ctr, localAffinity = false)
       log.info("I'm with lowest load, requesting avatar")
       context.become(receiveWithClientsStorage(clients + (ctr.uuid -> returnAddress)))
 
@@ -50,5 +53,6 @@ class TunnelManager extends Actor with ActorLogging {
       log.error("TunnelManager: other {} from {}", other, sender())
   }
 
-  log.info("TunnelManager initialized for parent {}", context.parent)
+  log.info("TunnelManager initialized for parent [{}] with avatarAddress [{}] and mediator [{}]",
+    context.parent, avatarAddress, mediator)
 }

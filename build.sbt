@@ -15,11 +15,28 @@ lazy val commonSettings = Seq(
       "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
       "com.typesafe.akka" %% "akka-contrib" % akkaVersion,
       "com.typesafe.akka" %% "akka-cluster-metrics" % akkaVersion,
-      "com.typesafe.akka" %% "akka-testkit" % akkaVersion % "test",
+      "com.typesafe.akka" %% "akka-testkit" % akkaVersion,
+      "org.scalatest" %% "scalatest" % "2.2.6",
       "com.typesafe.akka" %% "akka-distributed-data-experimental" % akkaVersion,
-      "org.scalatest" %% "scalatest" % "2.2.6" % "test",
       "io.kamon" % "sigar-loader" % "1.6.6-rev002"
     )
+  }
+)
+
+lazy val additionalMultiJvmSettings = Seq(
+  Keys.fork in run := true,
+  compile in MultiJvm <<= (compile in MultiJvm) triggeredBy (compile in Test),
+  parallelExecution in Test := false,
+  executeTests in Test <<= (executeTests in Test, executeTests in MultiJvm) map {
+    case (testResults, multiNodeResults)  =>
+      val overall =
+        if (testResults.overall.id < multiNodeResults.overall.id)
+          multiNodeResults.overall
+        else
+          testResults.overall
+      Tests.Output(overall,
+        testResults.events ++ multiNodeResults.events,
+        testResults.summaries ++ multiNodeResults.summaries)
   }
 )
 
@@ -44,26 +61,7 @@ lazy val pipe = (project in file("pipe")).
 lazy val avatar = (project in file("avatar")).
   settings(commonSettings: _*).
   settings(SbtMultiJvm.multiJvmSettings: _*).
-  settings(
-    Keys.fork in run := true,
-    // make sure that MultiJvm test are compiled by the default test compilation
-    compile in MultiJvm <<= (compile in MultiJvm) triggeredBy (compile in Test),
-    // disable parallel tests
-    parallelExecution in Test := false,
-    // make sure that MultiJvm tests are executed by the default test target,
-    // and combine the results from ordinary test and multi-jvm tests
-    executeTests in Test <<= (executeTests in Test, executeTests in MultiJvm) map {
-      case (testResults, multiNodeResults)  =>
-        val overall =
-          if (testResults.overall.id < multiNodeResults.overall.id)
-            multiNodeResults.overall
-          else
-            testResults.overall
-        Tests.Output(overall,
-          testResults.events ++ multiNodeResults.events,
-          testResults.summaries ++ multiNodeResults.summaries)
-    }
-  ).
+  settings(additionalMultiJvmSettings: _*).
   configs (MultiJvm).
   settings(
     name := "avatar",
@@ -78,7 +76,7 @@ lazy val avatar = (project in file("avatar")).
 lazy val dashboard = (project in file("dashboard")).
   settings(commonSettings: _*).
   settings(
-    name := "status",
+    name := "dashboard",
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-cluster-sharding" % akkaVersion,
       "com.typesafe.akka" %% "akka-http-core" % akkaVersion,
@@ -88,10 +86,24 @@ lazy val dashboard = (project in file("dashboard")).
   ).
   dependsOn(messages)
 
+lazy val test = (project in file("test")).
+  settings(commonSettings: _*).
+  settings(SbtMultiJvm.multiJvmSettings: _*).
+  settings(additionalMultiJvmSettings: _*).
+  configs (MultiJvm).
+  settings(
+    name := "test",
+    libraryDependencies ++= Seq(
+      "com.typesafe.akka" %% "akka-multi-node-testkit" % akkaVersion % "test",
+      "com.typesafe.play" %% "play-json" % "2.5.4"
+    )
+  ).
+  dependsOn(messages, pipe, avatar)
+
 lazy val root = (project in file(".")).
   settings(commonSettings: _*).
   settings(
     name := "root"
   ).
-  dependsOn(pipe, avatar)
+  dependsOn(pipe, avatar, dashboard, test)
 

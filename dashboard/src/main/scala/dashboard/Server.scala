@@ -1,4 +1,5 @@
-import ServerClient.LaunchCommand
+package dashboard
+
 import akka.NotUsed
 import akka.actor._
 import akka.http.scaladsl.Http
@@ -7,6 +8,7 @@ import akka.http.scaladsl.server.Directives
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.stream.{ActorMaterializer, OverflowStrategy}
 import com.typesafe.config.ConfigFactory
+import dashboard.ServerClient.LaunchCommand
 /**
   * Created by dda on 9/6/16.
   */
@@ -67,6 +69,6 @@ class Server extends Actor with ActorLogging {
       clients.foreach(_ ! anything)
 
     case other =>
-      log.error("Server: other {} from {}", other, sender())
+      log.error("dashboard.Server: other {} from {}", other, sender())
   }
 }

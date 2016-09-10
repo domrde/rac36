@@ -1,20 +1,19 @@
 package pipe
+
 import akka.actor.ActorSystem
-import akka.cluster.pubsub.DistributedPubSub
 import akka.util.ByteString
 import org.zeromq.ZMQ
 
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.language.postfixOps
-import scala.concurrent.duration._
-import scala.concurrent.ExecutionContext.Implicits.global
 
 /**
   * Created by dda on 23.04.16.
   */
 object ZeroMQ {
   val system = ActorSystem("ClusterSystem")
-  val mediator = DistributedPubSub(system).mediator
   private val zmqContext = ZMQ.context(1)
 
   system.registerOnTermination {
