@@ -6,7 +6,6 @@ import _root_.pipetest.TunnelCreator
 import akka.actor.Props
 import akka.cluster.Cluster
 import akka.cluster.MemberStatus.Up
-import akka.cluster.pubsub.DistributedPubSub
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.TestProbe
 import akka.util.Timeout
@@ -56,6 +55,24 @@ class SampleMultiJvmRacSpecNode1 extends MultiJvmRacTests {
 
   "Avatar" must {
     "create tunnel" in {
+
+      awaitCond {
+        val probe = TestProbe()
+        camera.tell(GetInfo, probe.ref)
+        probe.expectMsgType[Sensory].sensoryPayload.nonEmpty
+      }
+
+      val probe = TestProbe()
+      camera.tell(GetInfo, probe.ref)
+      val sensory = probe.expectMsgType[Sensory].sensoryPayload
+
+      awaitCond {
+        val probe = TestProbe()
+        replicatedSet.tell(Lookup, probe.ref)
+        val result = probe.expectMsgType[LookupResult]
+        result.result.contains(sensory)
+      }
+
       testConductor.enter("Creating tunnel")
     }
 
@@ -74,34 +91,36 @@ class SampleMultiJvmRacSpecNode2 extends MultiJvmRacTests {
 
   val tunnelCreator = new TunnelCreator(system)
 
-  val mediator = DistributedPubSub(system).mediator
-
   implicit val positionWrites = Json.writes[Position]
 
   implicit val sensoryWrites = Json.writes[Sensory]
-
-  val map =
-    "#----1-\n" +
-    "-#-----\n" +
-    "--#--2-\n" +
-    "---#---\n"
-
-  val camera = system.actorOf(Props(classOf[CameraStub], map))
-
-  val replicatedSet = system.actorOf(ReplicatedSet())
 
   "Pipe" must {
     "create tunnel" in {
       runOn(second) {
         val tunnel = tunnelCreator.createTunnel(TestProbe().ref)
-        val probe = TestProbe()
-        camera.tell(GetInfo, probe.ref)
-        val sensory = Sensory(UUID.fromString(tunnel._3), probe.expectMsgType[Sensory].sensoryPayload)
-        tunnel._1.send("|" + Json.stringify(Json.toJson(sensory)))
-        Thread.sleep(2000)
-        replicatedSet.tell(Lookup, probe.ref)
-        val result = probe.expectMsgType[LookupResult]
-        result.result.get shouldBe sensory.sensoryPayload
+
+        def sendCameraDataToAvatar() = {
+          val probe = TestProbe()
+          camera.tell(GetInfo, probe.ref)
+          val sensory = Sensory(UUID.fromString(tunnel._3), probe.expectMsgType[Sensory].sensoryPayload)
+          tunnel._1.send("|" + Json.stringify(Json.toJson(sensory)))
+          sensory.sensoryPayload
+        }
+
+        val data = sendCameraDataToAvatar()
+
+        Thread.sleep(2000) // waiting for data replication
+
+        def checkDataDistributed(data: Set[Position]) = {
+          val probe = TestProbe()
+          replicatedSet.tell(Lookup, probe.ref)
+          val result = probe.expectMsgType[LookupResult]
+          result.result.get shouldBe data
+        }
+
+        checkDataDistributed(data)
+
         testConductor.enter("Creating tunnel")
       }
     }
@@ -127,6 +146,16 @@ abstract class MultiJvmRacTests extends MultiNodeSpec(MultiNodeRacTestsConfig) w
   override def initialParticipants = roles.size
 
   implicit val timeout: Timeout = 10.seconds
+
+  val map =
+    "#----1-\n" +
+    "-#-----\n" +
+    "--#--2-\n" +
+    "---#---\n"
+
+  val camera = system.actorOf(Props(classOf[CameraStub], map))
+
+  val replicatedSet = system.actorOf(ReplicatedSet())
 
   val firstAddress = node(first).address
   val secondAddress = node(second).address
