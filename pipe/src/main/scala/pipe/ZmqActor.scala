@@ -152,7 +152,7 @@ class ZmqActor(url: String) extends Actor with ActorLogging {
 
   implicit val createAvatarReads = Json.reads[CreateAvatar]
 
-  implicit val coordReads = Json.reads[CoordinateWithType]
+  implicit val posReads = Json.reads[Position]
 
   implicit val sensoryReads = Json.reads[Sensory]
 

@@ -5,16 +5,16 @@ import akka.cluster.Cluster
 import akka.cluster.ddata.Replicator._
 import akka.cluster.ddata._
 import messages.Constants.DdataSetKey
-import messages.Messages.CoordinateWithType
+import messages.Messages.Position
 
 // todo: extend example so it may be used with different sensor types
 object ReplicatedSet {
 
   def apply() = Props[ReplicatedSet]
 
-  case class AddAll(values: Set[CoordinateWithType])
+  case class AddAll(values: Set[Position])
   case object Lookup
-  case class LookupResult(result: Option[Set[CoordinateWithType]])
+  case class LookupResult(result: Option[Set[Position]])
 }
 
 class ReplicatedSet extends Actor with ActorLogging {
@@ -34,7 +34,7 @@ class ReplicatedSet extends Actor with ActorLogging {
 
     case g @ GetSuccess(DdataSetKey, Some(replyTo: ActorRef)) =>
       g.dataValue match {
-        case data: ORSet[CoordinateWithType] => replyTo ! LookupResult(Some(data.elements))
+        case data: ORSet[Position] => replyTo ! LookupResult(Some(data.elements))
         case _ => replyTo ! LookupResult(None)
       }
 

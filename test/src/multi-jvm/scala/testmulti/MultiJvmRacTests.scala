@@ -1,18 +1,27 @@
 package testmulti
 
+import java.util.UUID
+
 import _root_.pipetest.TunnelCreator
 import akka.actor.Props
 import akka.cluster.Cluster
 import akka.cluster.MemberStatus.Up
+import akka.cluster.pubsub.DistributedPubSub
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.TestProbe
 import akka.util.Timeout
+import avatar.ReplicatedSet
+import avatar.ReplicatedSet.{Lookup, LookupResult}
 import com.typesafe.config.ConfigFactory
+import messages.Messages.{Position, Sensory}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
+import play.api.libs.json.Json
+import test.CameraStub
+import test.CameraStub.GetInfo
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
-import scala.concurrent.ExecutionContext.Implicits.global
 
 /**
   * Created by dda on 9/10/16.
@@ -43,10 +52,18 @@ object MultiNodeRacTestsConfig extends MultiNodeConfig {
 }
 
 class SampleMultiJvmRacSpecNode1 extends MultiJvmRacTests {
+  import MultiNodeRacTestsConfig._
 
   "Avatar" must {
     "create tunnel" in {
+      testConductor.enter("Creating tunnel")
+    }
 
+    "wait 2 sec" in {
+      runOn(first) {
+        Thread.sleep(2000)
+        testConductor.enter("Two seconds elapsed")
+      }
     }
   }
 
@@ -57,12 +74,42 @@ class SampleMultiJvmRacSpecNode2 extends MultiJvmRacTests {
 
   val tunnelCreator = new TunnelCreator(system)
 
+  val mediator = DistributedPubSub(system).mediator
+
+  implicit val positionWrites = Json.writes[Position]
+
+  implicit val sensoryWrites = Json.writes[Sensory]
+
+  val map =
+    "#----1-\n" +
+    "-#-----\n" +
+    "--#--2-\n" +
+    "---#---\n"
+
+  val camera = system.actorOf(Props(classOf[CameraStub], map))
+
+  val replicatedSet = system.actorOf(ReplicatedSet())
+
   "Pipe" must {
     "create tunnel" in {
       runOn(second) {
-        (1 to 5).foreach { i =>
-          tunnelCreator.createTunnel(TestProbe().ref)
-        }
+        val tunnel = tunnelCreator.createTunnel(TestProbe().ref)
+        val probe = TestProbe()
+        camera.tell(GetInfo, probe.ref)
+        val sensory = Sensory(UUID.fromString(tunnel._3), probe.expectMsgType[Sensory].sensoryPayload)
+        tunnel._1.send("|" + Json.stringify(Json.toJson(sensory)))
+        Thread.sleep(2000)
+        replicatedSet.tell(Lookup, probe.ref)
+        val result = probe.expectMsgType[LookupResult]
+        result.result.get shouldBe sensory.sensoryPayload
+        testConductor.enter("Creating tunnel")
+      }
+    }
+
+    "wait 2 sec" in {
+      runOn(second) {
+        Thread.sleep(2000)
+        testConductor.enter("Two seconds elapsed")
       }
     }
   }

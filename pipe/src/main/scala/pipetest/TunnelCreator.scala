@@ -82,7 +82,7 @@ class TunnelCreator(actorSystem: ActorSystem) {
     context.system.scheduler.schedule(0.seconds, 1.nano, self, "poll")
   })
 
-  def createTunnel(target: ActorRef): TunnelCreated = {
+  def createTunnel(target: ActorRef) = {
     val probe = TestProbe()
     reader.tell("new", probe.ref)
     val (dealer, queue, uuid) = probe.expectMsgType[(ZMQ.Socket, ConcurrentLinkedQueue[String], String)]
@@ -95,7 +95,7 @@ class TunnelCreator(actorSystem: ActorSystem) {
     val rawJson = rawMessage.splitAt(rawMessage.indexOf("|"))._2.drop(1)
     val tunnel: TunnelCreated = Json.parse(rawJson).validate[TunnelCreated].get
     assert(tunnel.topic == uuid)
-    tunnel
+    (dealer, tunnel.url, tunnel.topic, queue)
   }
 
 }
