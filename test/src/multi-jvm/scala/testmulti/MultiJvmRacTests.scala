@@ -66,6 +66,7 @@ class SampleMultiJvmRacSpecNode1 extends MultiJvmRacTests {
       camera.tell(GetInfo, probe.ref)
       val sensory = probe.expectMsgType[Sensory].sensoryPayload
 
+      //waiting for data replication
       awaitCond {
         val probe = TestProbe()
         replicatedSet.tell(Lookup, probe.ref)
@@ -110,16 +111,13 @@ class SampleMultiJvmRacSpecNode2 extends MultiJvmRacTests {
 
         val data = sendCameraDataToAvatar()
 
-        Thread.sleep(2000) // waiting for data replication
-
-        def checkDataDistributed(data: Set[Position]) = {
+        //waiting for data replication
+        awaitCond {
           val probe = TestProbe()
           replicatedSet.tell(Lookup, probe.ref)
           val result = probe.expectMsgType[LookupResult]
-          result.result.get shouldBe data
+          result.result.contains(data)
         }
-
-        checkDataDistributed(data)
 
         testConductor.enter("Creating tunnel")
       }
