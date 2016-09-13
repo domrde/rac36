@@ -1,18 +1,19 @@
 package dashboard
 
-import akka.actor.{Actor, ActorLogging, Address}
+import akka.actor.{Actor, ActorLogging}
+import akka.cluster.Cluster
 import akka.cluster.metrics.StandardMetrics.{Cpu, HeapMemory}
 import akka.cluster.metrics.{ClusterMetricsChanged, ClusterMetricsExtension, NodeMetrics}
 
-// based on source from http://doc.akka.io/docs/akka/current/scala/cluster-metrics.html
-object ClusterMetricsListener {
-  case class MemoryMetrics(address: Address, usedHeap: Double, t: String = "MemoryMetrics")
-  case class CpuMetrics(address: Address, average: Double, processors: Int, t: String = "CpuMetrics")
-}
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
 
+// based on source from http://doc.akka.io/docs/akka/current/scala/cluster-metrics.html
 class ClusterMetricsListener extends Actor with ActorLogging {
-  import ClusterMetricsListener._
+
   val extension = ClusterMetricsExtension(context.system)
+
+  val cluster = Cluster(context.system)
 
   override def preStart(): Unit = extension.subscribe(self)
 
@@ -29,14 +30,21 @@ class ClusterMetricsListener extends Actor with ActorLogging {
   }
 
   def logHeap(nodeMetrics: NodeMetrics): Unit = nodeMetrics match {
-    case HeapMemory(address, timestamp, used, committed, max) =>
-      context.parent ! MemoryMetrics(address, committed.doubleValue / 1024 / 1024)
+    case HeapMemory(address, timestamp, used, committed, Some(max)) =>
+      context.parent ! MetricsAggregator.MemoryMetrics(address, Math.round(committed.doubleValue / 1024 / 1024), Math.round(max / 1024 / 1024))
     case _ => // No heap info.
   }
 
   def logCpu(nodeMetrics: NodeMetrics): Unit = nodeMetrics match {
     case Cpu(address, timestamp, Some(systemLoadAverage), cpuCombined, cpuStolen, processors) =>
-      context.parent ! CpuMetrics(address, systemLoadAverage, processors)
+      context.parent ! MetricsAggregator.CpuMetrics(address, systemLoadAverage, processors)
     case _ => // No cpu info.
+  }
+
+  context.system.scheduler.schedule(0.seconds, 3.seconds) {
+    context.parent ! MetricsAggregator.Members(
+      cluster.state.members.map(member =>
+        MetricsAggregator.Member(member.address, member.status.toString, member.roles.head))
+    )
   }
 }

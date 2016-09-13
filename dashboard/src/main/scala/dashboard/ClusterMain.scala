@@ -1,21 +1,21 @@
 package dashboard
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Address, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.cluster.ClusterEvent.{CurrentClusterState, MemberRemoved, MemberUp}
 import akka.cluster.ddata.DistributedData
 import akka.cluster.metrics.ClusterMetricsExtension
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.{Cluster, ClusterEvent}
 
-object ClusterMain {
-  case class NodeUp(address: Address, role: String, t: String = "NodeUp")
-  case class NodeDown(address: Address, t: String = "NodeDown")
-}
-
 class ClusterMain extends Actor with ActorLogging {
-  import ClusterMain._
 
   val cluster = Cluster(context.system)
+
+  val replicator = DistributedData(context.system).replicator
+
+  val mediator = DistributedPubSub(context.system).mediator
+
+  ClusterMetricsExtension(context.system)
 
   cluster.subscribe(self, classOf[ClusterEvent.MemberUp], classOf[ClusterEvent.MemberRemoved])
 
@@ -38,16 +38,11 @@ class ClusterMain extends Actor with ActorLogging {
   def initialised(aggregator: ActorRef): Receive = {
     case MemberUp(member) =>
       log.info("MemberUp {} with roles {}", member.uniqueAddress, member.roles)
-      aggregator ! NodeUp(member.address, member.roles.head)
+      aggregator ! MetricsAggregator.NodeUp(member.address, member.roles.head)
 
     case MemberRemoved(member, _) =>
       log.info("MemberRemoved {} with roles {}", member.uniqueAddress, member.roles)
-      aggregator ! NodeDown(member.address)
+      aggregator ! MetricsAggregator.NodeDown(member.address)
   }
 
-  val replicator = DistributedData(context.system).replicator
-
-  val mediator = DistributedPubSub(context.system).mediator
-
-  ClusterMetricsExtension(context.system)
 }

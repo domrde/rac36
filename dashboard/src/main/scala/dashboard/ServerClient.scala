@@ -1,8 +1,6 @@
 package dashboard
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Address}
-import dashboard.ShardingStatsListener.ShardingStats
-import messages.Messages.CoordinateWithType
 import play.api.libs.json.{JsError, JsSuccess, Json}
 
 /**
@@ -19,16 +17,9 @@ class ServerClient extends Actor with ActorLogging {
   import ServerClient._
 
   implicit val addressWrite = Json.writes[Address]
-  implicit val memoryMetricsWrite = Json.writes[ClusterMetricsListener.MemoryMetrics]
-  implicit val cpuMetricsWrite = Json.writes[ClusterMetricsListener.CpuMetrics]
-  implicit val coordWrite = Json.writes[CoordinateWithType]
-  implicit val ddataStatusWrite = Json.writes[DdataListener.DdataStatus]
-  implicit val shardMetricWrite = Json.writes[ShardingStatsListener.RegionMetric]
-  implicit val shardMetricsWrite = Json.writes[ShardingStatsListener.RegionMetrics]
   implicit val launchCommandReads = Json.reads[LaunchCommand]
-  implicit val shardingStatsWrite = Json.writes[ShardingStats]
-  implicit val nodeUpWrite = Json.writes[ClusterMain.NodeUp]
-  implicit val nodeDownWrite = Json.writes[ClusterMain.NodeDown]
+  implicit val metricWrites = Json.writes[MetricsAggregator.NodeMetrics]
+  implicit val metricsWrites = Json.writes[MetricsAggregator.CollectedMetrics]
 
   override def receive: Receive = {
     case Connected(connection) =>
@@ -36,8 +27,6 @@ class ServerClient extends Actor with ActorLogging {
       context.parent ! Server.Join
   }
 
-
-  //todo: organize metrics in trait
   def connected(connection: ActorRef): Receive = {
       case IncomingMessage(text) =>
         Json.parse(text).validate[LaunchCommand] match {
@@ -48,25 +37,7 @@ class ServerClient extends Actor with ActorLogging {
             log.error("Failed to validate json [{}]", text)
         }
 
-      case c: ClusterMain.NodeUp =>
-        connection ! OutgoingMessage(Json.stringify(Json.toJson(c)))
-
-      case c: ClusterMain.NodeDown =>
-        connection ! OutgoingMessage(Json.stringify(Json.toJson(c)))
-
-      case c: ShardingStats =>
-        connection ! OutgoingMessage(Json.stringify(Json.toJson(c)))
-
-      case c: ClusterMetricsListener.MemoryMetrics =>
-        connection ! OutgoingMessage(Json.stringify(Json.toJson(c)))
-
-      case c: ClusterMetricsListener.CpuMetrics =>
-        connection ! OutgoingMessage(Json.stringify(Json.toJson(c)))
-
-      case c: DdataListener.DdataStatus =>
-        connection ! OutgoingMessage(Json.stringify(Json.toJson(c)))
-
-      case c: ShardingStatsListener.RegionMetrics =>
+      case c: MetricsAggregator.CollectedMetrics =>
         connection ! OutgoingMessage(Json.stringify(Json.toJson(c)))
 
       case other =>

@@ -10,7 +10,6 @@ body {
     background-color: #ffd8af;
     /*color: #dc7816;*/
     color: black;
-
 }
 
 .panel {
@@ -18,7 +17,9 @@ body {
 }
 
 .little-panel {
-    width: 25%;
+    display: inline-block;
+    margin-right: 5px;
+    width: 24%;
 }
 
 .vm-pipe-panel {
@@ -35,4 +36,16 @@ body {
 
 .vm-unknown {
     background-color: #aaaaaa;
+}
+
+.progress {
+    position: relative;
+    text-align: center;
+}
+
+.progress span {
+    position: absolute;
+    display: block;
+    width: 100%;
+    color: black;
 }
