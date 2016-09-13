@@ -1,7 +1,5 @@
 package pipe
 
-import java.util.UUID
-
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.Send
@@ -27,7 +25,7 @@ object ZmqActor {
     Props(classOf[ZmqActor], url)
   }
 
-  case class WorkWithQueue(topic: UUID)
+  case class WorkWithQueue(topic: String)
   case object Poll
   case object HowManyClients
   case class ClientsInfo(url: String, amount: Int)
@@ -44,7 +42,7 @@ class ZmqActor(url: String) extends Actor with ActorLogging {
 
   val router = ZeroMQ.bindRouterSocket(url)
   val mediator = DistributedPubSub(context.system).mediator
-  var clients: Set[UUID] = Set.empty
+  var clients: Set[String] = Set.empty
   val avatarAddress = config.getString("application.avatarAddress")
 
   @scala.throws[Exception](classOf[Exception])

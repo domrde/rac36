@@ -1,7 +1,5 @@
 package pipe
 
-import java.util.UUID
-
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.Send
@@ -28,7 +26,7 @@ class TunnelManager extends Actor with ActorLogging {
 
   override def receive = receiveWithClientsStorage(Map.empty)
 
-  def receiveWithClientsStorage(clients: Map[UUID, ActorRef]): Receive = {
+  def receiveWithClientsStorage(clients: Map[String, ActorRef]): Receive = {
     case ctr: CreateAvatar =>
       lowestFinder ! ToTmWithLowestLoad(ctr, self)
       log.info("Tunnel create request, sending to lowest load")
@@ -36,18 +34,18 @@ class TunnelManager extends Actor with ActorLogging {
     case ToTmWithLowestLoad(ctr, returnAddress) =>
       mediator ! Send(avatarAddress, ctr, localAffinity = false)
       log.info("I'm with lowest load, requesting avatar")
-      context.become(receiveWithClientsStorage(clients + (ctr.uuid -> returnAddress)))
+      context.become(receiveWithClientsStorage(clients + (ctr.id -> returnAddress)))
 
-    case ac @ AvatarCreated(uuid) =>
-      worker ! ZmqActor.WorkWithQueue(uuid)
-      clients(uuid) ! ToReturnAddress(ac, url)
-      context.become(receiveWithClientsStorage(clients - uuid))
-      log.info("Avatar and tunnel created with uuid [{}], sending result to original sender [{}]", uuid, sender())
+    case ac @ AvatarCreated(id) =>
+      worker ! ZmqActor.WorkWithQueue(id)
+      clients(id) ! ToReturnAddress(ac, url)
+      context.become(receiveWithClientsStorage(clients - id))
+      log.info("Avatar and tunnel created with id [{}], sending result to original sender [{}]", id, sender())
 
     case ToReturnAddress(ac, tunnelUrl) =>
-      val uuid = ac.uuid
-      worker ! ZmqActor.TunnelCreated(tunnelUrl, uuid.toString)
-      log.info("I'm the original sender. Printing tunnel info with topic [{}] to client.", uuid)
+      val id = ac.id
+      worker ! ZmqActor.TunnelCreated(tunnelUrl, id.toString)
+      log.info("I'm the original sender. Printing tunnel info with topic [{}] to client.", id)
 
     case other =>
       log.error("TunnelManager: other {} from {}", other, sender())

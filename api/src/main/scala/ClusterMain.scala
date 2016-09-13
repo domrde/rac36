@@ -1,14 +1,9 @@
-package avatar
-
 import akka.actor.{Actor, ActorLogging}
 import akka.cluster.ClusterEvent.{CurrentClusterState, MemberRemoved, MemberUp}
 import akka.cluster.ddata.DistributedData
 import akka.cluster.metrics.ClusterMetricsExtension
 import akka.cluster.pubsub.DistributedPubSub
-import akka.cluster.pubsub.DistributedPubSubMediator.Put
-import akka.cluster.sharding.{ClusterSharding, ClusterShardingSettings, ShardRegion}
 import akka.cluster.{Cluster, ClusterEvent}
-import messages.Messages.NumeratedMessage
 
 class ClusterMain extends Actor with ActorLogging {
   val cluster = Cluster(context.system)
@@ -30,37 +25,15 @@ class ClusterMain extends Actor with ActorLogging {
     case MemberRemoved(member, _) => log.info("MemberRemoved {} with roles {}", member.uniqueAddress, member.roles)
   }
 
-  val extractEntityId: ShardRegion.ExtractEntityId = {
-    case m: NumeratedMessage => (m.id, m)
-  }
-
-  val numberOfShards = 100 // ten times of expected
-  val extractShardId: ShardRegion.ExtractShardId = {
-    case m: NumeratedMessage => Math.floorMod(m.id.hashCode, numberOfShards).toString
-  }
-
   val replicator = DistributedData(context.system).replicator
-
-  val cache = context.actorOf(ReplicatedSet())
-
-  val shard = ClusterSharding(context.system).start(
-    typeName = "Avatar",
-    entityProps = Avatar(cache),
-    settings = ClusterShardingSettings(context.system),
-    extractEntityId = extractEntityId,
-    extractShardId = extractShardId
-  )
 
   val mediator = DistributedPubSub(context.system).mediator
 
   ClusterMetricsExtension(context.system)
 
   def startMainSystem() = {
-    mediator ! Put(shard)
     context.become(initialised)
-    log.info("\n---------------------------------------------------------------------------")
-    log.info("\n\nAvatar cluster started with mediator [{}], shard [{}] and replicator [{}]\n",
-      mediator, shard, replicator)
-    log.info("\n---------------------------------------------------------------------------")
+    log.info("\n\nApi cluster started with mediator [{}], shard [{}] and replicator [{}]\n",
+      mediator, replicator)
   }
 }

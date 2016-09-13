@@ -86,6 +86,18 @@ lazy val dashboard = (project in file("dashboard")).
   ).
   dependsOn(messages)
 
+lazy val api = (project in file("api")).
+  settings(commonSettings: _*).
+  settings(
+    name := "api",
+    libraryDependencies ++= Seq(
+      "com.typesafe.akka" %% "akka-http-core" % akkaVersion,
+      "com.typesafe.akka" %% "akka-http-experimental" % akkaVersion,
+      "com.typesafe.play" %% "play-json" % "2.5.4"
+    )
+  ).
+  dependsOn(messages)
+
 lazy val test = (project in file("test")).
   settings(commonSettings: _*).
   settings(SbtMultiJvm.multiJvmSettings: _*).
@@ -98,12 +110,12 @@ lazy val test = (project in file("test")).
       "com.typesafe.play" %% "play-json" % "2.5.4"
     )
   ).
-  dependsOn(messages, pipe, avatar)
+  dependsOn(messages, pipe, avatar, api)
 
 lazy val root = (project in file(".")).
   settings(commonSettings: _*).
   settings(
     name := "root"
   ).
-  dependsOn(pipe, avatar, dashboard, test)
+  dependsOn(pipe, avatar, dashboard, test, api)
 

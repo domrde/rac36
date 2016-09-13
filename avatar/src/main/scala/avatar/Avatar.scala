@@ -1,7 +1,5 @@
 package avatar
 
-import java.util.UUID
-
 import akka.actor.{ActorLogging, ActorRef, Props}
 import akka.persistence.{PersistentActor, SaveSnapshotFailure, SaveSnapshotSuccess, SnapshotOffer}
 import avatar.Avatar.AvatarState
@@ -17,7 +15,7 @@ import messages.Messages._
 // todo: avatar must have local storage of sensory info so it's only updates the difference http://www.lightbend.com/activator/template/akka-sample-distributed-data-scala
 // todo: think about using ddata instead of persistence
 object Avatar {
-  case class AvatarState(uuid: UUID, commands: List[Command], tunnel: ActorRef)
+  case class AvatarState(id: String, commands: List[Command], tunnel: ActorRef)
 
   def apply(cache: ActorRef) = Props(classOf[Avatar], cache)
 }

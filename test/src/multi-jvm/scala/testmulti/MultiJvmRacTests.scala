@@ -1,7 +1,5 @@
 package testmulti
 
-import java.util.UUID
-
 import _root_.pipetest.TunnelCreator
 import akka.actor.Props
 import akka.cluster.Cluster
@@ -104,7 +102,7 @@ class SampleMultiJvmRacSpecNode2 extends MultiJvmRacTests {
         def sendCameraDataToAvatar() = {
           val probe = TestProbe()
           camera.tell(GetInfo, probe.ref)
-          val sensory = Sensory(UUID.fromString(tunnel._3), probe.expectMsgType[Sensory].sensoryPayload)
+          val sensory = Sensory(tunnel._3, probe.expectMsgType[Sensory].sensoryPayload)
           tunnel._1.send("|" + Json.stringify(Json.toJson(sensory)))
           sensory.sensoryPayload
         }

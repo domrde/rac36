@@ -77,7 +77,7 @@ abstract class MultiJvmAvatarTests extends MultiNodeSpec(MultiNodeAvatarTestsCon
   }
 
   def createSingleAvatar() = {
-    val uuid = UUID.randomUUID()
+    val uuid = UUID.randomUUID().toString
     val pipe = TestProbe()
     mediator ! Put(pipe.ref)
 

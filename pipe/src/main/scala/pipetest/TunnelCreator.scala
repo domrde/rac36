@@ -34,7 +34,7 @@ class TunnelCreator(actorSystem: ActorSystem) {
   val mediator = DistributedPubSub(system).mediator
 
 
-  def apiJson(uuid: String) = "{\"uuid\":\"" + uuid.toString + "\"," +
+  def apiJson(id: String) = "{\"id\":\"" + id.toString + "\"," +
     " \"api\":{\"commands\":[{\"name\":\"test\", \"range\":{\"lower\":1, \"upper\":10}}]}}"
 
   implicit val tunnelCreatedReads: Reads[TunnelCreated] = (
@@ -45,7 +45,7 @@ class TunnelCreator(actorSystem: ActorSystem) {
   val avatarMaster = actor("TestAvatarSharding")(new Act {
     mediator ! Put(self)
     become {
-      case CreateAvatar(uuid, api) => sender.tell(AvatarCreated(uuid), self)
+      case CreateAvatar(id, api) => sender.tell(AvatarCreated(id), self)
       case a: TunnelEndpoint =>
       case anything => sender ! anything
     }
@@ -66,11 +66,11 @@ class TunnelCreator(actorSystem: ActorSystem) {
     become {
       case "new" =>
         val dealer = ZeroMQ.connectDealerToPort("tcp://localhost:" + config.getInt("application.ports.input"))
-        val uuid = UUID.randomUUID().toString
-        dealer.setIdentity(uuid.getBytes())
+        val id = UUID.randomUUID().toString
+        dealer.setIdentity(id.getBytes())
         val storage = new ConcurrentLinkedQueue[String]()
         queues = (dealer, storage) :: queues
-        sender ! (dealer, storage, uuid)
+        sender ! (dealer, storage, id)
 
       case "poll" =>
         queues.foreach { case (dealer, queue) =>
@@ -85,8 +85,8 @@ class TunnelCreator(actorSystem: ActorSystem) {
   def createTunnel(target: ActorRef) = {
     val probe = TestProbe()
     reader.tell("new", probe.ref)
-    val (dealer, queue, uuid) = probe.expectMsgType[(ZMQ.Socket, ConcurrentLinkedQueue[String], String)]
-    dealer.send("|" + apiJson(uuid))
+    val (dealer, queue, id) = probe.expectMsgType[(ZMQ.Socket, ConcurrentLinkedQueue[String], String)]
+    dealer.send("|" + apiJson(id))
     var rawMessage = queue.poll()
     while (rawMessage == null) {
       rawMessage = queue.poll()
@@ -94,7 +94,7 @@ class TunnelCreator(actorSystem: ActorSystem) {
     }
     val rawJson = rawMessage.splitAt(rawMessage.indexOf("|"))._2.drop(1)
     val tunnel: TunnelCreated = Json.parse(rawJson).validate[TunnelCreated].get
-    assert(tunnel.topic == uuid)
+    assert(tunnel.topic == id)
     (dealer, tunnel.url, tunnel.topic, queue)
   }
 
