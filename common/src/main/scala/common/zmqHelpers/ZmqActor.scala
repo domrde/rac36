@@ -3,7 +3,6 @@ package common.zmqHelpers
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
 import akka.routing.{ActorRefRoutee, RoundRobinRoutingLogic, Router}
 import com.typesafe.config.ConfigFactory
-import common.SharedMessages._
 import org.zeromq.ZMQ
 
 import scala.concurrent.duration._
@@ -58,11 +57,9 @@ class ZmqActor(url: String, validator: Props, stringifier: Props, receiver: Acto
 
   override def receive: Receive = {
     case n: NumeratedMessage =>
-      log.info("NumeratedMessage: {}", n)
       stringifiersFan.route(JsonStringifier.Stringify(n, Some(n.id)), self)
 
     case JsonStringifier.StringifyResult(asText, Some(topic: String)) =>
-      log.info("StringifyResult: {}", asText)
       router.sendMore(topic.toString.getBytes)
       router.send("|" + asText)
 
@@ -71,11 +68,7 @@ class ZmqActor(url: String, validator: Props, stringifier: Props, receiver: Acto
       if (received != null) readQueue(received)
 
     case JsonValidator.ValidationResult(result) =>
-      log.info("ValidationResult: {}", result)
       result match {
-        case a: CreateAvatar =>
-          receiver ! a
-
         case n: NumeratedMessage =>
           receiver ! result
 

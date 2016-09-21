@@ -19,17 +19,24 @@ import scala.language.postfixOps
 /**
   * Created by dda on 7/27/16.
   */
-class PipeTests extends TestKit(ActorSystem("ClusterSystem")) with WordSpecLike with Matchers
-  with BeforeAndAfterAll  with TimeLimitedTests {
-
+object PipeTests {
+  val staticSystem = ActorSystem("ClusterSystem")
+  val tunnelCreator = new TunnelCreator(staticSystem)
   val config = ConfigFactory.load()
-  system.actorOf(Props[ClusterMain])
-  implicit val timeout: Timeout = 3 seconds
-  val timeLimit: Span = 20 seconds
-  val tunnelCreator = new TunnelCreator(system)
-  val zmqHelpers = ZeroMQHelper(system)
+  staticSystem.actorOf(Props[ClusterMain])
+  val zmqHelpers = ZeroMQHelper(staticSystem)
+}
 
-  // todo: tests doesn't work in parallel
+class PipeTests(_system: ActorSystem) extends TestKit(_system) with WordSpecLike with Matchers
+  with BeforeAndAfterAll  with TimeLimitedTests {
+  import PipeTests._
+
+  def this() = this(PipeTests.staticSystem)
+
+  val timeLimit: Span = 20 seconds
+
+  implicit val timeout: Timeout = 3 seconds
+
   "Tunnel" must {
 
     "find avatar master and request avatar creation" in {

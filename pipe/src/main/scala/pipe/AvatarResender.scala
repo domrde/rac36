@@ -33,7 +33,6 @@ class AvatarResender(tunnelManager: ActorRef) extends Actor with ActorLogging {
 
   def receiveWithClients(clients: Set[String]): Receive = {
     case WorkWithQueue(topic) =>
-      log.info("WorkWithQueue({})", topic)
       context.become(receiveWithClients(clients + topic))
       sendToAvatar(TunnelEndpoint(topic, self))
 
