@@ -10,7 +10,7 @@ import akka.util.Timeout
 import avatar.ReplicatedSet
 import avatar.ReplicatedSet.{Lookup, LookupResult}
 import com.typesafe.config.ConfigFactory
-import messages.Messages.{Position, Sensory}
+import common.SharedMessages.{Position, Sensory}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 import play.api.libs.json.Json
 import test.CameraStub

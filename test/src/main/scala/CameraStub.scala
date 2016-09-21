@@ -1,7 +1,7 @@
 package test
 
 import akka.actor.{Actor, ActorLogging}
-import messages.Messages.{Position, Sensory}
+import common.SharedMessages.{Position, Sensory}
 import test.CameraStub.{GetInfo, MoveRobot}
 
 import scala.language.postfixOps

@@ -2,8 +2,8 @@ package dashboard
 
 import akka.actor.{Actor, ActorLogging, Address, Props}
 import com.typesafe.config.ConfigFactory
+import common.SharedMessages.Position
 import dashboard.ServerClient.LaunchCommand
-import messages.Messages.Position
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._

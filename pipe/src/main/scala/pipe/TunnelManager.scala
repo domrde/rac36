@@ -4,10 +4,9 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.Send
 import com.typesafe.config.ConfigFactory
-import messages.Messages.{AvatarCreated, _}
-import pipe.LowestLoadFinder.{ToReturnAddress, ToTmWithLowestLoad}
-
-import scala.util.Random
+import common.SharedMessages.{AvatarCreated, _}
+import common.zmqHelpers.ZeroMQHelper
+import pipe.LowestLoadFinder.{ClientsInfo, ToReturnAddress, ToTmWithLowestLoad}
 
 /**
   * Created by dda on 24.04.16.
@@ -17,12 +16,21 @@ import scala.util.Random
 class TunnelManager extends Actor with ActorLogging {
 
   val config = ConfigFactory.load()
+
   val url = "tcp://" + config.getString("akka.remote.netty.tcp.hostname") + ":" + config.getInt("application.ports.input")
-  val worker = context.actorOf(ZmqActor(url), "QueueToActor" + Random.nextLong())
-  val lowestFinder = context.actorOf(Props[LowestLoadFinder], "Sharer")
+  val port = config.getInt("application.ports.input")
   val avatarAddress = config.getString("application.avatarAddress")
+  val zmqReceiver = context.actorOf(AvatarResender(self))
+  val worker = ZeroMQHelper(context.system).start(
+    url = "tcp://" + config.getString("akka.remote.netty.tcp.hostname"),
+    portLower = port,
+    portUpper = port,
+    zmqReceiver
+  ).head
+
+  val lowestFinder = context.actorOf(Props[LowestLoadFinder], "Sharer")
   val mediator = DistributedPubSub(context.system).mediator
-  worker.tell(ZmqActor.HowManyClients, lowestFinder)
+  lowestFinder ! ClientsInfo(url, 0)
 
   override def receive = receiveWithClientsStorage(Map.empty)
 
@@ -37,20 +45,21 @@ class TunnelManager extends Actor with ActorLogging {
       context.become(receiveWithClientsStorage(clients + (ctr.id -> returnAddress)))
 
     case ac @ AvatarCreated(id) =>
-      worker ! ZmqActor.WorkWithQueue(id)
+      zmqReceiver ! AvatarResender.WorkWithQueue(id)
       clients(id) ! ToReturnAddress(ac, url)
+      lowestFinder ! ClientsInfo(url, clients.size)
       context.become(receiveWithClientsStorage(clients - id))
       log.info("Avatar and tunnel created with id [{}], sending result to original sender [{}]", id, sender())
 
     case ToReturnAddress(ac, tunnelUrl) =>
       val id = ac.id
-      worker ! ZmqActor.TunnelCreated(tunnelUrl, id.toString)
+      worker ! TunnelCreated(tunnelUrl, id.toString)
       log.info("I'm the original sender. Printing tunnel info with topic [{}] to client.", id)
 
     case other =>
       log.error("TunnelManager: other {} from {}", other, sender())
   }
 
-  log.info("TunnelManager initialized for parent [{}] with avatarAddress [{}] and mediator [{}]",
-    context.parent, avatarAddress, mediator)
+  log.info("TunnelManager initialized for parent [{}] with mediator [{}]",
+    context.parent, mediator)
 }

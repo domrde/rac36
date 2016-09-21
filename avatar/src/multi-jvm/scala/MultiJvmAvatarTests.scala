@@ -13,7 +13,7 @@ import akka.util.Timeout
 import avatar.Avatar.AvatarState
 import avatar.ClusterMain
 import com.typesafe.config.ConfigFactory
-import messages.Messages._
+import common.SharedMessages._
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -83,7 +83,7 @@ abstract class MultiJvmAvatarTests extends MultiNodeSpec(MultiNodeAvatarTestsCon
 
     sendMessageToMediator(CreateAvatar(uuid, api), pipe.ref)
     val a: AvatarCreated = pipe.expectMsgType[AvatarCreated](timeout.duration)
-    a.uuid shouldBe uuid
+    a.id shouldBe uuid
 
     (1 to 5).foreach( i => sendMessageToMediator(GetState(uuid), pipe.ref) )
 
@@ -153,15 +153,15 @@ abstract class MultiJvmAvatarTests extends MultiNodeSpec(MultiNodeAvatarTestsCon
         val probe = TestProbe()
         val uuids = (1 to 3).map(_ => createSingleAvatar())
         val result = uuids.flatMap { uuid =>
-          val coords = (1 to 3).map(_ => CoordinateWithType(Random.nextInt(), Random.nextInt(), Random.nextInt())).toSet
+          val coords = (1 to 3).map(_ => Position(Random.nextString(5), Random.nextInt(), Random.nextInt(), Random.nextInt())).toSet
           sendMessageToMediator(Sensory(uuids.head, coords), probe.ref)
           coords
         }
 
         val replicator = DistributedData(system).replicator
         awaitAssert {
-          replicator.tell(Get(messages.Constants.DdataSetKey, ReadLocal, None), probe.ref)
-          val set = probe.expectMsgType[GetSuccess[ORSet[CoordinateWithType]]].dataValue.elements
+          replicator.tell(Get(common.Constants.DdataSetKey, ReadLocal, None), probe.ref)
+          val set = probe.expectMsgType[GetSuccess[ORSet[Position]]].dataValue.elements
           result.foreach(coord => assert(set.contains(coord)))
         }
       }

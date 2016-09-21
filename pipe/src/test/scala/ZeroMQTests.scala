@@ -3,9 +3,9 @@ import java.util.UUID
 import akka.actor.ActorSystem
 import akka.testkit.TestKit
 import akka.util.Timeout
+import common.zmqHelpers.ZeroMQHelper
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 import org.zeromq.ZMQ
-import pipe.ZeroMQ
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -16,10 +16,9 @@ import scala.util.Random
 /**
   * Created by dda on 7/27/16.
   */
-
-class ZeroMQTests(_system: ActorSystem) extends TestKit(_system) with WordSpecLike with Matchers with BeforeAndAfterAll {
-  def this() = this(ZeroMQ.system)
+class ZeroMQTests extends TestKit(ActorSystem("ClusterSystem")) with WordSpecLike with Matchers with BeforeAndAfterAll {
   implicit val timeout: Timeout = 2 second
+  val zmqHelpers = ZeroMQHelper(system)
 
   "ZeroMQ" must {
 
@@ -32,12 +31,12 @@ class ZeroMQTests(_system: ActorSystem) extends TestKit(_system) with WordSpecLi
         val client = clientGetter(address)
         client.setIdentity(uuid.getBytes)
         client.send("|StartingMessage")
-        ZeroMQ.receiveMessage(server) shouldBe (uuid + "|StartingMessage")
+        zmqHelpers.receiveMessage(server) shouldBe (uuid + "|StartingMessage")
         (1 to messagesAmount).foreach { i =>
           server.sendMore(uuid.getBytes)
           server.send("|Message" + i)
           //Client ignores identity of himself
-          ZeroMQ.receiveMessage(client) shouldBe ("|Message" + i)
+          zmqHelpers.receiveMessage(client) shouldBe ("|Message" + i)
         }
       }
     }
@@ -52,7 +51,7 @@ class ZeroMQTests(_system: ActorSystem) extends TestKit(_system) with WordSpecLi
         client.setIdentity(uuid.getBytes)
         (1 to messagesAmount).foreach { i =>
           client.send("|Message" + i)
-          ZeroMQ.receiveMessage(server) shouldBe (uuid + "|Message" + i)
+          zmqHelpers.receiveMessage(server) shouldBe (uuid + "|Message" + i)
         }
       }
     }
@@ -73,20 +72,20 @@ class ZeroMQTests(_system: ActorSystem) extends TestKit(_system) with WordSpecLi
       })
 
       val results = Await.result(Future.sequence(futures), 10 seconds).flatten
-      val messages = (1 to results.length).map(_ => ZeroMQ.receiveMessage(server))
+      val messages = (1 to results.length).map(_ => zmqHelpers.receiveMessage(server))
       messages.foreach(message => assert(results.contains(message)))
     }
 
     "router-server dealer-client client->server" in {
-      syncClientToServer( (addr) => ZeroMQ.bindRouterSocket(addr), (addr) => ZeroMQ.connectDealerToPort(addr), 20, 20 )
+      syncClientToServer( (addr) => zmqHelpers.bindRouterSocket(addr), (addr) => zmqHelpers.connectDealerToPort(addr), 20, 20 )
     }
 
     "router-server dealer-client server->client" in {
-      syncServerToClient( (addr) => ZeroMQ.bindRouterSocket(addr), (addr) => ZeroMQ.connectDealerToPort(addr), 20, 20 )
+      syncServerToClient( (addr) => zmqHelpers.bindRouterSocket(addr), (addr) => zmqHelpers.connectDealerToPort(addr), 20, 20 )
     }
 
     "async router-server dealer-client client->server" in {
-      asyncClientToServer( (addr) => ZeroMQ.bindRouterSocket(addr), (addr) => ZeroMQ.connectDealerToPort(addr), 5, 5 )
+      asyncClientToServer( (addr) => zmqHelpers.bindRouterSocket(addr), (addr) => zmqHelpers.connectDealerToPort(addr), 5, 5 )
     }
   }
 

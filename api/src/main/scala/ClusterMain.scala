@@ -1,4 +1,4 @@
-import akka.actor.{Actor, ActorLogging}
+import akka.actor.{Actor, ActorLogging, Props}
 import akka.cluster.ClusterEvent.{CurrentClusterState, MemberRemoved, MemberUp}
 import akka.cluster.ddata.DistributedData
 import akka.cluster.metrics.ClusterMetricsExtension
@@ -25,15 +25,15 @@ class ClusterMain extends Actor with ActorLogging {
     case MemberRemoved(member, _) => log.info("MemberRemoved {} with roles {}", member.uniqueAddress, member.roles)
   }
 
-  val replicator = DistributedData(context.system).replicator
+  DistributedData(context.system).replicator
 
-  val mediator = DistributedPubSub(context.system).mediator
+  DistributedPubSub(context.system).mediator
 
   ClusterMetricsExtension(context.system)
 
   def startMainSystem() = {
     context.become(initialised)
-    log.info("\n\nApi cluster started with mediator [{}], shard [{}] and replicator [{}]\n",
-      mediator, replicator)
+    context.actorOf(Props[ApiActor], "ApiActor")
+    log.info("\n\nApi cluster started\n")
   }
 }

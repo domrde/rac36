@@ -4,8 +4,8 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.cluster.Cluster
 import akka.cluster.ddata.Replicator._
 import akka.cluster.ddata._
-import messages.Constants.DdataSetKey
-import messages.Messages.Position
+import common.Constants.DdataSetKey
+import common.SharedMessages.Position
 
 // todo: extend example so it may be used with different sensor types
 object ReplicatedSet {
@@ -21,7 +21,7 @@ class ReplicatedSet extends Actor with ActorLogging {
   import ReplicatedSet._
 
   val replicator = DistributedData(context.system).replicator
-    implicit val cluster = Cluster(context.system)
+  implicit val cluster = Cluster(context.system)
 
   def receive = {
     case AddAll(values) =>

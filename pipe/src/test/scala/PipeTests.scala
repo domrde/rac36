@@ -4,10 +4,11 @@ import akka.actor.{ActorSystem, Props}
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
+import common.zmqHelpers.ZeroMQHelper
 import org.scalatest.concurrent.TimeLimitedTests
 import org.scalatest.time.Span
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
-import pipe.{ClusterMain, ZeroMQ}
+import pipe.ClusterMain
 import pipetest.TunnelCreator
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -18,18 +19,17 @@ import scala.language.postfixOps
 /**
   * Created by dda on 7/27/16.
   */
-// todo: tests doesn't work in parallel
-class PipeTests(_system: ActorSystem) extends TestKit(_system) with WordSpecLike with Matchers
+class PipeTests extends TestKit(ActorSystem("ClusterSystem")) with WordSpecLike with Matchers
   with BeforeAndAfterAll  with TimeLimitedTests {
 
   val config = ConfigFactory.load()
-  def this() = this(ZeroMQ.system)
   system.actorOf(Props[ClusterMain])
   implicit val timeout: Timeout = 3 seconds
   val timeLimit: Span = 20 seconds
   val tunnelCreator = new TunnelCreator(system)
+  val zmqHelpers = ZeroMQHelper(system)
 
-
+  // todo: tests doesn't work in parallel
   "Tunnel" must {
 
     "find avatar master and request avatar creation" in {
@@ -54,7 +54,8 @@ class PipeTests(_system: ActorSystem) extends TestKit(_system) with WordSpecLike
     }
 
     "work correctly if getting malformed json as tunnel created message" in {
-      val dealer = ZeroMQ.connectDealerToPort("tcp://localhost:" + config.getInt("application.ports.input"))
+      Thread.sleep(3000)
+      val dealer = zmqHelpers.connectDealerToPort("tcp://localhost:" + config.getInt("application.ports.input"))
       dealer.send("|malformed message 1")
       dealer.send("malformed message 2")
       dealer.setIdentity(UUID.randomUUID().toString.getBytes())

@@ -4,8 +4,8 @@ import akka.actor.{Actor, ActorLogging, ActorRef}
 import akka.cluster.client.ClusterClient.Publish
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.{Subscribe, SubscribeAck}
-import messages.Constants._
-import messages.Messages.{AvatarCreated, CreateAvatar}
+import common.Constants._
+import common.SharedMessages.{AvatarCreated, CreateAvatar}
 
 /**
   * Created by dda on 8/25/16.
@@ -14,6 +14,7 @@ object LowestLoadFinder {
   @SerialVersionUID(1L) case class PipeInfo(tm: ActorRef, url: String, load: Int)
   @SerialVersionUID(1L) case class ToTmWithLowestLoad(ctr: CreateAvatar, returnAddress: ActorRef)
   @SerialVersionUID(1L) case class ToReturnAddress(at: AvatarCreated, url: String)
+  @SerialVersionUID(1L) case class ClientsInfo(url: String, amount: Int)
 }
 
 class LowestLoadFinder extends Actor with ActorLogging {
@@ -25,7 +26,7 @@ class LowestLoadFinder extends Actor with ActorLogging {
 
   //todo: проверить, что паб/саб не перемешиваются и не мешают друг другу
   val initial: Receive = {
-    case ZmqActor.ClientsInfo(url, amount) =>
+    case ClientsInfo(url, amount) =>
       mediator ! Publish(PIPE_SUBSCRIPTION, PipeInfo(context.parent, url, amount))
       context.become(receiveWithLoadInfo(Map(context.parent -> (url, amount))))
 
@@ -40,7 +41,7 @@ class LowestLoadFinder extends Actor with ActorLogging {
 
 
   def receiveWithLoadInfo(info: Map[ActorRef, (String, Int)]): Receive = {
-    case ZmqActor.ClientsInfo(url, amount) =>
+    case ClientsInfo(url, amount) =>
       mediator ! Publish(PIPE_SUBSCRIPTION, PipeInfo(context.parent, url, amount))
 
     case PipeInfo(tm, url, load) =>

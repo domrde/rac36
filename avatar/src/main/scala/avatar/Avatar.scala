@@ -1,9 +1,9 @@
 package avatar
 
-import akka.actor.{ActorLogging, ActorRef, Props}
+import akka.actor.{ActorLogging, ActorRef}
 import akka.persistence.{PersistentActor, SaveSnapshotFailure, SaveSnapshotSuccess, SnapshotOffer}
 import avatar.Avatar.AvatarState
-import messages.Messages._
+import common.SharedMessages._
 
 /**
   * Created by dda on 8/2/16.
@@ -16,16 +16,16 @@ import messages.Messages._
 // todo: think about using ddata instead of persistence
 object Avatar {
   case class AvatarState(id: String, commands: List[Command], tunnel: ActorRef)
-
-  def apply(cache: ActorRef) = Props(classOf[Avatar], cache)
 }
 
-class Avatar(cache: ActorRef) extends PersistentActor with ActorLogging {
+class Avatar extends PersistentActor with ActorLogging {
   log.info("\nAVATAR CREATED {}", self)
 
   override val persistenceId: String = "Avatar" + self.path.name
 
   var state = AvatarState(null, List.empty, ActorRef.noSender)
+
+  val cache = context.actorOf(ReplicatedSet())
 
   override def receiveRecover: Receive = {
     case CreateAvatar(id, api) =>
@@ -48,19 +48,21 @@ class Avatar(cache: ActorRef) extends PersistentActor with ActorLogging {
       persist(AvatarState(id, state.commands, endpoint)) (newState => state = newState)
       saveSnapshot(state)
 
-    case s: SaveSnapshotSuccess =>
-
-    case s: SaveSnapshotFailure =>
-
-    case p: GetState =>
+    case p: GetState => // for tests
       sender() ! state
 
     case Sensory(id, sensoryPayload) =>
       cache ! ReplicatedSet.AddAll(sensoryPayload)
 
-    // Control from API
+    case GetListOfAvailableCommands(id) =>
+      sender() ! ListOfAvailableCommands(id, Api(state.commands))
+
     case c @ Control(id, command) if state.commands.contains(command) =>
       state.tunnel ! c
+
+    case s: SaveSnapshotSuccess =>
+
+    case s: SaveSnapshotFailure =>
 
     case other =>
       log.error("\nAvatar: other [{}] from [{}]", other, sender())

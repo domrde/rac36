@@ -8,6 +8,7 @@ lazy val commonSettings = Seq(
   scalaVersion := "2.11.8",
   libraryDependencies ++= {
     Seq(
+      "ch.qos.logback" % "logback-classic" % "1.1.7",
       "com.typesafe.akka" %% "akka-actor" % akkaVersion,
       "com.typesafe.akka" %% "akka-remote" % akkaVersion,
       "com.typesafe.akka" %% "akka-cluster" % akkaVersion,
@@ -40,23 +41,22 @@ lazy val additionalMultiJvmSettings = Seq(
   }
 )
 
-lazy val messages = (project in file("messages")).
+lazy val common = (project in file("common")).
   settings(commonSettings: _*).
   settings(
-    name := "messages"
+    name := "common",
+    libraryDependencies ++= Seq(
+      "org.zeromq" % "jeromq" % "0.3.5",
+      "com.typesafe.play" %% "play-json" % "2.5.4"
+    )
   )
 
 lazy val pipe = (project in file("pipe")).
   settings(commonSettings: _*).
   settings(
-    name := "pipe",
-    libraryDependencies ++= Seq(
-      "ch.qos.logback" % "logback-classic" % "1.0.13",
-      "org.zeromq" % "jeromq" % "0.3.5",
-      "com.typesafe.play" %% "play-json" % "2.5.4"
-    )
+    name := "pipe"
   ).
-  dependsOn(messages)
+  dependsOn(common)
 
 lazy val avatar = (project in file("avatar")).
   settings(commonSettings: _*).
@@ -71,7 +71,7 @@ lazy val avatar = (project in file("avatar")).
       "com.typesafe.akka" %% "akka-persistence" % akkaVersion
     )
   ).
-  dependsOn(messages)
+  dependsOn(common)
 
 lazy val dashboard = (project in file("dashboard")).
   settings(commonSettings: _*).
@@ -80,11 +80,10 @@ lazy val dashboard = (project in file("dashboard")).
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-cluster-sharding" % akkaVersion,
       "com.typesafe.akka" %% "akka-http-core" % akkaVersion,
-      "com.typesafe.akka" %% "akka-http-experimental" % akkaVersion,
-      "com.typesafe.play" %% "play-json" % "2.5.4"
+      "com.typesafe.akka" %% "akka-http-experimental" % akkaVersion
     )
   ).
-  dependsOn(messages)
+  dependsOn(common)
 
 lazy val api = (project in file("api")).
   settings(commonSettings: _*).
@@ -92,11 +91,10 @@ lazy val api = (project in file("api")).
     name := "api",
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-http-core" % akkaVersion,
-      "com.typesafe.akka" %% "akka-http-experimental" % akkaVersion,
-      "com.typesafe.play" %% "play-json" % "2.5.4"
+      "com.typesafe.akka" %% "akka-http-experimental" % akkaVersion
     )
   ).
-  dependsOn(messages)
+  dependsOn(common)
 
 lazy val test = (project in file("test")).
   settings(commonSettings: _*).
@@ -106,11 +104,10 @@ lazy val test = (project in file("test")).
   settings(
     name := "test",
     libraryDependencies ++= Seq(
-      "com.typesafe.akka" %% "akka-multi-node-testkit" % akkaVersion % "test",
-      "com.typesafe.play" %% "play-json" % "2.5.4"
+      "com.typesafe.akka" %% "akka-multi-node-testkit" % akkaVersion % "test"
     )
   ).
-  dependsOn(messages, pipe, avatar, api)
+  dependsOn(common, pipe, avatar, api)
 
 lazy val root = (project in file(".")).
   settings(commonSettings: _*).

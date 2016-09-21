@@ -4,8 +4,8 @@ import akka.actor.{Actor, ActorLogging}
 import akka.cluster.Cluster
 import akka.cluster.ddata.Replicator._
 import akka.cluster.ddata.{DistributedData, ORSet}
-import messages.Constants.DdataSetKey
-import messages.Messages.Position
+import common.Constants.DdataSetKey
+import common.SharedMessages.Position
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._

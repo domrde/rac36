@@ -10,12 +10,10 @@ import akka.cluster.pubsub.DistributedPubSubMediator.Put
 import akka.testkit.TestProbe
 import akka.util.{ByteString, Timeout}
 import com.typesafe.config.ConfigFactory
-import messages.Messages.{AvatarCreated, CreateAvatar, TunnelEndpoint}
+import common.SharedMessages.{AvatarCreated, CreateAvatar, TunnelCreated, TunnelEndpoint}
+import common.zmqHelpers.ZeroMQHelper
 import org.zeromq.ZMQ
-import pipe.ZeroMQ
-import pipe.ZmqActor.TunnelCreated
-import play.api.libs.functional.syntax._
-import play.api.libs.json.{JsPath, Json, Reads}
+import play.api.libs.json._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -33,14 +31,12 @@ class TunnelCreator(actorSystem: ActorSystem) {
 
   val mediator = DistributedPubSub(system).mediator
 
+  val zmqHelpers = ZeroMQHelper(system)
+
+  implicit val tunnelCreatedReads = Json.reads[TunnelCreated]
 
   def apiJson(id: String) = "{\"id\":\"" + id.toString + "\"," +
     " \"api\":{\"commands\":[{\"name\":\"test\", \"range\":{\"lower\":1, \"upper\":10}}]}}"
-
-  implicit val tunnelCreatedReads: Reads[TunnelCreated] = (
-    (JsPath \ "url").read[String] and
-      (JsPath \ "topic").read[String]
-    )(TunnelCreated.apply _)
 
   val avatarMaster = actor("TestAvatarSharding")(new Act {
     mediator ! Put(self)
@@ -65,7 +61,7 @@ class TunnelCreator(actorSystem: ActorSystem) {
 
     become {
       case "new" =>
-        val dealer = ZeroMQ.connectDealerToPort("tcp://localhost:" + config.getInt("application.ports.input"))
+        val dealer = zmqHelpers.connectDealerToPort("tcp://localhost:" + config.getInt("application.ports.input"))
         val id = UUID.randomUUID().toString
         dealer.setIdentity(id.getBytes())
         val storage = new ConcurrentLinkedQueue[String]()
@@ -94,8 +90,8 @@ class TunnelCreator(actorSystem: ActorSystem) {
     }
     val rawJson = rawMessage.splitAt(rawMessage.indexOf("|"))._2.drop(1)
     val tunnel: TunnelCreated = Json.parse(rawJson).validate[TunnelCreated].get
-    assert(tunnel.topic == id)
-    (dealer, tunnel.url, tunnel.topic, queue)
+    assert(tunnel.id == id)
+    (dealer, tunnel.url, tunnel.id, queue)
   }
 
 }

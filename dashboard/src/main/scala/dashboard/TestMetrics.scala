@@ -3,9 +3,9 @@ package dashboard
 import akka.actor.{Actor, Address}
 import dashboard.MetricsAggregator._
 
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
 import scala.util.Random
-import concurrent.duration._
-import concurrent.ExecutionContext.Implicits.global
 
 /**
   * Created by dda on 9/12/16.
