@@ -12,7 +12,7 @@ import pipe.AvatarResender.WorkWithQueue
   */
 // todo: remove dead clients
 object AvatarResender {
-  case class WorkWithQueue(topic: String)
+  case class WorkWithQueue(topic: String, zmqActor: ActorRef)
 
   def apply(tunnelManager: ActorRef) = {
     Props(classOf[AvatarResender], tunnelManager)
@@ -23,7 +23,7 @@ class AvatarResender(tunnelManager: ActorRef) extends Actor with ActorLogging {
 
   val config = ConfigFactory.load()
 
-  val avatarAddress = config.getString("application.avatarAddress")
+  val avatarAddress = config.getString("pipe.avatarAddress")
 
   val mediator = DistributedPubSub(context.system).mediator
 
@@ -32,14 +32,15 @@ class AvatarResender(tunnelManager: ActorRef) extends Actor with ActorLogging {
   override def receive = receiveWithClients(Set.empty)
 
   def receiveWithClients(clients: Set[String]): Receive = {
-    case WorkWithQueue(topic) =>
+    case WorkWithQueue(topic, zmqActor) =>
       context.become(receiveWithClients(clients + topic))
-      sendToAvatar(TunnelEndpoint(topic, self))
+      sendToAvatar(TunnelEndpoint(topic, zmqActor))
 
     case c: CreateAvatar =>
       tunnelManager ! c
 
     case n: NumeratedMessage if clients.contains(n.id) =>
+      // BIG FUCKING ERROR
       sendToAvatar(n)
 
     case other =>

@@ -66,7 +66,7 @@ abstract class MultiJvmAvatarTests extends MultiNodeSpec(MultiNodeAvatarTestsCon
 
   val mediator = DistributedPubSub(system).mediator
 
-  val api = Api(List(Command("TestCommand", Option.empty)))
+  val api = Api(List(Command("TestCommand", ArgumentRange(1, 10))))
 
   def sendMessageToMediator(msg: AnyRef, from: ActorRef): Unit = {
     mediator.tell(Send(

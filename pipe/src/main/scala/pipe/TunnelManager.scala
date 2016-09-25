@@ -17,9 +17,9 @@ class TunnelManager extends Actor with ActorLogging {
 
   val config = ConfigFactory.load()
 
-  val url = "tcp://" + config.getString("akka.remote.netty.tcp.hostname") + ":" + config.getInt("application.ports.input")
-  val port = config.getInt("application.ports.input")
-  val avatarAddress = config.getString("application.avatarAddress")
+  val url = "tcp://" + config.getString("akka.remote.netty.tcp.hostname") + ":" + config.getInt("pipe.ports.input")
+  val port = config.getInt("pipe.ports.input")
+  val avatarAddress = config.getString("pipe.avatarAddress")
   val zmqReceiver = context.actorOf(AvatarResender(self))
   val worker = ZeroMQHelper(context.system).start(
     url = "tcp://" + config.getString("akka.remote.netty.tcp.hostname"),
@@ -45,16 +45,16 @@ class TunnelManager extends Actor with ActorLogging {
       context.become(receiveWithClientsStorage(clients + (ctr.id -> returnAddress)))
 
     case ac @ AvatarCreated(id) =>
-      zmqReceiver ! AvatarResender.WorkWithQueue(id)
       clients(id) ! ToReturnAddress(ac, url)
+      zmqReceiver ! AvatarResender.WorkWithQueue(id, worker)
+      //todo: that's wrong: clients are not tunnel clients
       lowestFinder ! ClientsInfo(url, clients.size)
       context.become(receiveWithClientsStorage(clients - id))
       log.info("Avatar and tunnel created with id [{}], sending result to original sender [{}]", id, sender())
 
     case ToReturnAddress(ac, tunnelUrl) =>
-      val id = ac.id
-      worker ! TunnelCreated(tunnelUrl, id.toString)
-      log.info("I'm the original sender. Printing tunnel info with topic [{}] to client.", id)
+      worker ! TunnelCreated(tunnelUrl, ac.id.toString)
+      log.info("I'm the original sender. Printing tunnel info with topic [{}] to client.", ac.id)
 
     case other =>
       log.error("TunnelManager: other {} from {}", other, sender())

@@ -1,3 +1,5 @@
+package api
+
 import akka.actor.{Actor, ActorLogging, Props}
 import akka.cluster.ClusterEvent.{CurrentClusterState, MemberRemoved, MemberUp}
 import akka.cluster.ddata.DistributedData

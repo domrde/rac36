@@ -19,7 +19,8 @@ lazy val commonSettings = Seq(
       "com.typesafe.akka" %% "akka-testkit" % akkaVersion,
       "org.scalatest" %% "scalatest" % "2.2.6",
       "com.typesafe.akka" %% "akka-distributed-data-experimental" % akkaVersion,
-      "io.kamon" % "sigar-loader" % "1.6.6-rev002"
+      "io.kamon" % "sigar-loader" % "1.6.6-rev002",
+      "com.github.romix.akka" %% "akka-kryo-serialization" % "0.4.1"
     )
   }
 )
@@ -114,5 +115,5 @@ lazy val root = (project in file(".")).
   settings(
     name := "root"
   ).
-  dependsOn(pipe, avatar, dashboard, test, api)
+  dependsOn(test)
 

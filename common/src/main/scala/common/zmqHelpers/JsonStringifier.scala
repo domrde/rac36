@@ -1,7 +1,8 @@
 package common.zmqHelpers
 
 import akka.actor.{Actor, ActorLogging}
-import common.SharedMessages.{ArgumentRange, Command, Control, TunnelCreated}
+import common.ApiActor.GetAvailableCommandsResult
+import common.SharedMessages.{Control, TunnelCreated}
 import play.api.libs.json.Json
 
 /**
@@ -14,21 +15,20 @@ object JsonStringifier {
 
 class JsonStringifier extends Actor with ActorLogging {
   import JsonStringifier._
+  import common.Implicits._
 
   override def receive: Receive = {
-    case Stringify(msg: TunnelCreated, request) =>
+    case Stringify(msg: Control, request) =>
       sender() ! StringifyResult(Json.stringify(Json.toJson(msg)), request)
 
-    case Stringify(msg: Control, request) =>
+    case Stringify(msg: GetAvailableCommandsResult, request) =>
+      sender() ! StringifyResult(Json.stringify(Json.toJson(msg)), request)
+
+    case Stringify(msg: TunnelCreated, request) =>
       sender() ! StringifyResult(Json.stringify(Json.toJson(msg)), request)
 
     case other =>
       log.error("JsonStringifier: other [{}] from [{}]", other, sender())
   }
-
-  implicit val tunnelInfoWrites = Json.writes[TunnelCreated]
-  implicit val rangeWrites = Json.writes[ArgumentRange]
-  implicit val commandWrites = Json.writes[Command]
-  implicit val controlWrites = Json.writes[Control]
 
 }

@@ -2,7 +2,6 @@ package common.zmqHelpers
 
 import akka.actor.{Actor, ActorLogging}
 import akka.util.ByteString
-import common.SharedMessages._
 import play.api.libs.json.{JsError, JsSuccess, JsValue, Json}
 
 import scala.util.{Failure, Success, Try}
@@ -17,14 +16,9 @@ object JsonValidator {
 
 class JsonValidator extends Actor with ActorLogging {
   import JsonValidator._
+  import common.Implicits._
 
-  implicit val rangeReads = Json.reads[ArgumentRange]
-  implicit val commandReads = Json.reads[Command]
-  implicit val apiReads = Json.reads[Api]
-  implicit val createAvatarReads = Json.reads[CreateAvatar]
-  implicit val posReads = Json.reads[Position]
-  implicit val sensoryReads = Json.reads[Sensory]
-  lazy val allReads = List(apiReads, createAvatarReads, sensoryReads)
+  lazy val allReads = List(apiReads, createAvatarReads, sensoryReads, sendCommandToAvatarReads, availableCommandsReads)
 
   override def receive: Receive = {
     case Validate(bytes) =>

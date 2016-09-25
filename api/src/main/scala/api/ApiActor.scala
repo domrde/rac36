@@ -1,3 +1,5 @@
+package api
+
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import akka.cluster.ddata.Replicator.{Get, GetSuccess, NotFound, ReadLocal}
 import akka.cluster.ddata.{DistributedData, ORSet}
@@ -6,28 +8,28 @@ import akka.cluster.pubsub.DistributedPubSubMediator.Send
 import com.typesafe.config.ConfigFactory
 import common.Constants._
 import common.SharedMessages._
+import common.zmqHelpers.ZeroMQHelper
 
 /**
   * Created by dda on 9/13/16.
   */
-object ApiActor {
-  @SerialVersionUID(1L) case object GetInfoFromSharedStorage
-  @SerialVersionUID(1L) case class GetInfoFromSharedStorageResult(info: AnyRef)
-
-  @SerialVersionUID(1L) case class GetAvailableCommands(robotId: String)
-  @SerialVersionUID(1L) case class GetAvailableCommandsResult(robotId: String, commands: List[Command])
-
-  @SerialVersionUID(1L) case class SendCommandToAvatar(id: String, command: Command)
-}
-
+//todo: sensory data not through ddata
+//todo: do no set commands to not created avatars
+//todo: only one contolling app
 class ApiActor extends Actor with ActorLogging {
-  import ApiActor._
+  import common.ApiActor._
 
   val mediator = DistributedPubSub(context.system).mediator
   val replicator = DistributedData(context.system).replicator
   val config = ConfigFactory.load()
-  val avatarAddress = config.getString("application.avatarAddress")
-  val url = "tcp://" + config.getString("akka.remote.netty.tcp.hostname") + ":" + config.getInt("application.ports.input")
+  val avatarAddress = config.getString("api.avatarAddress")
+
+  val worker = ZeroMQHelper(context.system).start(
+    url = "tcp://" + config.getString("akka.remote.netty.tcp.hostname"),
+    portLower = config.getInt("api.ports.input"),
+    portUpper = config.getInt("api.ports.input"),
+    self
+  ).head
 
   def sendToAvatar(msg: AnyRef) = {
     mediator ! Send(avatarAddress, msg, localAffinity = false)
@@ -35,6 +37,8 @@ class ApiActor extends Actor with ActorLogging {
 
   override def receive: Receive = receiveWithClients(Map.empty)
 
+
+  //todo: replace actor clients with zmq ids
   def receiveWithClients(clients: Map[String, ActorRef]): Receive = {
 
     // Shared info handling
@@ -63,10 +67,10 @@ class ApiActor extends Actor with ActorLogging {
 
     // Avatar control
 
-    case SendCommandToAvatar(id, command) =>
-      sendToAvatar(Control(id, command))
+    case SendCommandToAvatar(id, name, value) =>
+      sendToAvatar(Control(id, name, value))
 
     case other =>
-      log.error("\nAvatarControl: other [{}] from [{}]", other, sender())
+      log.error("\nApiActor: other [{}] from [{}]", other, sender())
   }
 }

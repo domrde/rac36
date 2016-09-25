@@ -57,7 +57,7 @@ class Avatar extends PersistentActor with ActorLogging {
     case GetListOfAvailableCommands(id) =>
       sender() ! ListOfAvailableCommands(id, Api(state.commands))
 
-    case c @ Control(id, command) if state.commands.contains(command) =>
+    case c: Control =>
       state.tunnel ! c
 
     case s: SaveSnapshotSuccess =>

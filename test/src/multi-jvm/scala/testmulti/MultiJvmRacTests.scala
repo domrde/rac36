@@ -10,7 +10,7 @@ import akka.util.Timeout
 import avatar.ReplicatedSet
 import avatar.ReplicatedSet.{Lookup, LookupResult}
 import com.typesafe.config.ConfigFactory
-import common.SharedMessages.{Position, Sensory}
+import common.SharedMessages.{Control, Position, Sensory}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 import play.api.libs.json.Json
 import test.CameraStub
@@ -27,6 +27,7 @@ import scala.concurrent.{Await, Future}
 object MultiNodeRacTestsConfig extends MultiNodeConfig {
   val first  = role("Avatar")
   val second = role("Pipe")
+  val third = role("Api")
 
   commonConfig(ConfigFactory.parseString(
     """
@@ -45,6 +46,23 @@ object MultiNodeRacTestsConfig extends MultiNodeConfig {
       akka.cluster.metrics.periodic-tasks-initial-delay = 10m
       kamon.sigar.folder = ""
       application.avatarAddress = "/system/AvatarSharding/Avatar"
+      api.ports.input  = 34575
+      pipe.ports.input = 34670
+      extensions = ["com.romix.akka.serialization.kryo.KryoSerializationExtension$"]
+      akka.actor.serializers {
+        kryo = "com.romix.akka.serialization.kryo.KryoSerializer"
+      }
+      akka.actor.serialization-bindings {
+       "common.GlobalMessages" = kryo
+       "common.SharedMessages$NumeratedMessage" = kryo
+       "java.io.Serializable" = none
+       "akka.actor.Identify" = akka-misc
+       "akka.actor.ActorIdentity" = akka-misc
+       "scala.Some" = akka-misc
+       "scala.None$" = akka-misc
+     }
+     akka.actor.kryo.idstrategy = automatic
+     akka.actor.kryo.resolve-subclasses = true
     """))
 }
 
@@ -53,6 +71,9 @@ class SampleMultiJvmRacSpecNode1 extends MultiJvmRacTests {
 
   "Avatar" must {
     "create tunnel" in {
+
+      testConductor.enter("Creating tunnel")
+      log.info("\n------>Avatar: Creating tunnel")
 
       awaitCond {
         val probe = TestProbe()
@@ -72,7 +93,14 @@ class SampleMultiJvmRacSpecNode1 extends MultiJvmRacTests {
         result.result.contains(sensory)
       }
 
-      testConductor.enter("Creating tunnel")
+      testConductor.enter("Tunnel created")
+      log.info("\n------>Avatar: Tunnel created")
+      testConductor.enter("Start sending command")
+      log.info("\n------>Avatar: Start sending command")
+      testConductor.enter("Robot receiving command")
+      log.info("\n------>Avatar: Robot receiving command")
+      testConductor.enter("Done")
+      log.info("\n------>Avatar: Done")
     }
 
     "wait 2 sec" in {
@@ -97,7 +125,11 @@ class SampleMultiJvmRacSpecNode2 extends MultiJvmRacTests {
   "Pipe" must {
     "create tunnel" in {
       runOn(second) {
-        val tunnel = tunnelCreator.createTunnel(TestProbe().ref)
+
+        testConductor.enter("Creating tunnel")
+        log.info("\n------>Pipe: Creating tunnel")
+
+        val tunnel = tunnelCreator.createTunnel(TestProbe().ref, "MultiJvmRacTests1")
 
         def sendCameraDataToAvatar() = {
           val probe = TestProbe()
@@ -117,12 +149,64 @@ class SampleMultiJvmRacSpecNode2 extends MultiJvmRacTests {
           result.result.contains(data)
         }
 
-        testConductor.enter("Creating tunnel")
+        testConductor.enter("Tunnel created")
+        log.info("\n------>Pipe: Tunnel created")
+        testConductor.enter("Start sending command")
+        log.info("\n------>Pipe: Start sending command")
+        testConductor.enter("Robot receiving command")
+        log.info("\n------>Pipe: Robot receiving command")
+
+        tunnelCreator.readCommandFromQueue(tunnel._4) shouldBe Control("MultiJvmRacTests1", "test", 1)
+
+        testConductor.enter("Done")
+        log.info("\n------>Pipe: Done")
       }
     }
 
     "wait 2 sec" in {
       runOn(second) {
+        Thread.sleep(2000)
+        testConductor.enter("Two seconds elapsed")
+      }
+    }
+  }
+}
+
+class SampleMultiJvmRacSpecNode3 extends MultiJvmRacTests {
+  import MultiNodeRacTestsConfig._
+
+  val tunnelCreator = new TunnelCreator(system)
+
+  "Api" must {
+    "create tunnel" in {
+      runOn(third) {
+        testConductor.enter("Creating tunnel")
+        log.info("\n------>Api: Creating tunnel")
+        testConductor.enter("Tunnel created")
+        log.info("\n------>Api: Tunnel created")
+        testConductor.enter("Start sending command")
+        log.info("\n------>Api: Requesting list of available commands")
+
+        val requestResult = tunnelCreator.requestRobotCommands("MultiJvmRacTests1")
+
+        log.info("\n------>Api: Commands acquired, sending control")
+
+        tunnelCreator.sendControlToRobot(
+          "MultiJvmRacTests1",
+          requestResult._3.head.name,
+          requestResult._3.head.range.lower,
+          requestResult._1
+        )
+
+        testConductor.enter("Robot receiving command")
+        log.info("\n------>Api: Robot receiving command")
+        testConductor.enter("Done")
+        log.info("\n------>Api: Done")
+      }
+    }
+
+    "wait 2 sec" in {
+      runOn(third) {
         Thread.sleep(2000)
         testConductor.enter("Two seconds elapsed")
       }
@@ -141,13 +225,15 @@ abstract class MultiJvmRacTests extends MultiNodeSpec(MultiNodeRacTestsConfig) w
 
   override def initialParticipants = roles.size
 
-  implicit val timeout: Timeout = 10.seconds
+  implicit val timeout: Timeout = 30.seconds
 
   val map =
-    "#----1-\n" +
-    "-#-----\n" +
-    "--#--2-\n" +
-    "---#---\n"
+    "######################\n" +
+    "#----1---------------#\n" +
+    "-#-------------------#\n" +
+    "--#--2---------------#\n" +
+    "---#-----------------#\n" +
+    "######################\n"
 
   val camera = system.actorOf(Props(classOf[CameraStub], map))
 
@@ -155,6 +241,7 @@ abstract class MultiJvmRacTests extends MultiNodeSpec(MultiNodeRacTestsConfig) w
 
   val firstAddress = node(first).address
   val secondAddress = node(second).address
+  val thirdAddress = node(third).address
 
   "Multiple nodes" must {
 
@@ -170,23 +257,28 @@ abstract class MultiJvmRacTests extends MultiNodeSpec(MultiNodeRacTestsConfig) w
         system.actorOf(Props[pipe.ClusterMain], "ClusterMain")
       }
 
+      runOn(third) {
+        system.actorOf(Props[api.ClusterMain], "ClusterMain")
+      }
+
       Thread.sleep(1000)
 
       val clusters = Await.result(Future.sequence(List(
         system.actorSelection(firstAddress + "/user/ClusterMain").resolveOne(timeout.duration),
-        system.actorSelection(secondAddress + "/user/ClusterMain").resolveOne(timeout.duration)
+        system.actorSelection(secondAddress + "/user/ClusterMain").resolveOne(timeout.duration),
+        system.actorSelection(thirdAddress + "/user/ClusterMain").resolveOne(timeout.duration)
       )), timeout.duration)
 
       assert(clusters.map(_.path.toString).count(_.contains("/user/ClusterMain")) == roles.size)
 
       testConductor.enter("ClusterMain started")
 
-      runOn(first, second) {
+      runOn(first, second, third) {
         Cluster(system) join firstAddress
       }
 
       val expected =
-        Set(firstAddress, secondAddress)
+        Set(firstAddress, secondAddress, thirdAddress)
 
       awaitCond(
         Cluster(system).state.members.

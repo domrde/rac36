@@ -11,10 +11,10 @@ import common.SharedMessages.{AvatarCreated, CreateAvatar}
   * Created by dda on 8/25/16.
   */
 object LowestLoadFinder {
-  @SerialVersionUID(1L) case class PipeInfo(tm: ActorRef, url: String, load: Int)
-  @SerialVersionUID(1L) case class ToTmWithLowestLoad(ctr: CreateAvatar, returnAddress: ActorRef)
-  @SerialVersionUID(1L) case class ToReturnAddress(at: AvatarCreated, url: String)
-  @SerialVersionUID(1L) case class ClientsInfo(url: String, amount: Int)
+  @SerialVersionUID(101L) case class PipeInfo(tm: ActorRef, url: String, load: Int)
+  @SerialVersionUID(101L) case class ToTmWithLowestLoad(ctr: CreateAvatar, returnAddress: ActorRef)
+  @SerialVersionUID(101L) case class ToReturnAddress(at: AvatarCreated, url: String)
+  @SerialVersionUID(101L) case class ClientsInfo(url: String, amount: Int)
 }
 
 class LowestLoadFinder extends Actor with ActorLogging {

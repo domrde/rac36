@@ -40,13 +40,13 @@ class PipeTests(_system: ActorSystem) extends TestKit(_system) with WordSpecLike
   "Tunnel" must {
 
     "find avatar master and request avatar creation" in {
-      tunnelCreator.createTunnel(TestProbe().ref)
+      tunnelCreator.createTunnel(TestProbe().ref, "123")
     }
 
     "create multiple tunnels" in {
       (1 to 5).foreach { i =>
         println(i)
-        tunnelCreator.createTunnel(TestProbe().ref)
+        tunnelCreator.createTunnel(TestProbe().ref, "abc" + i)
         println("Done")
       }
     }
@@ -54,14 +54,14 @@ class PipeTests(_system: ActorSystem) extends TestKit(_system) with WordSpecLike
     "async create multiple tunnels" in {
       val futures = (1 to 3).map(i => Future {
         println(i)
-        tunnelCreator.createTunnel(TestProbe().ref)
+        tunnelCreator.createTunnel(TestProbe().ref, "cde" + i)
         println("Done")
       })
       Await.result(Future.sequence(futures), 10 seconds)
     }
 
+    //doesn't really works
     "work correctly if getting malformed json as tunnel created message" in {
-      Thread.sleep(3000)
       val dealer = zmqHelpers.connectDealerToPort("tcp://localhost:" + config.getInt("application.ports.input"))
       dealer.send("|malformed message 1")
       dealer.send("malformed message 2")
