@@ -62,7 +62,7 @@ class PipeTests(_system: ActorSystem) extends TestKit(_system) with WordSpecLike
 
     //doesn't really works
     "work correctly if getting malformed json as tunnel created message" in {
-      val dealer = zmqHelpers.connectDealerToPort("tcp://localhost:" + config.getInt("application.ports.input"))
+      val dealer = zmqHelpers.connectDealerToPort("tcp://localhost:" + config.getInt("pipe.ports.input"))
       dealer.send("|malformed message 1")
       dealer.send("malformed message 2")
       dealer.setIdentity(UUID.randomUUID().toString.getBytes())

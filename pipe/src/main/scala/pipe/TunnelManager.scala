@@ -6,11 +6,12 @@ import akka.cluster.pubsub.DistributedPubSubMediator.Send
 import com.typesafe.config.ConfigFactory
 import common.SharedMessages.{AvatarCreated, _}
 import common.zmqHelpers.ZeroMQHelper
-import pipe.LowestLoadFinder.{ClientsInfo, ToReturnAddress, ToTmWithLowestLoad}
+import pipe.LowestLoadFinder.{IncrementClients, ToReturnAddress, ToTmWithLowestLoad}
 
 /**
   * Created by dda on 24.04.16.
   */
+//todo: check balancing really works
 //todo: use cluster metrics-based selection of lowest loaded TM
 //todo: use pool of ZmqActor to lower socket load http://doc.akka.io/docs/akka/current/scala/routing.html
 class TunnelManager extends Actor with ActorLogging {
@@ -19,6 +20,7 @@ class TunnelManager extends Actor with ActorLogging {
 
   val url = "tcp://" + config.getString("akka.remote.netty.tcp.hostname") + ":" + config.getInt("pipe.ports.input")
   val port = config.getInt("pipe.ports.input")
+
   val avatarAddress = config.getString("pipe.avatarAddress")
   val zmqReceiver = context.actorOf(AvatarResender(self))
   val worker = ZeroMQHelper(context.system).start(
@@ -30,7 +32,7 @@ class TunnelManager extends Actor with ActorLogging {
 
   val lowestFinder = context.actorOf(Props[LowestLoadFinder], "Sharer")
   val mediator = DistributedPubSub(context.system).mediator
-  lowestFinder ! ClientsInfo(url, 0)
+  lowestFinder ! IncrementClients(url)
 
   override def receive = receiveWithClientsStorage(Map.empty)
 
@@ -47,8 +49,7 @@ class TunnelManager extends Actor with ActorLogging {
     case ac @ AvatarCreated(id) =>
       clients(id) ! ToReturnAddress(ac, url)
       zmqReceiver ! AvatarResender.WorkWithQueue(id, worker)
-      //todo: that's wrong: clients are not tunnel clients
-      lowestFinder ! ClientsInfo(url, clients.size)
+      lowestFinder ! IncrementClients(url)
       context.become(receiveWithClientsStorage(clients - id))
       log.info("Avatar and tunnel created with id [{}], sending result to original sender [{}]", id, sender())
 

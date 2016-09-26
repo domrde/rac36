@@ -14,7 +14,7 @@ object LowestLoadFinder {
   @SerialVersionUID(101L) case class PipeInfo(tm: ActorRef, url: String, load: Int)
   @SerialVersionUID(101L) case class ToTmWithLowestLoad(ctr: CreateAvatar, returnAddress: ActorRef)
   @SerialVersionUID(101L) case class ToReturnAddress(at: AvatarCreated, url: String)
-  @SerialVersionUID(101L) case class ClientsInfo(url: String, amount: Int)
+  @SerialVersionUID(101L) case class IncrementClients(url: String)
 }
 
 class LowestLoadFinder extends Actor with ActorLogging {
@@ -26,9 +26,9 @@ class LowestLoadFinder extends Actor with ActorLogging {
 
   //todo: проверить, что паб/саб не перемешиваются и не мешают друг другу
   val initial: Receive = {
-    case ClientsInfo(url, amount) =>
-      mediator ! Publish(PIPE_SUBSCRIPTION, PipeInfo(context.parent, url, amount))
-      context.become(receiveWithLoadInfo(Map(context.parent -> (url, amount))))
+    case IncrementClients(url) =>
+      mediator ! Publish(PIPE_SUBSCRIPTION, PipeInfo(context.parent, url, 0))
+      context.become(receiveWithLoadInfo(Map(context.parent -> (url, 0))))
 
     case PipeInfo(tm, url, load) =>
       context.become(receiveWithLoadInfo(Map(tm -> (url, load))))
@@ -41,8 +41,8 @@ class LowestLoadFinder extends Actor with ActorLogging {
 
 
   def receiveWithLoadInfo(info: Map[ActorRef, (String, Int)]): Receive = {
-    case ClientsInfo(url, amount) =>
-      mediator ! Publish(PIPE_SUBSCRIPTION, PipeInfo(context.parent, url, amount))
+    case IncrementClients(url) =>
+      mediator ! Publish(PIPE_SUBSCRIPTION, PipeInfo(context.parent, url, info(context.parent)._2 + 1))
 
     case PipeInfo(tm, url, load) =>
       context.become(receiveWithLoadInfo(info + (tm -> (url, load))))

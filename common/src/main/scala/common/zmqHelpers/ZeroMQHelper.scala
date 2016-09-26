@@ -33,7 +33,7 @@ class ZeroMQHelper(system: ActorSystem, zmqContext: ZMQ.Context) extends Extensi
             portUpper: Int,
             targetAddress: ActorRef): IndexedSeq[ActorRef] = {
     (portLower to portUpper).map(port =>
-      system.actorOf(ZmqActor(url + ":" + port, validator, stringifier, targetAddress)))
+      system.actorOf(ZmqActor(url, port, validator, stringifier, targetAddress)))
   }
 
   def start(url: String,

@@ -6,6 +6,7 @@ import com.typesafe.config.ConfigFactory
 import org.zeromq.ZMQ
 
 import scala.concurrent.duration._
+import scala.util.{Failure, Success, Try}
 
 /**
   * Created by dda on 23.04.16.
@@ -13,23 +14,37 @@ import scala.concurrent.duration._
   * Clients of PIPE must use DEALER sockets to connect and interact with PIPE's ROUTER socket.
   *
   */
+
 object ZmqActor {
   val config = ConfigFactory.load()
 
-  def apply(url: String, validator: Props, stringifier: Props, receiver: ActorRef) = {
-    Props(classOf[ZmqActor], url, validator, stringifier, receiver)
+  def apply(url: String, port: Int, validator: Props, stringifier: Props, receiver: ActorRef) = {
+    Props(classOf[ZmqActor], url, port, validator, stringifier, receiver)
   }
 
   case object Poll
 }
 
-class ZmqActor(url: String, validator: Props, stringifier: Props, receiver: ActorRef) extends Actor with ActorLogging {
+class ZmqActor(url: String, port: Int, validator: Props, stringifier: Props, receiver: ActorRef) extends Actor with ActorLogging {
   import ZmqActor._
   import common.SharedMessages.NumeratedMessage
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
-  val router = ZeroMQHelper(context.system).bindRouterSocket(url)
+  val config = ConfigFactory.load()
+
+  def bindWithFallback(port: Int): ZMQ.Socket = {
+    Try {
+      ZeroMQHelper(context.system).bindRouterSocket(url + ":" + port)
+    } match {
+      case Failure(exception) => bindWithFallback(port + 1)
+      case Success(value) => value
+    }
+  }
+
+  val router =
+    if (port == 0) bindWithFallback(30000)
+    else bindWithFallback(port)
 
   var readersFan = {
     val routees = Vector.fill(5) {
