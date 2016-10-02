@@ -27,7 +27,6 @@ import scala.concurrent.{Await, Future}
 object MultiNodeRacTestsConfig extends MultiNodeConfig {
   val first  = role("Avatar-1")
   val second = role("Pipe-1")
-  val third = role("Api-1")
   val fourth = role("Avatar-2")
   val fifth = role("Pipe-2")
 
@@ -65,6 +64,7 @@ object MultiNodeRacTestsConfig extends MultiNodeConfig {
      }
      akka.actor.kryo.idstrategy = automatic
      akka.actor.kryo.resolve-subclasses = true
+     jars.nfs-directory = brain/target/scala-2.11/
     """))
 }
 
@@ -95,7 +95,6 @@ abstract class MultiJvmRacTests extends MultiNodeSpec(MultiNodeRacTestsConfig) w
 
   val firstAddress = node(first).address
   val secondAddress = node(second).address
-  val thirdAddress = node(third).address
   val fourthAddress = node(fourth).address
   val fifthAddress = node(fifth).address
 
@@ -113,10 +112,6 @@ abstract class MultiJvmRacTests extends MultiNodeSpec(MultiNodeRacTestsConfig) w
         system.actorOf(Props[pipe.ClusterMain], "ClusterMain")
       }
 
-      runOn(third) {
-        system.actorOf(Props[api.ClusterMain], "ClusterMain")
-      }
-
       runOn(fourth) {
         system.actorOf(Props[avatar.ClusterMain], "ClusterMain")
       }
@@ -130,7 +125,6 @@ abstract class MultiJvmRacTests extends MultiNodeSpec(MultiNodeRacTestsConfig) w
       val clusters = Await.result(Future.sequence(List(
         system.actorSelection(firstAddress + "/user/ClusterMain").resolveOne(timeout.duration),
         system.actorSelection(secondAddress + "/user/ClusterMain").resolveOne(timeout.duration),
-        system.actorSelection(thirdAddress + "/user/ClusterMain").resolveOne(timeout.duration),
         system.actorSelection(fourthAddress + "/user/ClusterMain").resolveOne(timeout.duration),
         system.actorSelection(fifthAddress + "/user/ClusterMain").resolveOne(timeout.duration)
       )), timeout.duration)
@@ -139,12 +133,12 @@ abstract class MultiJvmRacTests extends MultiNodeSpec(MultiNodeRacTestsConfig) w
 
       testConductor.enter("ClusterMain started")
 
-      runOn(first, second, third, fourth, fifth) {
+      runOn(first, second, fourth, fifth) {
         Cluster(system) join firstAddress
       }
 
       val expected =
-        Set(firstAddress, secondAddress, thirdAddress, fourthAddress, fifthAddress)
+        Set(firstAddress, secondAddress, fourthAddress, fifthAddress)
 
       awaitCond(
         Cluster(system).state.members.
@@ -187,11 +181,7 @@ class SampleMultiJvmRacSpecNode1 extends MultiJvmRacTests {
         }
 
         testConductor.enter("Tunnel created")
-        log.info("\n------>Avatar: Tunnel created")
-        testConductor.enter("Start sending command")
-        log.info("\n------>Avatar: Start sending command")
-        testConductor.enter("Robot receiving command")
-        log.info("\n------>Avatar: Robot receiving command")
+        Thread.sleep(1000)
         testConductor.enter("Done")
         log.info("\n------>Avatar: Done")
       }
@@ -219,12 +209,6 @@ class SampleMultiJvmRacSpecNode4 extends MultiJvmRacTests {
         testConductor.enter("Tunnel created")
         log.info("\n------>Avatar2: Tunnel created")
         Thread.sleep(1000)
-        testConductor.enter("Start sending command")
-        log.info("\n------>Avatar2: Start sending command")
-        Thread.sleep(1000)
-        testConductor.enter("Robot receiving command")
-        log.info("\n------>Avatar2: Robot receiving command")
-        Thread.sleep(1000)
         testConductor.enter("Done")
         log.info("\n------>Avatar2: Done")
       }
@@ -250,12 +234,6 @@ class SampleMultiJvmRacSpecNode5 extends MultiJvmRacTests {
         Thread.sleep(1000)
         testConductor.enter("Tunnel created")
         log.info("\n------>Pipe2: Tunnel created")
-        Thread.sleep(1000)
-        testConductor.enter("Start sending command")
-        log.info("\n------>Pipe2: Start sending command")
-        Thread.sleep(1000)
-        testConductor.enter("Robot receiving command")
-        log.info("\n------>Pipe2: Robot receiving command")
         Thread.sleep(1000)
         testConductor.enter("Done")
         log.info("\n------>Pipe2: Done")
@@ -307,15 +285,20 @@ class SampleMultiJvmRacSpecNode2 extends MultiJvmRacTests {
           result.result.contains(data)
         }
 
+        var rawMessage = tunnel._4.poll()
+        while (rawMessage == null) {
+          rawMessage = tunnel._4.poll()
+          Thread.sleep(1)
+        }
+
+        val rawJson = rawMessage.splitAt(rawMessage.indexOf("|"))._2.drop(1)
+
+        import common.Implicits._
+        Json.parse(rawJson).validate[Control].get shouldBe Control(tunnel._3, "testCommand")
+
         testConductor.enter("Tunnel created")
         log.info("\n------>Pipe: Tunnel created")
-        testConductor.enter("Start sending command")
-        log.info("\n------>Pipe: Start sending command")
-        testConductor.enter("Robot receiving command")
-        log.info("\n------>Pipe: Robot receiving command")
-
-        tunnelCreator.readCommandFromQueue(tunnel._4) shouldBe Control("MultiJvmRacTests1", "test", 1)
-
+        Thread.sleep(1000)
         testConductor.enter("Done")
         log.info("\n------>Pipe: Done")
       }
@@ -323,48 +306,6 @@ class SampleMultiJvmRacSpecNode2 extends MultiJvmRacTests {
 
     "wait 2 sec" in {
       runOn(second) {
-        Thread.sleep(2000)
-        testConductor.enter("Two seconds elapsed")
-      }
-    }
-  }
-}
-
-class SampleMultiJvmRacSpecNode3 extends MultiJvmRacTests {
-  import MultiNodeRacTestsConfig._
-
-  val tunnelCreator = new TunnelCreator(system)
-
-  "Api" must {
-    "create tunnel" in {
-      runOn(third) {
-        testConductor.enter("Creating tunnel")
-        log.info("\n------>Api: Creating tunnel")
-        testConductor.enter("Tunnel created")
-        log.info("\n------>Api: Tunnel created")
-        testConductor.enter("Start sending command")
-        log.info("\n------>Api: Requesting list of available commands")
-
-        val requestResult = tunnelCreator.requestRobotCommands("MultiJvmRacTests1")
-
-        log.info("\n------>Api: Commands acquired, sending control")
-
-        tunnelCreator.sendControlToRobot(
-          "MultiJvmRacTests1",
-          requestResult._3.head.name,
-          requestResult._3.head.range.lower,
-          requestResult._1
-        )
-
-        testConductor.enter("Robot receiving command")
-        log.info("\n------>Api: Robot receiving command")
-        testConductor.enter("Done")
-        log.info("\n------>Api: Done")
-      }
-    }
-
-    "wait 2 sec" in {
-      runOn(third) {
         Thread.sleep(2000)
         testConductor.enter("Two seconds elapsed")
       }

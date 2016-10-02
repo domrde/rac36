@@ -44,6 +44,7 @@ object MultiNodeAvatarTestsConfig extends MultiNodeConfig {
        akka.cluster.metrics.collector.enabled = off
        akka.cluster.metrics.periodic-tasks-initial-delay = 10m
        kamon.sigar.folder = ""
+       jars.nfs-directory = brain/target/scala-2.11/
     """))
 }
 
@@ -66,8 +67,6 @@ abstract class MultiJvmAvatarTests extends MultiNodeSpec(MultiNodeAvatarTestsCon
 
   val mediator = DistributedPubSub(system).mediator
 
-  val api = Api(List(Command("TestCommand", ArgumentRange(1, 10))))
-
   def sendMessageToMediator(msg: AnyRef, from: ActorRef): Unit = {
     mediator.tell(Send(
       path = "/system/AvatarSharding/Avatar",
@@ -78,16 +77,23 @@ abstract class MultiJvmAvatarTests extends MultiNodeSpec(MultiNodeAvatarTestsCon
 
   def createSingleAvatar() = {
     val uuid = UUID.randomUUID().toString
-    val pipe = TestProbe()
-    mediator ! Put(pipe.ref)
+    val tunnelManager = TestProbe()
+    mediator ! Put(tunnelManager.ref)
 
-    sendMessageToMediator(CreateAvatar(uuid, api), pipe.ref)
-    val a: AvatarCreated = pipe.expectMsgType[AvatarCreated](timeout.duration)
+    val zmqActor = TestProbe()
+
+    sendMessageToMediator(CreateAvatar(uuid, "brain-assembly-1.0.jar", "com.dda.brain.Brain"), tunnelManager.ref)
+    val a: AvatarCreated = tunnelManager.expectMsgType[AvatarCreated](timeout.duration)
     a.id shouldBe uuid
 
-    (1 to 5).foreach( i => sendMessageToMediator(GetState(uuid), pipe.ref) )
+    (1 to 5).foreach( i => sendMessageToMediator(GetState(uuid), tunnelManager.ref) )
 
-    pipe.receiveN(5) shouldBe List.fill(5)(AvatarState(uuid, api.commands, ActorRef.noSender))
+    tunnelManager.receiveN(5).map {
+      case a: AvatarState => a.id
+    } shouldBe List.fill(5)(uuid)
+
+    sendMessageToMediator(TunnelEndpoint(uuid, zmqActor.ref), zmqActor.ref)
+
     uuid
   }
 
@@ -187,7 +193,7 @@ abstract class MultiJvmAvatarTests extends MultiNodeSpec(MultiNodeAvatarTestsCon
           sendMessageToMediator(GetState(uuid), probe.ref)
           val state = probe.expectMsgType[AvatarState]
           // todo: that check should be enabled when snapshot and journal problem will be resolved
-          //          state shouldBe AvatarState(uuid, api.commands, probe.ref)
+          // state shouldBe AvatarState(uuid, probe.ref)
         }
 
         checkAvatarsReachable()
@@ -203,6 +209,8 @@ abstract class MultiJvmAvatarTests extends MultiNodeSpec(MultiNodeAvatarTestsCon
         awaitCond(Cluster(system).state.members != currentCondition, 1.minute)
 
         println("\n\n\n" +
+          "Members set changed" +
+          "\n\n\n" +
           currentCondition +
           "\n\n\n" +
           Cluster(system).state.members +

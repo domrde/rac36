@@ -6,6 +6,7 @@ lazy val akkaVersion = "2.4.10"
 lazy val commonSettings = Seq(
   version := "1.0",
   scalaVersion := "2.11.8",
+  organization := "com.dda",
   libraryDependencies ++= {
     Seq(
       "ch.qos.logback" % "logback-classic" % "1.1.7",
@@ -59,6 +60,18 @@ lazy val pipe = (project in file("pipe")).
   ).
   dependsOn(common)
 
+lazy val brain = (project in file("brain")).
+  settings(
+    version := "1.0",
+    scalaVersion := "2.11.8",
+    organization := "com.dda",
+    name := "brain",
+    libraryDependencies ++=
+      Seq(
+        "com.typesafe.akka" %% "akka-actor" % akkaVersion
+      )
+  )
+
 lazy val avatar = (project in file("avatar")).
   settings(commonSettings: _*).
   settings(SbtMultiJvm.multiJvmSettings: _*).
@@ -72,7 +85,7 @@ lazy val avatar = (project in file("avatar")).
       "com.typesafe.akka" %% "akka-persistence" % akkaVersion
     )
   ).
-  dependsOn(common)
+  dependsOn(common, brain)
 
 lazy val dashboard = (project in file("dashboard")).
   settings(commonSettings: _*).
@@ -80,17 +93,6 @@ lazy val dashboard = (project in file("dashboard")).
     name := "dashboard",
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-cluster-sharding" % akkaVersion,
-      "com.typesafe.akka" %% "akka-http-core" % akkaVersion,
-      "com.typesafe.akka" %% "akka-http-experimental" % akkaVersion
-    )
-  ).
-  dependsOn(common)
-
-lazy val api = (project in file("api")).
-  settings(commonSettings: _*).
-  settings(
-    name := "api",
-    libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-http-core" % akkaVersion,
       "com.typesafe.akka" %% "akka-http-experimental" % akkaVersion
     )
@@ -108,7 +110,7 @@ lazy val test = (project in file("test")).
       "com.typesafe.akka" %% "akka-multi-node-testkit" % akkaVersion % "test"
     )
   ).
-  dependsOn(common, pipe, avatar, api)
+  dependsOn(common, pipe, avatar)
 
 lazy val root = (project in file(".")).
   settings(commonSettings: _*).

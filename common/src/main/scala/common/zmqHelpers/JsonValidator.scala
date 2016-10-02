@@ -18,7 +18,7 @@ class JsonValidator extends Actor with ActorLogging {
   import JsonValidator._
   import common.Implicits._
 
-  lazy val allReads = List(apiReads, createAvatarReads, sensoryReads, sendCommandToAvatarReads, availableCommandsReads)
+  lazy val allReads = List(createAvatarReads, sensoryReads)
 
   override def receive: Receive = {
     case Validate(bytes) =>

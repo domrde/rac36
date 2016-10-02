@@ -9,15 +9,14 @@ import akka.cluster.pubsub.DistributedPubSubMediator.Put
 import akka.testkit.TestProbe
 import akka.util.{ByteString, Timeout}
 import com.typesafe.config.ConfigFactory
-import common.ApiActor.{GetAvailableCommands, GetAvailableCommandsResult, SendCommandToAvatar}
 import common.SharedMessages._
 import common.zmqHelpers.ZeroMQHelper
 import org.zeromq.ZMQ
 import play.api.libs.json._
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 
 /**
   * Created by dda on 9/10/16.
@@ -37,15 +36,13 @@ class TunnelCreator(actorSystem: ActorSystem) {
 
 
   def apiJson(id: String) = Json.stringify(Json.toJson(
-    CreateAvatar(id, Api(List(Command("test", ArgumentRange(1, 10)))))
+    CreateAvatar(id, "brain-assembly-1.0.jar", "com.dda.brain.Brain")
   ))
-
-  def getAvailableCommands(id: String) = Json.stringify(Json.toJson(GetAvailableCommands(id)))
 
   val avatarMaster = actor("TestAvatarSharding")(new Act {
     mediator ! Put(self)
     become {
-      case CreateAvatar(id, api) => sender.tell(AvatarCreated(id), self)
+      case CreateAvatar(id, _, _) => sender.tell(AvatarCreated(id), self)
       case a: TunnelEndpoint =>
       case anything => sender ! anything
     }
@@ -100,35 +97,6 @@ class TunnelCreator(actorSystem: ActorSystem) {
       (dealer, tunnel.url, tunnel.id, queue)
     }
     Await.result(future, 10.seconds)
-  }
-
-  def requestRobotCommands(id: String) = {
-    val probe = TestProbe()
-    reader.tell(ManageConnection(id, config.getInt("api.ports.input")), probe.ref)
-    val (dealer, queue) = probe.expectMsgType[(ZMQ.Socket, ConcurrentLinkedQueue[String])]
-    dealer.send("|" + getAvailableCommands(id))
-    var rawMessage = queue.poll()
-    while (rawMessage == null) {
-      rawMessage = queue.poll()
-      Thread.sleep(1)
-    }
-    val rawJson = rawMessage.splitAt(rawMessage.indexOf("|"))._2.drop(1)
-    val commands = Json.parse(rawJson).validate[GetAvailableCommandsResult].get
-    (dealer, queue, commands.commands)
-  }
-
-  def sendControlToRobot(id: String, name: String, value: Long, dealer: ZMQ.Socket) = {
-    dealer.send("|" + Json.stringify(Json.toJson(SendCommandToAvatar(id, name, value))))
-  }
-
-  def readCommandFromQueue(queue: ConcurrentLinkedQueue[String]): Control = {
-    var rawMessage = queue.poll()
-    while (rawMessage == null) {
-      rawMessage = queue.poll()
-      Thread.sleep(1)
-    }
-    val rawJson = rawMessage.splitAt(rawMessage.indexOf("|"))._2.drop(1)
-    Json.parse(rawJson).validate[Control].get
   }
 
 }

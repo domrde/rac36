@@ -2,7 +2,7 @@ package common
 
 import akka.actor.ActorRef
 import akka.cluster.ddata.ORSetKey
-import common.SharedMessages.{Command, Position}
+import common.SharedMessages.Position
 
 /**
   * Created by dda on 7/28/16.
@@ -19,27 +19,11 @@ object Constants {
   val DdataSetKey = ORSetKey[Position]("SensoryInfoSet")
 }
 
-object ApiActor {
-  @SerialVersionUID(101L) case object GetInfoFromSharedStorage extends GlobalMessages
-  @SerialVersionUID(101L) case class GetInfoFromSharedStorageResult(info: AnyRef) extends GlobalMessages
-
-  @SerialVersionUID(101L) case class GetAvailableCommands(id: String) extends SharedMessages.NumeratedMessage
-  @SerialVersionUID(101L) case class GetAvailableCommandsResult(id: String, commands: List[Command]) extends SharedMessages.NumeratedMessage
-
-  @SerialVersionUID(101L) case class SendCommandToAvatar(id: String, name: String, value: Long) extends SharedMessages.NumeratedMessage
-}
-
 object SharedMessages {
-  @SerialVersionUID(101L) case class ArgumentRange(lower: Long, upper: Long) extends GlobalMessages
-  @SerialVersionUID(101L) case class Command(name: String, range: ArgumentRange) extends GlobalMessages
-  @SerialVersionUID(101L) case class Api(commands: List[Command]) extends GlobalMessages
-
   sealed trait NumeratedMessage extends GlobalMessages { val id: String }
-  @SerialVersionUID(101L) case class CreateAvatar(id: String, api: Api) extends NumeratedMessage
-  @SerialVersionUID(101L) case class GetListOfAvailableCommands(id: String) extends NumeratedMessage
-  @SerialVersionUID(101L) case class ListOfAvailableCommands(id: String, api: Api) extends NumeratedMessage
+  @SerialVersionUID(101L) case class CreateAvatar(id: String, jarName: String, className: String) extends NumeratedMessage
   @SerialVersionUID(101L) case class GetState(id: String) extends NumeratedMessage // for tests
-  @SerialVersionUID(101L) case class Control(id: String, name: String, value: Long) extends NumeratedMessage
+  @SerialVersionUID(101L) case class Control(id: String, command: String) extends NumeratedMessage
   // todo: replace when something better comes up
   @SerialVersionUID(101L) case class Position(name: String, row: Int, col: Int, angle: Int) extends GlobalMessages
   // todo: replace when it comes to different sensor types

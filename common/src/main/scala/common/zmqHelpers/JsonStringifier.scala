@@ -1,7 +1,6 @@
 package common.zmqHelpers
 
 import akka.actor.{Actor, ActorLogging}
-import common.ApiActor.GetAvailableCommandsResult
 import common.SharedMessages.{Control, TunnelCreated}
 import play.api.libs.json.Json
 
@@ -19,9 +18,6 @@ class JsonStringifier extends Actor with ActorLogging {
 
   override def receive: Receive = {
     case Stringify(msg: Control, request) =>
-      sender() ! StringifyResult(Json.stringify(Json.toJson(msg)), request)
-
-    case Stringify(msg: GetAvailableCommandsResult, request) =>
       sender() ! StringifyResult(Json.stringify(Json.toJson(msg)), request)
 
     case Stringify(msg: TunnelCreated, request) =>
