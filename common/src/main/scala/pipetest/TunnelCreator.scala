@@ -4,8 +4,6 @@ import java.util.concurrent.ConcurrentLinkedQueue
 
 import akka.actor.ActorDSL._
 import akka.actor.{ActorRef, ActorSystem}
-import akka.cluster.pubsub.DistributedPubSub
-import akka.cluster.pubsub.DistributedPubSubMediator.Put
 import akka.testkit.TestProbe
 import akka.util.{ByteString, Timeout}
 import com.typesafe.config.ConfigFactory
@@ -30,23 +28,11 @@ class TunnelCreator(actorSystem: ActorSystem) {
 
   implicit val timeout: Timeout = 3 seconds
 
-  val mediator = DistributedPubSub(system).mediator
-
   val zmqHelpers = ZeroMQHelper(system)
-
 
   def apiJson(id: String) = Json.stringify(Json.toJson(
     CreateAvatar(id, "brain-assembly-1.0.jar", "com.dda.brain.Brain")
   ))
-
-  val avatarMaster = actor("TestAvatarSharding")(new Act {
-    mediator ! Put(self)
-    become {
-      case CreateAvatar(id, _, _) => sender.tell(AvatarCreated(id), self)
-      case a: TunnelEndpoint =>
-      case anything => sender ! anything
-    }
-  })
 
   case class ManageConnection(id: String, port: Int)
 

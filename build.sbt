@@ -18,8 +18,9 @@ lazy val commonSettings = Seq(
       "com.typesafe.akka" %% "akka-contrib" % akkaVersion,
       "com.typesafe.akka" %% "akka-cluster-metrics" % akkaVersion,
       "com.typesafe.akka" %% "akka-testkit" % akkaVersion,
-      "org.scalatest" %% "scalatest" % "2.2.6",
       "com.typesafe.akka" %% "akka-distributed-data-experimental" % akkaVersion,
+      "com.typesafe.akka" %% "akka-cluster-sharding" % akkaVersion,
+      "org.scalatest" %% "scalatest" % "2.2.6",
       "io.kamon" % "sigar-loader" % "1.6.6-rev002",
       "com.github.romix.akka" %% "akka-kryo-serialization" % "0.4.1"
     )
@@ -74,16 +75,8 @@ lazy val brain = (project in file("brain")).
 
 lazy val avatar = (project in file("avatar")).
   settings(commonSettings: _*).
-  settings(SbtMultiJvm.multiJvmSettings: _*).
-  settings(additionalMultiJvmSettings: _*).
-  configs (MultiJvm).
   settings(
-    name := "avatar",
-    libraryDependencies ++= Seq(
-      "com.typesafe.akka" %% "akka-multi-node-testkit" % akkaVersion % "test",
-      "com.typesafe.akka" %% "akka-cluster-sharding" % akkaVersion,
-      "com.typesafe.akka" %% "akka-persistence" % akkaVersion
-    )
+    name := "avatar"
   ).
   dependsOn(common, brain)
 
@@ -92,12 +85,22 @@ lazy val dashboard = (project in file("dashboard")).
   settings(
     name := "dashboard",
     libraryDependencies ++= Seq(
-      "com.typesafe.akka" %% "akka-cluster-sharding" % akkaVersion,
       "com.typesafe.akka" %% "akka-http-core" % akkaVersion,
       "com.typesafe.akka" %% "akka-http-experimental" % akkaVersion
     )
   ).
   dependsOn(common)
+
+lazy val robotApp = (project in file("robotApp")).
+  settings(commonSettings: _*).
+  settings(
+    name := "robotApp",
+    libraryDependencies ++= Seq(
+      "com.typesafe.akka" %% "akka-http-core" % akkaVersion,
+      "com.typesafe.akka" %% "akka-http-experimental" % akkaVersion
+    )
+  ).
+  dependsOn(common, brain)
 
 lazy val test = (project in file("test")).
   settings(commonSettings: _*).

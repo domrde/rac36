@@ -15,18 +15,18 @@ import scala.util.{Failure, Success, Try}
   *
   */
 
-object ZmqActor {
+object ZmqRouter {
   val config = ConfigFactory.load()
 
   def apply(url: String, port: Int, validator: Props, stringifier: Props, receiver: ActorRef) = {
-    Props(classOf[ZmqActor], url, port, validator, stringifier, receiver)
+    Props(classOf[ZmqRouter], url, port, validator, stringifier, receiver)
   }
 
   case object Poll
 }
 
-class ZmqActor(url: String, port: Int, validator: Props, stringifier: Props, receiver: ActorRef) extends Actor with ActorLogging {
-  import ZmqActor._
+class ZmqRouter(url: String, port: Int, validator: Props, stringifier: Props, receiver: ActorRef) extends Actor with ActorLogging {
+  import ZmqRouter._
   import common.SharedMessages.NumeratedMessage
 
   import scala.concurrent.ExecutionContext.Implicits.global
@@ -107,7 +107,7 @@ class ZmqActor(url: String, port: Int, validator: Props, stringifier: Props, rec
       }
 
     case other =>
-      log.error("ZmqActor: other [{}] from [{}]", other, sender())
+      log.error("ZmqRouter: other [{}] from [{}]", other, sender())
   }
 
   def readQueue(readed: Array[Byte]): Unit =

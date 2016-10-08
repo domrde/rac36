@@ -26,21 +26,17 @@ class ZeroMQHelper(system: ActorSystem, zmqContext: ZMQ.Context) extends Extensi
     zmqContext.term()
   }
 
-  def start(validator: Props,
-            stringifier: Props,
-            url: String,
-            portLower: Int,
-            portUpper: Int,
-            targetAddress: ActorRef): IndexedSeq[ActorRef] = {
-    (portLower to portUpper).map(port =>
-      system.actorOf(ZmqActor(url, port, validator, stringifier, targetAddress)))
+  def connectDealerActor(id: String,
+                         url: String,
+                         port: Int,
+                         targetAddress: ActorRef): ActorRef = {
+    system.actorOf(ZmqDealer(id, url, port, Props[JsonValidator], Props[JsonStringifier], targetAddress))
   }
 
-  def start(url: String,
-            portLower: Int,
-            portUpper: Int,
-            targetAddress: ActorRef): IndexedSeq[ActorRef] = {
-    start(Props[JsonValidator], Props[JsonStringifier], url, portLower, portUpper, targetAddress)
+  def bindRouterActor(url: String,
+                      port: Int,
+                      targetAddress: ActorRef): ActorRef = {
+    system.actorOf(ZmqRouter(url, port, Props[JsonValidator], Props[JsonStringifier], targetAddress))
   }
 
   def bindRouterSocket(url: String): ZMQ.Socket = {

@@ -18,4 +18,8 @@ object Implicits {
   implicit val tunnelCreatedReads = Json.reads[TunnelCreated]
 
   implicit val controlReads = Json.reads[Control]
+  implicit val positionWrites = Json.writes[Position]
+  implicit val sensoryWrites = Json.writes[Sensory]
+
+  implicit val avatarCreatedReads = Json.reads[AvatarCreated]
 }

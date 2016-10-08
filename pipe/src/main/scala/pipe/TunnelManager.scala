@@ -1,8 +1,6 @@
 package pipe
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import akka.cluster.pubsub.DistributedPubSub
-import akka.cluster.pubsub.DistributedPubSubMediator.Send
 import com.typesafe.config.ConfigFactory
 import common.SharedMessages.{AvatarCreated, _}
 import common.zmqHelpers.ZeroMQHelper
@@ -13,7 +11,7 @@ import pipe.LowestLoadFinder.{IncrementClients, ToReturnAddress, ToTmWithLowestL
   */
 //todo: check balancing really works
 //todo: use cluster metrics-based selection of lowest loaded TM
-//todo: use pool of ZmqActor to lower socket load http://doc.akka.io/docs/akka/current/scala/routing.html
+//todo: use pool of ZmqRouter to lower socket load http://doc.akka.io/docs/akka/current/scala/routing.html
 class TunnelManager extends Actor with ActorLogging {
 
   val config = ConfigFactory.load()
@@ -21,17 +19,14 @@ class TunnelManager extends Actor with ActorLogging {
   val url = "tcp://" + config.getString("akka.remote.netty.tcp.hostname") + ":" + config.getInt("pipe.ports.input")
   val port = config.getInt("pipe.ports.input")
 
-  val avatarAddress = config.getString("pipe.avatarAddress")
   val zmqReceiver = context.actorOf(AvatarResender(self))
-  val worker = ZeroMQHelper(context.system).start(
+  val worker = ZeroMQHelper(context.system).bindRouterActor(
     url = "tcp://" + config.getString("akka.remote.netty.tcp.hostname"),
-    portLower = port,
-    portUpper = port,
+    port = port,
     zmqReceiver
-  ).head
+  )
 
   val lowestFinder = context.actorOf(Props[LowestLoadFinder], "Sharer")
-  val mediator = DistributedPubSub(context.system).mediator
   lowestFinder ! IncrementClients(url)
 
   override def receive = receiveWithClientsStorage(Map.empty)
@@ -42,7 +37,7 @@ class TunnelManager extends Actor with ActorLogging {
       log.info("Tunnel create request, sending to lowest load")
 
     case ToTmWithLowestLoad(ctr, returnAddress) =>
-      mediator ! Send(avatarAddress, ctr, localAffinity = false)
+      zmqReceiver ! ctr
       log.info("I'm with lowest load, requesting avatar")
       context.become(receiveWithClientsStorage(clients + (ctr.id -> returnAddress)))
 
@@ -61,6 +56,6 @@ class TunnelManager extends Actor with ActorLogging {
       log.error("TunnelManager: other {} from {}", other, sender())
   }
 
-  log.info("TunnelManager initialized for parent [{}] with mediator [{}]",
-    context.parent, mediator)
+  log.info("TunnelManager initialized for parent [{}] and listens on [{}]",
+    context.parent, url)
 }

@@ -1,10 +1,8 @@
 package pipe
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import akka.cluster.pubsub.DistributedPubSub
-import akka.cluster.pubsub.DistributedPubSubMediator.Send
-import com.typesafe.config.ConfigFactory
-import common.SharedMessages.{CreateAvatar, NumeratedMessage, TunnelEndpoint}
+import akka.cluster.sharding.ClusterSharding
+import common.SharedMessages.{AvatarCreated, CreateAvatar, NumeratedMessage, TunnelEndpoint}
 import pipe.AvatarResender.WorkWithQueue
 
 /**
@@ -21,27 +19,26 @@ object AvatarResender {
 
 class AvatarResender(tunnelManager: ActorRef) extends Actor with ActorLogging {
 
-  val config = ConfigFactory.load()
-
-  val avatarAddress = config.getString("pipe.avatarAddress")
-
-  val mediator = DistributedPubSub(context.system).mediator
-
-  def sendToAvatar(msg: NumeratedMessage) = mediator ! Send(avatarAddress, msg, localAffinity = false)
-
   override def receive = receiveWithClients(Set.empty)
+
+  val shard = ClusterSharding(context.system).shardRegion("Avatar")
 
   def receiveWithClients(clients: Set[String]): Receive = {
     case WorkWithQueue(topic, zmqActor) =>
       context.become(receiveWithClients(clients + topic))
-      sendToAvatar(TunnelEndpoint(topic, zmqActor))
+      shard ! TunnelEndpoint(topic, zmqActor)
+
+    case n: NumeratedMessage if clients.contains(n.id) =>
+      shard ! n
+
+    case n: NumeratedMessage if sender() == tunnelManager =>
+      shard ! n
+
+    case c: AvatarCreated =>
+      tunnelManager ! c
 
     case c: CreateAvatar =>
       tunnelManager ! c
-
-    case n: NumeratedMessage if clients.contains(n.id) =>
-      // BIG FUCKING ERROR
-      sendToAvatar(n)
 
     case other =>
       log.error("Not a numerated message or id unknown: [{}]", other)

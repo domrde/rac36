@@ -6,5 +6,5 @@ package com.dda.brain
 object BrainMessages {
   @SerialVersionUID(101L) case class Control(command: String)
   @SerialVersionUID(101L) case class Position(name: String, row: Int, col: Int, angle: Int)
-  @SerialVersionUID(101L) case class Sensory(sensoryPayload: Set[Position])
+  @SerialVersionUID(101L) case class Sensory(id: String, sensoryPayload: Set[Position])
 }

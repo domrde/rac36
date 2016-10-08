@@ -1,8 +1,8 @@
-package test
+package pipetest
 
 import akka.actor.{Actor, ActorLogging}
 import common.SharedMessages.{Position, Sensory}
-import test.CameraStub.{GetInfo, MoveRobot}
+import pipetest.CameraStub.{GetInfo, MoveRobot}
 
 import scala.language.postfixOps
 
@@ -23,6 +23,7 @@ class CameraStub(initialMap: String) extends Actor with ActorLogging {
     (0 until lines.length) flatMap { row: Int =>
       (0 until lines.head.length) flatMap { col: Int =>
         lines(row)(col) match {
+          case '0' => Some(Position("0", row, col, 0))
           case '1' => Some(Position("1", row, col, 0))
           case '2' => Some(Position("2", row, col, 0))
           case '3' => Some(Position("3", row, col, 0))

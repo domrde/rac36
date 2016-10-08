@@ -1,7 +1,7 @@
 package common.zmqHelpers
 
 import akka.actor.{Actor, ActorLogging}
-import common.SharedMessages.{Control, TunnelCreated}
+import common.SharedMessages.{Control, CreateAvatar, Sensory, TunnelCreated}
 import play.api.libs.json.Json
 
 /**
@@ -21,6 +21,12 @@ class JsonStringifier extends Actor with ActorLogging {
       sender() ! StringifyResult(Json.stringify(Json.toJson(msg)), request)
 
     case Stringify(msg: TunnelCreated, request) =>
+      sender() ! StringifyResult(Json.stringify(Json.toJson(msg)), request)
+
+    case Stringify(msg: CreateAvatar, request) =>
+      sender() ! StringifyResult(Json.stringify(Json.toJson(msg)), request)
+
+    case Stringify(msg: Sensory, request) =>
       sender() ! StringifyResult(Json.stringify(Json.toJson(msg)), request)
 
     case other =>

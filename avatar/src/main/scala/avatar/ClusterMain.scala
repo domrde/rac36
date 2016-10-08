@@ -5,11 +5,12 @@ import akka.cluster.ClusterEvent.{CurrentClusterState, MemberRemoved, MemberUp}
 import akka.cluster.ddata.DistributedData
 import akka.cluster.metrics.ClusterMetricsExtension
 import akka.cluster.pubsub.DistributedPubSub
-import akka.cluster.pubsub.DistributedPubSubMediator.Put
 import akka.cluster.sharding.{ClusterSharding, ClusterShardingSettings, ShardRegion}
 import akka.cluster.{Cluster, ClusterEvent}
 import common.SharedMessages.NumeratedMessage
 
+
+//todo: get rid of sharding for good
 class ClusterMain extends Actor with ActorLogging {
   val cluster = Cluster(context.system)
 
@@ -49,16 +50,15 @@ class ClusterMain extends Actor with ActorLogging {
     extractShardId = extractShardId
   )
 
-  val mediator = DistributedPubSub(context.system).mediator
-
   ClusterMetricsExtension(context.system)
+  DistributedPubSub(context.system)
+
+  println("\n\n\n\n\n\nSHARD: " + shard + "\n\n\n\n\n\n")
 
   def startMainSystem() = {
-    mediator ! Put(shard)
     context.become(initialised)
     log.info("\n---------------------------------------------------------------------------")
-    log.info("\n\nAvatar cluster started with mediator [{}], shard [{}] and replicator [{}]\n",
-      mediator, shard, replicator)
+    log.info("\n\nAvatar cluster started with shard [{}] and replicator [{}]\n", shard, replicator)
     log.info("\n---------------------------------------------------------------------------")
   }
 }
