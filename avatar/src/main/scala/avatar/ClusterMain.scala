@@ -53,8 +53,6 @@ class ClusterMain extends Actor with ActorLogging {
   ClusterMetricsExtension(context.system)
   DistributedPubSub(context.system)
 
-  println("\n\n\n\n\n\nSHARD: " + shard + "\n\n\n\n\n\n")
-
   def startMainSystem() = {
     context.become(initialised)
     log.info("\n---------------------------------------------------------------------------")

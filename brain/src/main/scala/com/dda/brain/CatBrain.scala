@@ -1,7 +1,7 @@
 package com.dda.brain
 
 import akka.actor.{Actor, ActorLogging}
-import com.dda.brain.BrainMessages.{Control, Position, Sensory}
+import com.dda.brain.BrainMessages._
 
 /**
   * Created by dda on 9/27/16.
@@ -11,8 +11,13 @@ class CatBrain extends Actor with ActorLogging {
   log.info("\n\n\n           Brain started           \n\n\n")
 
   override def receive: Receive = {
-    case s @ Sensory(id, payload) =>
+    case Sensory(id, payload) =>
       chooseNextAction(id, payload)
+
+    case t @ TellToOtherAvatar(to, from, message) =>
+      println("\n\n" + t + "\n\n")
+      if (Integer.parseInt(message) > 0)
+        sender() ! TellToOtherAvatar(from, to, (Integer.parseInt(message) - 1).toString)
 
     case other =>
       log.error("Brain: received unknown message [{}] from [{}]", other, sender())
@@ -22,9 +27,10 @@ class CatBrain extends Actor with ActorLogging {
     val catPos = payload.find(p => p.name == id)
     val mousePos = payload.find(p => p.name != "obstacle")
     if (catPos.isDefined && mousePos.isDefined) {
+      sender() ! TellToOtherAvatar(mousePos.get.name, id, "2")
       val colInc = mousePos.get.col - catPos.get.col
       val rowInc = mousePos.get.row - catPos.get.row
-      sender() ! Control("{\"name\": \"move\", \"id\":\"" + id + "\", \"colInc\":\"" + colInc + "\"" +
+      sender() ! FromAvatarToRobot("{\"name\": \"move\", \"id\":\"" + id + "\", \"colInc\":\"" + colInc + "\"" +
       "\"rowInc\":\"" + rowInc + "\"")
       log.info("CatBrain [{}]: control sended", id)
     } else {

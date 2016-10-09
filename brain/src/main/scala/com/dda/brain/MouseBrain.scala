@@ -1,7 +1,7 @@
 package com.dda.brain
 
 import akka.actor.{Actor, ActorLogging}
-import com.dda.brain.BrainMessages.{Control, Position, Sensory}
+import com.dda.brain.BrainMessages.{FromAvatarToRobot, Position, Sensory, TellToOtherAvatar}
 
 /**
   * Created by dda on 9/27/16.
@@ -14,6 +14,11 @@ class MouseBrain extends Actor with ActorLogging {
     case s @ Sensory(id, payload) =>
       chooseNextAction(id, payload)
 
+    case t @ TellToOtherAvatar(to, from, message) =>
+      println("\n\n" + t + "\n\n")
+      if (Integer.parseInt(message) > 0)
+        sender() ! TellToOtherAvatar(from, to, (Integer.parseInt(message) - 1).toString)
+
     case other =>
       log.error("Brain: received unknown message [{}] from [{}]", other, sender())
   }
@@ -24,7 +29,7 @@ class MouseBrain extends Actor with ActorLogging {
     if (catPos.isDefined && mousePos.isDefined) {
       val colInc = catPos.get.col - mousePos.get.col
       val rowInc = catPos.get.row - mousePos.get.row
-      sender() ! Control("{\"name\": \"move\", \"id\":\"" + id + "\", \"colInc\":\"" + colInc + "\"" +
+      sender() ! FromAvatarToRobot("{\"name\": \"move\", \"id\":\"" + id + "\", \"colInc\":\"" + colInc + "\"" +
       "\"rowInc\":\"" + rowInc + "\"")
       log.info("MouseBrain [{}]: control sended", id)
     } else {

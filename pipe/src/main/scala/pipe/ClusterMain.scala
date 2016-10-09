@@ -29,8 +29,6 @@ class ClusterMain extends Actor with ActorLogging {
     extractShardId = extractShardId
   )
 
-  println("\n\n\n\n\n\nSHARD PROXY: " + shardProxy + "\n\n\n\n\n\n")
-
   cluster.subscribe(self, classOf[ClusterEvent.MemberUp], classOf[ClusterEvent.MemberRemoved])
 
   override def receive: Receive = initial

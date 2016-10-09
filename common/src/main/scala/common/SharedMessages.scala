@@ -20,7 +20,7 @@ object Constants {
 }
 
 object SharedMessages {
-  sealed trait NumeratedMessage extends GlobalMessages { val id: String }
+  trait NumeratedMessage extends GlobalMessages { val id: String }
   @SerialVersionUID(101L) case class CreateAvatar(id: String, jarName: String, className: String) extends NumeratedMessage
   @SerialVersionUID(101L) case class GetState(id: String) extends NumeratedMessage // for tests
   @SerialVersionUID(101L) case class Control(id: String, command: String) extends NumeratedMessage

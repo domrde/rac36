@@ -59,7 +59,7 @@ lazy val pipe = (project in file("pipe")).
   settings(
     name := "pipe"
   ).
-  dependsOn(common)
+  dependsOn(common, brain)
 
 lazy val brain = (project in file("brain")).
   settings(

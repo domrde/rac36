@@ -1,7 +1,7 @@
 package com.dda.brain
 
 import akka.actor.{Actor, ActorLogging}
-import com.dda.brain.BrainMessages.{Control, Position, Sensory}
+import com.dda.brain.BrainMessages.{FromAvatarToRobot, Position, Sensory}
 
 /**
   * Created by dda on 9/27/16.
@@ -20,6 +20,6 @@ class Brain extends Actor with ActorLogging {
   }
 
   def chooseNextAction(id: String, payload: Set[Position]) = {
-    sender() ! Control("testCommand")
+    sender() ! FromAvatarToRobot("testCommand")
   }
 }

@@ -3,7 +3,7 @@ package avatar
 import java.net.{URL, URLClassLoader}
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import avatar.Avatar.AvatarState
+import akka.cluster.sharding.ClusterSharding
 import avatar.ReplicatedSet.LookupResult
 import com.typesafe.config.ConfigFactory
 import common.SharedMessages._
@@ -15,16 +15,22 @@ import common.SharedMessages._
 // todo: auto-kill if client disconnected
 // todo: avatars should interact with each other
 // todo: send and load jars through NFS
+// todo: interaction with services
 object Avatar {
-  case class AvatarState(id: String, tunnel: Option[ActorRef], brain: Option[ActorRef])
+  @SerialVersionUID(101L) case class AvatarState(id: String, tunnel: Option[ActorRef], brain: Option[ActorRef])
+  @SerialVersionUID(101L) case class AvatarMessage(id: String, from: String, message: String) extends NumeratedMessage
 }
 
 class Avatar extends Actor with ActorLogging {
+  import Avatar._
+
   log.info("\nAVATAR CREATED {}", self)
 
   val config = ConfigFactory.load()
 
   val cache = context.actorOf(ReplicatedSet())
+
+  val shard = ClusterSharding(context.system).shardRegion("Avatar")
 
   override def receive: Receive = receiveWithState(null, None, None, Set.empty)
 
@@ -54,8 +60,14 @@ class Avatar extends Actor with ActorLogging {
       brain.foreach(_ ! com.dda.brain.BrainMessages.Sensory(_id, brainPositions))
       context.become(receiveWithState(id, tunnel, brain, sensoryPayload))
 
-    case com.dda.brain.BrainMessages.Control(command) =>
+    case com.dda.brain.BrainMessages.FromAvatarToRobot(command) =>
       tunnel.foreach(_ ! Control(id, command))
+
+    case com.dda.brain.BrainMessages.TellToOtherAvatar(to, from, message) =>
+      shard ! Avatar.AvatarMessage(to, from, message)
+
+    case Avatar.AvatarMessage(to, from, message) =>
+      brain.foreach(_ ! com.dda.brain.BrainMessages.TellToOtherAvatar(to, from, message))
 
     case other =>
       log.error("\nAvatar: other [{}] from [{}]", other, sender())
@@ -63,7 +75,8 @@ class Avatar extends Actor with ActorLogging {
 
   def startChildFromJar(jarName: String, className: String) = {
     val url = new URL("jar:file:" + config.getString("jars.nfs-directory") + jarName + "!/")
-    val classLoader = URLClassLoader.newInstance(Array(url))
+    // may be Thread.currentThread().getContextClassLoader() will be better
+    val classLoader = URLClassLoader.newInstance(Array(url), this.getClass.getClassLoader)
     val clazz = classLoader.loadClass(className)
     context.actorOf(Props(clazz.asInstanceOf[Class[Actor]]), "Brain")
   }
