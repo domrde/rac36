@@ -1,10 +1,10 @@
-package avatar
+package vivarium
 
 import java.net.{URL, URLClassLoader}
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.cluster.sharding.ClusterSharding
-import avatar.ReplicatedSet.LookupResult
+import vivarium.ReplicatedSet.LookupResult
 import com.typesafe.config.ConfigFactory
 import common.SharedMessages._
 

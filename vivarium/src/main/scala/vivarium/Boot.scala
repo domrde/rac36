@@ -1,4 +1,4 @@
-package avatar
+package vivarium
 
 import akka.actor.{ActorSystem, Props}
 

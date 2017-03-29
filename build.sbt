@@ -73,10 +73,10 @@ lazy val brain = (project in file("brain")).
       )
   )
 
-lazy val avatar = (project in file("avatar")).
+lazy val vivarium = (project in file("vivarium")).
   settings(commonSettings: _*).
   settings(
-    name := "avatar"
+    name := "vivarium"
   ).
   dependsOn(common, brain)
 
@@ -113,7 +113,7 @@ lazy val test = (project in file("test")).
       "com.typesafe.akka" %% "akka-multi-node-testkit" % akkaVersion % "test"
     )
   ).
-  dependsOn(common, pipe, avatar)
+  dependsOn(common, pipe, vivarium)
 
 lazy val root = (project in file(".")).
   settings(commonSettings: _*).

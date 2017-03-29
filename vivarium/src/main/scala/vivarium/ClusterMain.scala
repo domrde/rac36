@@ -1,4 +1,4 @@
-package avatar
+package vivarium
 
 import akka.actor.{Actor, ActorLogging, Props}
 import akka.cluster.ClusterEvent.{CurrentClusterState, MemberRemoved, MemberUp}

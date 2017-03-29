@@ -7,8 +7,8 @@ import akka.cluster.MemberStatus.Up
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.TestProbe
 import akka.util.Timeout
-import avatar.ReplicatedSet
-import avatar.ReplicatedSet.{Lookup, LookupResult}
+import vivarium.ReplicatedSet
+import vivarium.ReplicatedSet.{Lookup, LookupResult}
 import com.typesafe.config.ConfigFactory
 import common.SharedMessages.{Control, Position, Sensory}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
@@ -131,11 +131,11 @@ abstract class MultiJvmRacTests extends MultiNodeSpec(MultiNodeRacTestsConfig) w
 
       runOn(second) {
 
-        system.actorOf(Props[avatar.ClusterMain], "ClusterMain")
+        system.actorOf(Props[vivarium.ClusterMain], "ClusterMain")
       }
 
       runOn(third) {
-        system.actorOf(Props[avatar.ClusterMain], "ClusterMain")
+        system.actorOf(Props[vivarium.ClusterMain], "ClusterMain")
       }
 
       runOn(fourth) {
