@@ -48,9 +48,18 @@ class TunnelManager extends Actor with ActorLogging {
       context.become(receiveWithClientsStorage(clients - id))
       log.info("Avatar and tunnel created with id [{}], sending result to original sender [{}]", id, sender())
 
-    case ToReturnAddress(ac, tunnelUrl) =>
-      worker ! TunnelCreated(tunnelUrl, ac.id.toString)
-      log.info("I'm the original sender. Printing tunnel info with topic [{}] to client.", ac.id)
+    case fac @ FailedToCreateAvatar(id, _) =>
+      clients(id) ! ToReturnAddress(fac, url)
+      context.become(receiveWithClientsStorage(clients - id))
+      log.info("Failed to create avatar with id [{}], sending result to original sender [{}]", id, sender())
+
+    case ToReturnAddress(AvatarCreated(id), tunnelUrl) =>
+      worker ! TunnelCreated(tunnelUrl, id.toString)
+      log.info("I'm the original sender. Printing tunnel info with topic [{}] to client.", id)
+
+    case ToReturnAddress(FailedToCreateAvatar(id, ex), tunnelUrl) =>
+      worker ! FailedToCreateTunnel(id.toString, ex)
+      log.info("I'm the original sender. Faild to create tunnel, printing info with topic [{}] to client.", id)
 
     case other =>
       log.error("TunnelManager: other {} from {}", other, sender())

@@ -5,7 +5,7 @@ import akka.cluster.client.ClusterClient.Publish
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.{Subscribe, SubscribeAck}
 import common.Constants._
-import common.SharedMessages.{AvatarCreated, CreateAvatar}
+import common.SharedMessages.{AvatarCreateResponse, CreateAvatar}
 
 /**
   * Created by dda on 8/25/16.
@@ -13,7 +13,7 @@ import common.SharedMessages.{AvatarCreated, CreateAvatar}
 object LowestLoadFinder {
   @SerialVersionUID(101L) case class PipeInfo(tm: ActorRef, url: String, load: Int)
   @SerialVersionUID(101L) case class ToTmWithLowestLoad(ctr: CreateAvatar, returnAddress: ActorRef)
-  @SerialVersionUID(101L) case class ToReturnAddress(at: AvatarCreated, url: String)
+  @SerialVersionUID(101L) case class ToReturnAddress(at: AvatarCreateResponse, url: String)
   @SerialVersionUID(101L) case class IncrementClients(url: String)
 }
 

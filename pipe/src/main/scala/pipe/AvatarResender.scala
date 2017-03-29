@@ -2,7 +2,7 @@ package pipe
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.cluster.sharding.ClusterSharding
-import common.SharedMessages.{AvatarCreated, CreateAvatar, NumeratedMessage, TunnelEndpoint}
+import common.SharedMessages._
 import pipe.AvatarResender.WorkWithQueue
 
 /**
@@ -35,6 +35,9 @@ class AvatarResender(tunnelManager: ActorRef) extends Actor with ActorLogging {
       shard ! n
 
     case c: AvatarCreated =>
+      tunnelManager ! c
+
+    case c: FailedToCreateAvatar =>
       tunnelManager ! c
 
     case c: CreateAvatar =>

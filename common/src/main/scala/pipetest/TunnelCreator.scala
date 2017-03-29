@@ -78,6 +78,12 @@ class TunnelCreator(actorSystem: ActorSystem) {
         Thread.sleep(1)
       }
       val rawJson = rawMessage.splitAt(rawMessage.indexOf("|"))._2.drop(1)
+
+      Json.parse(rawJson).validate[FailedToCreateTunnel] match {
+        case JsSuccess(value, path) => throw new Exception("Failed to create avatar: " + value.reason)
+        case JsError(errors) =>
+      }
+
       val tunnel: TunnelCreated = Json.parse(rawJson).validate[TunnelCreated].get
       assert(tunnel.id == id)
       (dealer, tunnel.url, tunnel.id, queue)

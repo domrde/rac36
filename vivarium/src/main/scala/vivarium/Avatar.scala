@@ -8,6 +8,8 @@ import vivarium.ReplicatedSet.LookupResult
 import com.typesafe.config.ConfigFactory
 import common.SharedMessages._
 
+import scala.util.{Failure, Success, Try}
+
 /**
   * Created by dda on 8/2/16.
   */
@@ -36,8 +38,16 @@ class Avatar extends Actor with ActorLogging {
 
   def receiveWithState(id: String, tunnel: Option[ActorRef], brain: Option[ActorRef], buffer: Set[Position]): Receive = {
     case CreateAvatar(_id, jarName, className) =>
-      context.become(receiveWithState(_id, tunnel, Some(startChildFromJar(jarName, className)), buffer))
-      sender() ! AvatarCreated(_id)
+      Try {
+        startChildFromJar(jarName, className)
+      } match {
+        case Failure(exception) =>
+          context.become(receiveWithState(_id, tunnel, None, buffer))
+          sender() ! FailedToCreateAvatar(_id, exception.getMessage)
+        case Success(value) =>
+          context.become(receiveWithState(_id, tunnel, Some(value), buffer))
+          sender() ! AvatarCreated(_id)
+      }
 
     case TunnelEndpoint(_id, endpoint) =>
       context.become(receiveWithState(_id, Some(endpoint), brain, buffer))

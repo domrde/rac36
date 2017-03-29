@@ -30,7 +30,11 @@ object SharedMessages {
   @SerialVersionUID(101L) case class Sensory(id: String, sensoryPayload: Set[Position]) extends NumeratedMessage
 
   @SerialVersionUID(101L) case class TunnelEndpoint(id: String, endpoint: ActorRef) extends NumeratedMessage
-  @SerialVersionUID(101L) case class AvatarCreated(id: String) extends NumeratedMessage
+  trait AvatarCreateResponse extends NumeratedMessage
+  @SerialVersionUID(101L) case class AvatarCreated(id: String) extends AvatarCreateResponse
+  @SerialVersionUID(101L) case class FailedToCreateAvatar(id: String, reason: String) extends AvatarCreateResponse
 
-  @SerialVersionUID(101L) case class TunnelCreated(url: String, id: String) extends NumeratedMessage
+  trait TunnelCreateResponse extends NumeratedMessage
+  @SerialVersionUID(101L) case class TunnelCreated(url: String, id: String) extends TunnelCreateResponse
+  @SerialVersionUID(101L) case class FailedToCreateTunnel(id: String, reason: String) extends TunnelCreateResponse
 }
