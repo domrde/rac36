@@ -2,8 +2,8 @@ package dashboard
 
 import akka.actor.{Actor, ActorLogging, Address, Props}
 import com.typesafe.config.ConfigFactory
-import common.SharedMessages.Position
 import dashboard.ServerClient.LaunchCommand
+import messages.SensoryInformation.Position
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -81,7 +81,7 @@ class MetricsAggregator extends Actor with ActorLogging {
       aggregateMetrics(anything, metrics)
 
     case other =>
-      log.error("MetricsAggregator: other [{}] from [{}]", other, sender())
+      log.error("[-] MetricsAggregator: other [{}] from [{}]", other, sender())
   }
 
   def aggregateMetrics(msg: Any, nodes: Map[Address, NodeMetrics]) = msg match {
@@ -121,6 +121,6 @@ class MetricsAggregator extends Actor with ActorLogging {
     context.become(receiveWithNodesMetrics(nodes + (c.address -> updated)))
 
     case other =>
-      log.error("MetricsAggregator: unknown metrics [{}] from [{}]", other, sender())
+      log.error("[-] MetricsAggregator: unknown metrics [{}] from [{}]", other, sender())
   }
 }

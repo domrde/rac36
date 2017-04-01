@@ -1,8 +1,8 @@
-package pipetest
+package utils.test
 
 import akka.actor.{Actor, ActorLogging}
-import common.SharedMessages.{Position, Sensory}
-import pipetest.CameraStub.{GetInfo, MoveRobot}
+import messages.SensoryInformation.{Position, Sensory}
+import utils.test.CameraStub.{GetInfo, MoveRobot}
 
 import scala.language.postfixOps
 

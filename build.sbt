@@ -44,22 +44,29 @@ lazy val additionalMultiJvmSettings = Seq(
   }
 )
 
-lazy val common = (project in file("common")).
+lazy val root = (project in file(".")).
   settings(commonSettings: _*).
   settings(
-    name := "common",
+    name := "root"
+  ).
+  dependsOn(test)
+
+lazy val messages = (project in file("messages")).
+  settings(commonSettings: _*).
+  settings(
+    name := "messages"
+  )
+
+lazy val utils = (project in file("utils")).
+  settings(commonSettings: _*).
+  settings(
+    name := "utils",
     libraryDependencies ++= Seq(
       "org.zeromq" % "jeromq" % "0.3.5",
       "com.typesafe.play" %% "play-json" % "2.5.4"
     )
-  )
-
-lazy val pipe = (project in file("pipe")).
-  settings(commonSettings: _*).
-  settings(
-    name := "pipe"
   ).
-  dependsOn(common, brain)
+  dependsOn(messages)
 
 lazy val brain = (project in file("brain")).
   settings(
@@ -71,14 +78,29 @@ lazy val brain = (project in file("brain")).
       Seq(
         "com.typesafe.akka" %% "akka-actor" % akkaVersion
       )
-  )
+  ).
+  dependsOn(messages)
+
+lazy val common = (project in file("common")).
+  settings(commonSettings: _*).
+  settings(
+    name := "common"
+  ).
+  dependsOn(messages)
 
 lazy val vivarium = (project in file("vivarium")).
   settings(commonSettings: _*).
   settings(
     name := "vivarium"
   ).
-  dependsOn(common, brain)
+  dependsOn(common, brain, utils)
+
+lazy val pipe = (project in file("pipe")).
+  settings(commonSettings: _*).
+  settings(
+    name := "pipe"
+  ).
+  dependsOn(vivarium)
 
 lazy val dashboard = (project in file("dashboard")).
   settings(commonSettings: _*).
@@ -89,7 +111,7 @@ lazy val dashboard = (project in file("dashboard")).
       "com.typesafe.akka" %% "akka-http-experimental" % akkaVersion
     )
   ).
-  dependsOn(common)
+  dependsOn(pipe)
 
 lazy val robotApp = (project in file("robotApp")).
   settings(commonSettings: _*).
@@ -100,7 +122,7 @@ lazy val robotApp = (project in file("robotApp")).
       "com.typesafe.akka" %% "akka-http-experimental" % akkaVersion
     )
   ).
-  dependsOn(common, brain)
+  dependsOn(dashboard)
 
 lazy val test = (project in file("test")).
   settings(commonSettings: _*).
@@ -113,12 +135,5 @@ lazy val test = (project in file("test")).
       "com.typesafe.akka" %% "akka-multi-node-testkit" % akkaVersion % "test"
     )
   ).
-  dependsOn(common, pipe, vivarium)
-
-lazy val root = (project in file(".")).
-  settings(commonSettings: _*).
-  settings(
-    name := "root"
-  ).
-  dependsOn(test)
+  dependsOn(dashboard)
 

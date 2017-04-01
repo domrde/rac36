@@ -5,14 +5,14 @@ import akka.cluster.client.ClusterClient.Publish
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.{Subscribe, SubscribeAck}
 import common.Constants._
-import common.SharedMessages.{AvatarCreateResponse, CreateAvatar}
+import vivarium.Avatar.{AvatarCreateResponse, Create}
 
 /**
   * Created by dda on 8/25/16.
   */
 object LowestLoadFinder {
   @SerialVersionUID(101L) case class PipeInfo(tm: ActorRef, url: String, load: Int)
-  @SerialVersionUID(101L) case class ToTmWithLowestLoad(ctr: CreateAvatar, returnAddress: ActorRef)
+  @SerialVersionUID(101L) case class ToTmWithLowestLoad(ctr: Create, returnAddress: ActorRef)
   @SerialVersionUID(101L) case class ToReturnAddress(at: AvatarCreateResponse, url: String)
   @SerialVersionUID(101L) case class IncrementClients(url: String)
 }
@@ -36,7 +36,7 @@ class LowestLoadFinder extends Actor with ActorLogging {
     case s: SubscribeAck =>
 
     case other =>
-      log.error("LowestLoadFinder: other {} from {}", other, sender())
+      log.error("[-] LowestLoadFinder: other {} from {}", other, sender())
   }
 
 
@@ -52,6 +52,6 @@ class LowestLoadFinder extends Actor with ActorLogging {
 
     case s: SubscribeAck =>
 
-    case other => log.error("LowestLoadFinder: other {} from {}", other, sender())
+    case other => log.error("[-] LowestLoadFinder: other {} from {}", other, sender())
   }
 }

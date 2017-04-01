@@ -24,24 +24,24 @@ class ClusterMain extends Actor with ActorLogging {
   val initial: Receive = {
     case ccs: CurrentClusterState => ccs.members.find(_.address == cluster.selfAddress).foreach(_ => startMainSystem())
     case MemberUp(member) =>
-      log.info("MemberUp {} with roles {}", member.uniqueAddress, member.roles)
+      log.info("[-] DashboardClusterMain: MemberUp {} with roles {}", member.uniqueAddress, member.roles)
       if (cluster.selfAddress == member.address) startMainSystem()
-    case MemberRemoved(member, _) => log.info("MemberRemoved {} with roles {}", member.uniqueAddress, member.roles)
+    case MemberRemoved(member, _) => log.info("[-] DashboardClusterMain: MemberRemoved {} with roles {}", member.uniqueAddress, member.roles)
   }
 
   def startMainSystem() = {
     context.become(initialised(context.actorOf(Props[MetricsAggregator], "dashboard.MetricsAggregator")))
-    log.info("\nAvatar cluster started with mediator [{}] and replicator [{}]",
+    log.info("[-] DashboardClusterMain: Avatar cluster started with mediator [{}] and replicator [{}]",
       mediator, replicator)
   }
 
   def initialised(aggregator: ActorRef): Receive = {
     case MemberUp(member) =>
-      log.info("MemberUp {} with roles {}", member.uniqueAddress, member.roles)
+      log.info("[-] DashboardClusterMain: MemberUp {} with roles {}", member.uniqueAddress, member.roles)
       aggregator ! MetricsAggregator.NodeUp(member.address, member.roles.head)
 
     case MemberRemoved(member, _) =>
-      log.info("MemberRemoved {} with roles {}", member.uniqueAddress, member.roles)
+      log.info("[-] DashboardClusterMain: MemberRemoved {} with roles {}", member.uniqueAddress, member.roles)
       aggregator ! MetricsAggregator.NodeDown(member.address)
   }
 

@@ -69,6 +69,6 @@ class Server extends Actor with ActorLogging {
       clients.foreach(_ ! anything)
 
     case other =>
-      log.error("dashboard.Server: other {} from {}", other, sender())
+      log.error("[-] dashboard.Server: other {} from {}", other, sender())
   }
 }

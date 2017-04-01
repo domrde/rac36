@@ -34,13 +34,13 @@ class ServerClient extends Actor with ActorLogging {
             context.parent ! value
 
           case JsError(_) =>
-            log.error("Failed to validate json [{}]", text)
+            log.error("[-] dashboard.ServerClient: Failed to validate json [{}]", text)
         }
 
       case c: MetricsAggregator.CollectedMetrics =>
         connection ! OutgoingMessage(Json.stringify(Json.toJson(c)))
 
       case other =>
-        log.error("dashboard.ServerClient: other {} from {}", other, sender())
+        log.error("[-] dashboard.ServerClient: other {} from {}", other, sender())
   }
 }

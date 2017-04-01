@@ -2,8 +2,9 @@ package pipe
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.cluster.sharding.ClusterSharding
-import common.SharedMessages._
+import messages.NumeratedMessage
 import pipe.AvatarResender.WorkWithQueue
+import vivarium.Avatar._
 
 /**
   * Created by dda on 9/21/16.
@@ -28,22 +29,21 @@ class AvatarResender(tunnelManager: ActorRef) extends Actor with ActorLogging {
       context.become(receiveWithClients(clients + topic))
       shard ! TunnelEndpoint(topic, zmqActor)
 
-    case n: NumeratedMessage if clients.contains(n.id) =>
-      shard ! n
-
+    // Tunnel manager creates tunnel
     case n: NumeratedMessage if sender() == tunnelManager =>
       shard ! n
 
-    case c: AvatarCreated =>
-      tunnelManager ! c
+    case n: NumeratedMessage if clients.contains(n.id) =>
+      shard ! n
 
-    case c: FailedToCreateAvatar =>
+    // This happens when robot sends first messages to router, since router knows only about resender,
+    // resender must redirect that first communication to tunnel manager.
+    // Further communication will match under clients.contains branch.
+    case c: AvatarMessage =>
       tunnelManager ! c
-
-    case c: CreateAvatar =>
-      tunnelManager ! c
+      log.info("[-] AvatarResender: AvatarMessage [{}] from [{}]", c, sender())
 
     case other =>
-      log.error("Not a numerated message or id unknown: [{}]", other)
+      log.error("[-] AvatarResender: Not a numerated message or id unknown: [{}] from [{}]", other, sender())
   }
 }

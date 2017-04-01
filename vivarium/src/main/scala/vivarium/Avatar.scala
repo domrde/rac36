@@ -4,9 +4,11 @@ import java.net.{URL, URLClassLoader}
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.cluster.sharding.ClusterSharding
-import vivarium.ReplicatedSet.LookupResult
 import com.typesafe.config.ConfigFactory
-import common.SharedMessages._
+import messages.NumeratedMessage
+import messages.RobotMessages.Control
+import messages.SensoryInformation.{Position, Sensory}
+import vivarium.ReplicatedSet.LookupResult
 
 import scala.util.{Failure, Success, Try}
 
@@ -19,14 +21,20 @@ import scala.util.{Failure, Success, Try}
 // todo: send and load jars through NFS
 // todo: interaction with services
 object Avatar {
-  @SerialVersionUID(101L) case class AvatarState(id: String, tunnel: Option[ActorRef], brain: Option[ActorRef])
-  @SerialVersionUID(101L) case class AvatarMessage(id: String, from: String, message: String) extends NumeratedMessage
+  trait AvatarMessage extends NumeratedMessage
+
+  @SerialVersionUID(101L) case class Create(id: String, jarName: String, className: String) extends AvatarMessage
+  @SerialVersionUID(101L) case class GetState(id: String) extends AvatarMessage // for tests
+  @SerialVersionUID(101L) case class State(id: String, tunnel: Option[ActorRef], brain: Option[ActorRef]) extends AvatarMessage
+  @SerialVersionUID(101L) case class Message(id: String, from: String, message: String) extends AvatarMessage
+  trait AvatarCreateResponse extends AvatarMessage
+  @SerialVersionUID(101L) case class AvatarCreated(id: String) extends AvatarCreateResponse
+  @SerialVersionUID(101L) case class FailedToCreateAvatar(id: String, reason: String) extends AvatarCreateResponse
+  @SerialVersionUID(101L) case class TunnelEndpoint(id: String, endpoint: ActorRef) extends AvatarMessage
 }
 
 class Avatar extends Actor with ActorLogging {
-  import Avatar._
-
-  log.info("\nAVATAR CREATED {}", self)
+  log.info("[-] AVATAR CREATED {}", self)
 
   val config = ConfigFactory.load()
 
@@ -37,19 +45,19 @@ class Avatar extends Actor with ActorLogging {
   override def receive: Receive = receiveWithState(null, None, None, Set.empty)
 
   def receiveWithState(id: String, tunnel: Option[ActorRef], brain: Option[ActorRef], buffer: Set[Position]): Receive = {
-    case CreateAvatar(_id, jarName, className) =>
+    case Avatar.Create(_id, jarName, className) =>
       Try {
         startChildFromJar(jarName, className)
       } match {
         case Failure(exception) =>
           context.become(receiveWithState(_id, tunnel, None, buffer))
-          sender() ! FailedToCreateAvatar(_id, exception.getMessage)
+          sender() ! Avatar.FailedToCreateAvatar(_id, exception.getMessage)
         case Success(value) =>
           context.become(receiveWithState(_id, tunnel, Some(value), buffer))
-          sender() ! AvatarCreated(_id)
+          sender() ! Avatar.AvatarCreated(_id)
       }
 
-    case TunnelEndpoint(_id, endpoint) =>
+    case Avatar.TunnelEndpoint(_id, endpoint) =>
       context.become(receiveWithState(_id, Some(endpoint), brain, buffer))
 
     case LookupResult(Some(data)) =>
@@ -58,29 +66,29 @@ class Avatar extends Actor with ActorLogging {
     case LookupResult(None) =>
       // empty
 
-    case p: GetState => // for tests
-      sender() ! AvatarState(id, tunnel, brain)
+    case p: Avatar.GetState => // for tests
+      sender() ! Avatar.State(id, tunnel, brain)
 
     case Sensory(_id, sensoryPayload) =>
       cache ! ReplicatedSet.RemoveAll(buffer diff sensoryPayload)
       cache ! ReplicatedSet.AddAll(sensoryPayload diff buffer)
       val brainPositions = sensoryPayload.map { case Position(name, row, col, angle) =>
-        com.dda.brain.BrainMessages.Position(name, row, col, angle)
+        messages.BrainMessages.Position(name, row, col, angle)
       }
-      brain.foreach(_ ! com.dda.brain.BrainMessages.Sensory(_id, brainPositions))
+      brain.foreach(_ ! messages.BrainMessages.Sensory(_id, brainPositions))
       context.become(receiveWithState(id, tunnel, brain, sensoryPayload))
 
-    case com.dda.brain.BrainMessages.FromAvatarToRobot(command) =>
+    case messages.BrainMessages.FromAvatarToRobot(command) =>
       tunnel.foreach(_ ! Control(id, command))
 
-    case com.dda.brain.BrainMessages.TellToOtherAvatar(to, from, message) =>
-      shard ! Avatar.AvatarMessage(to, from, message)
+    case messages.BrainMessages.TellToOtherAvatar(to, from, message) =>
+      shard ! Avatar.Message(to, from, message)
 
-    case Avatar.AvatarMessage(to, from, message) =>
-      brain.foreach(_ ! com.dda.brain.BrainMessages.TellToOtherAvatar(to, from, message))
+    case Avatar.Message(to, from, message) =>
+      brain.foreach(_ ! messages.BrainMessages.TellToOtherAvatar(to, from, message))
 
     case other =>
-      log.error("\nAvatar: other [{}] from [{}]", other, sender())
+      log.error("[-] Avatar: other [{}] from [{}]", other, sender())
   }
 
   def startChildFromJar(jarName: String, className: String) = {

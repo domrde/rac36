@@ -2,9 +2,12 @@ package pipe
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import com.typesafe.config.ConfigFactory
-import common.SharedMessages.{AvatarCreated, _}
-import common.zmqHelpers.ZeroMQHelper
+import messages.{NumeratedMessage, RobotMessages, SensoryInformation}
 import pipe.LowestLoadFinder.{IncrementClients, ToReturnAddress, ToTmWithLowestLoad}
+import pipe.TunnelManager.{FailedToCreateTunnel, TunnelCreated}
+import play.api.libs.json.{JsValue, Json, Reads}
+import utils.zmqHelpers.{JsonStringifier, JsonValidator, ZeroMQHelper}
+import vivarium.Avatar
 
 /**
   * Created by dda on 24.04.16.
@@ -12,59 +15,89 @@ import pipe.LowestLoadFinder.{IncrementClients, ToReturnAddress, ToTmWithLowestL
 //todo: check balancing really works
 //todo: use cluster metrics-based selection of lowest loaded TM
 //todo: use pool of ZmqRouter to lower socket load http://doc.akka.io/docs/akka/current/scala/routing.html
+object TunnelManager {
+  trait TunnelCreateResponse extends NumeratedMessage
+  @SerialVersionUID(101L) case class TunnelCreated(url: String, id: String) extends TunnelCreateResponse
+  @SerialVersionUID(101L) case class FailedToCreateTunnel(id: String, reason: String) extends TunnelCreateResponse
+}
+
+class ValidatorImpl extends JsonValidator {
+  private implicit val createAvatarReads = Json.reads[Avatar.Create]
+  private implicit val positionReads = Json.reads[SensoryInformation.Position]
+  private implicit val sensoryReads = Json.reads[SensoryInformation.Sensory]
+  override val getReads: List[Reads[_ <: AnyRef]] = List(createAvatarReads, sensoryReads)
+}
+
+class StringifierImpl extends JsonStringifier {
+  private implicit val tunnelCreatedWrites = Json.writes[TunnelManager.TunnelCreated]
+  private implicit val failedToCreateTunnelWrites = Json.writes[TunnelManager.FailedToCreateTunnel]
+  private implicit val controlWrites = Json.writes[RobotMessages.Control]
+  override def toJson(msg: AnyRef): Option[JsValue] = {
+    msg match {
+      case a: TunnelManager.TunnelCreated => Some(tunnelCreatedWrites.writes(a))
+      case a: TunnelManager.FailedToCreateTunnel => Some(failedToCreateTunnelWrites.writes(a))
+      case a: RobotMessages.Control => Some(controlWrites.writes(a))
+      case _ => None
+    }
+  }
+}
+
 class TunnelManager extends Actor with ActorLogging {
 
-  val config = ConfigFactory.load()
+  private val config = ConfigFactory.load()
 
-  val url = "tcp://" + config.getString("akka.remote.netty.tcp.hostname") + ":" + config.getInt("pipe.ports.input")
-  val port = config.getInt("pipe.ports.input")
+  private val url = "tcp://" + config.getString("akka.remote.netty.tcp.hostname") + ":" + config.getInt("pipe.ports.input")
+  private val port = config.getInt("pipe.ports.input")
 
-  val zmqReceiver = context.actorOf(AvatarResender(self))
-  val worker = ZeroMQHelper(context.system).bindRouterActor(
+  private val zmqReceiver = context.actorOf(AvatarResender(self), name = "AvatarResender")
+
+  private val worker = ZeroMQHelper(context.system).bindRouterActor(
     url = "tcp://" + config.getString("akka.remote.netty.tcp.hostname"),
     port = port,
-    zmqReceiver
+    validator = Props[ValidatorImpl],
+    stringifier = Props[StringifierImpl],
+    targetAddress = zmqReceiver
   )
 
-  val lowestFinder = context.actorOf(Props[LowestLoadFinder], "Sharer")
+  private val lowestFinder = context.actorOf(Props[LowestLoadFinder], "Sharer")
   lowestFinder ! IncrementClients(url)
 
-  override def receive = receiveWithClientsStorage(Map.empty)
+  override def receive: Receive = receiveWithClientsStorage(Map.empty)
 
   def receiveWithClientsStorage(clients: Map[String, ActorRef]): Receive = {
-    case ctr: CreateAvatar =>
+    case ctr: Avatar.Create =>
+      log.info("[-] TunnelManager: Tunnel create request, sending to lowest load")
       lowestFinder ! ToTmWithLowestLoad(ctr, self)
-      log.info("Tunnel create request, sending to lowest load")
 
     case ToTmWithLowestLoad(ctr, returnAddress) =>
+      log.info("[-] TunnelManager: I'm with lowest load, requesting avatar")
       zmqReceiver ! ctr
-      log.info("I'm with lowest load, requesting avatar")
       context.become(receiveWithClientsStorage(clients + (ctr.id -> returnAddress)))
 
-    case ac @ AvatarCreated(id) =>
+    case ac @ Avatar.AvatarCreated(id) =>
       clients(id) ! ToReturnAddress(ac, url)
       zmqReceiver ! AvatarResender.WorkWithQueue(id, worker)
       lowestFinder ! IncrementClients(url)
       context.become(receiveWithClientsStorage(clients - id))
-      log.info("Avatar and tunnel created with id [{}], sending result to original sender [{}]", id, sender())
+      log.info("[-] TunnelManager: Avatar and tunnel created with id [{}], sending result to original sender [{}]", id, sender())
 
-    case fac @ FailedToCreateAvatar(id, _) =>
+    case fac @ Avatar.FailedToCreateAvatar(id, _) =>
       clients(id) ! ToReturnAddress(fac, url)
       context.become(receiveWithClientsStorage(clients - id))
-      log.info("Failed to create avatar with id [{}], sending result to original sender [{}]", id, sender())
+      log.info("[-] TunnelManager: Failed to create avatar with id [{}], sending result to original sender [{}]", id, sender())
 
-    case ToReturnAddress(AvatarCreated(id), tunnelUrl) =>
+    case ToReturnAddress(Avatar.AvatarCreated(id), tunnelUrl) =>
       worker ! TunnelCreated(tunnelUrl, id.toString)
-      log.info("I'm the original sender. Printing tunnel info with topic [{}] to client.", id)
+      log.info("[-] TunnelManager: I'm the original sender. Printing tunnel info with topic [{}] to client.", id)
 
-    case ToReturnAddress(FailedToCreateAvatar(id, ex), tunnelUrl) =>
+    case ToReturnAddress(Avatar.FailedToCreateAvatar(id, ex), tunnelUrl) =>
       worker ! FailedToCreateTunnel(id.toString, ex)
-      log.info("I'm the original sender. Faild to create tunnel, printing info with topic [{}] to client.", id)
+      log.info("[-] TunnelManager: I'm the original sender. Faild to create tunnel, printing info with topic [{}] to client.", id)
 
     case other =>
-      log.error("TunnelManager: other {} from {}", other, sender())
+      log.error("[-] TunnelManager: other {} from {}", other, sender())
   }
 
-  log.info("TunnelManager initialized for parent [{}] and listens on [{}]",
+  log.info("[-] TunnelManager: initialized for parent [{}] and listens on [{}]",
     context.parent, url)
 }

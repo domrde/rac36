@@ -7,7 +7,7 @@ import akka.cluster.metrics.ClusterMetricsExtension
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.sharding.{ClusterSharding, ShardRegion}
 import akka.cluster.{Cluster, ClusterEvent}
-import common.SharedMessages.NumeratedMessage
+import messages.NumeratedMessage
 
 class ClusterMain extends Actor with ActorLogging {
   val cluster = Cluster(context.system)
@@ -36,21 +36,19 @@ class ClusterMain extends Actor with ActorLogging {
   val initial: Receive = {
     case ccs: CurrentClusterState => ccs.members.find(_.address == cluster.selfAddress).foreach(_ => startMainSystem())
     case MemberUp(member) =>
-      log.info("MemberUp {} with roles {}", member.uniqueAddress, member.roles)
+      log.info("[-] PipeClusterMain: MemberUp {} with roles {}", member.uniqueAddress, member.roles)
       if (cluster.selfAddress == member.address) startMainSystem()
-    case MemberRemoved(member, _) => log.info("MemberRemoved {} with roles {}", member.uniqueAddress, member.roles)
+    case MemberRemoved(member, _) => log.info("[-] PipeClusterMain: MemberRemoved {} with roles {}", member.uniqueAddress, member.roles)
   }
 
   val initialised: Receive = {
-    case MemberUp(member) => log.info("MemberUp {} with roles {}", member.uniqueAddress, member.roles)
-    case MemberRemoved(member, _) => log.info("MemberRemoved {} with roles {}", member.uniqueAddress, member.roles)
+    case MemberUp(member) => log.info("[-] PipeClusterMain: MemberUp {} with roles {}", member.uniqueAddress, member.roles)
+    case MemberRemoved(member, _) => log.info("[-] PipeClusterMain: MemberRemoved {} with roles {}", member.uniqueAddress, member.roles)
   }
 
   def startMainSystem() = {
     context.actorOf(Props[TunnelManager], "TunnelManager")
     context.become(initialised)
-    log.info("\n---------------------------------------------------------------------------")
-    log.info("\n\nTunnelManager initialised")
-    log.info("\n---------------------------------------------------------------------------")
+    log.info("[-] PipeClusterMain: TunnelManager initialised")
   }
 }

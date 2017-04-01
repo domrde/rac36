@@ -37,6 +37,6 @@ class ShardingStatsListener extends Actor with ActorLogging {
         context.parent ! MetricsAggregator.ShardingStats(address, shardRegionStats.stats)
       }
 
-    case other => log.error("dashboard.ShardingStatsListener: other {} from {}", other, sender())
+    case other => log.error("[-] dashboard.ShardingStatsListener: other {} from {}", other, sender())
   }
 }

@@ -3,9 +3,9 @@ import java.util.UUID
 import akka.actor.ActorSystem
 import akka.testkit.TestKit
 import akka.util.Timeout
-import common.zmqHelpers.ZeroMQHelper
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 import org.zeromq.ZMQ
+import utils.zmqHelpers.ZeroMQHelper
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._

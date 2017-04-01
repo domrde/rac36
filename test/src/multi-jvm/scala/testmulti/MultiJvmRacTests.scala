@@ -1,19 +1,18 @@
 package testmulti
 
-import _root_.pipetest.{CameraStub, TunnelCreator}
 import akka.actor.Props
 import akka.cluster.Cluster
 import akka.cluster.MemberStatus.Up
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.TestProbe
 import akka.util.Timeout
+import com.typesafe.config.ConfigFactory
+import messages.{RobotMessages, SensoryInformation}
+import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
+import play.api.libs.json.Json
+import utils.test.CameraStub
 import vivarium.ReplicatedSet
 import vivarium.ReplicatedSet.{Lookup, LookupResult}
-import com.typesafe.config.ConfigFactory
-import common.SharedMessages.{Control, Position, Sensory}
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
-import pipetest.CameraStub.GetInfo
-import play.api.libs.json.Json
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -53,8 +52,7 @@ object MultiNodeRacTestsConfig extends MultiNodeConfig {
             kryo = "com.romix.akka.serialization.kryo.KryoSerializer"
           }
           serialization-bindings {
-            "common.GlobalMessages" = kryo
-            "common.SharedMessages$NumeratedMessage" = kryo
+            "messages.NumeratedMessage" = kryo
             "java.io.Serializable" = kryo
             "akka.actor.Identify" = akka-misc
             "akka.actor.ActorIdentity" = akka-misc
@@ -182,17 +180,17 @@ class SampleMultiJvmRacSpecNode2 extends MultiJvmRacTests {
     "create tunnel" in {
       runOn(second) {
         testConductor.enter("Creating tunnel")
-        log.info("\n------>Avatar: Creating tunnel")
+        log.info("[-] SampleMultiJvmRacSpecNode2 Avatar: Creating tunnel")
 
         awaitCond {
           val probe = TestProbe()
-          camera.tell(GetInfo, probe.ref)
-          probe.expectMsgType[Sensory].sensoryPayload.nonEmpty
+          camera.tell(CameraStub.GetInfo, probe.ref)
+          probe.expectMsgType[SensoryInformation.Sensory].sensoryPayload.nonEmpty
         }
 
         val probe = TestProbe()
-        camera.tell(GetInfo, probe.ref)
-        val sensory = probe.expectMsgType[Sensory].sensoryPayload
+        camera.tell(CameraStub.GetInfo, probe.ref)
+        val sensory = probe.expectMsgType[SensoryInformation.Sensory].sensoryPayload
 
         //waiting for data replication
         awaitCond({
@@ -205,7 +203,7 @@ class SampleMultiJvmRacSpecNode2 extends MultiJvmRacTests {
         testConductor.enter("Tunnel created")
         Thread.sleep(1000)
         testConductor.enter("Done")
-        log.info("\n------>Avatar: Done")
+        log.info("[-] SampleMultiJvmRacSpecNode2 Avatar: Done")
       }
     }
 
@@ -226,13 +224,13 @@ class SampleMultiJvmRacSpecNode4 extends MultiJvmRacTests {
     "create tunnel" in {
       runOn(third) {
         testConductor.enter("Creating tunnel")
-        log.info("\n------>Avatar2: Creating tunnel")
+        log.info("[-] SampleMultiJvmRacSpecNode4 Avatar2: Creating tunnel")
         Thread.sleep(1000)
         testConductor.enter("Tunnel created")
-        log.info("\n------>Avatar2: Tunnel created")
+        log.info("[-] SampleMultiJvmRacSpecNode4 Avatar2: Tunnel created")
         Thread.sleep(1000)
         testConductor.enter("Done")
-        log.info("\n------>Avatar2: Done")
+        log.info("[-] SampleMultiJvmRacSpecNode4 Avatar2: Done")
       }
     }
 
@@ -252,13 +250,13 @@ class SampleMultiJvmRacSpecNode5 extends MultiJvmRacTests {
     "create tunnel" in {
       runOn(fourth) {
         testConductor.enter("Creating tunnel")
-        log.info("\n------>Pipe2: Creating tunnel")
+        log.info("[-] SampleMultiJvmRacSpecNode5 Pipe2: Creating tunnel")
         Thread.sleep(1000)
         testConductor.enter("Tunnel created")
-        log.info("\n------>Pipe2: Tunnel created")
+        log.info("[-] SampleMultiJvmRacSpecNode5 Pipe2: Tunnel created")
         Thread.sleep(1000)
         testConductor.enter("Done")
-        log.info("\n------>Pipe2: Done")
+        log.info("[-] SampleMultiJvmRacSpecNode5 Pipe2: Done")
       }
     }
 
@@ -276,28 +274,32 @@ class SampleMultiJvmRacSpecNode1 extends MultiJvmRacTests {
 
   val tunnelCreator = new TunnelCreator(system)
 
-  implicit val positionWrites = Json.writes[Position]
+  implicit val positionWrites = Json.writes[SensoryInformation.Position]
 
-  implicit val sensoryWrites = Json.writes[Sensory]
+  implicit val sensoryWrites = Json.writes[SensoryInformation.Sensory]
 
   "Pipe" must {
     "create tunnel" in {
       runOn(first) {
 
         testConductor.enter("Creating tunnel")
-        log.info("\n------>Pipe: Creating tunnel")
+        log.info("[-] SampleMultiJvmRacSpecNode1 Pipe: Creating tunnel")
 
         val tunnel = tunnelCreator.createTunnel(TestProbe().ref, "MultiJvmRacTests1")
 
         def sendCameraDataToAvatar() = {
           val probe = TestProbe()
-          camera.tell(GetInfo, probe.ref)
-          val sensory = Sensory(tunnel._3, probe.expectMsgType[Sensory].sensoryPayload)
+          camera.tell(CameraStub.GetInfo, probe.ref)
+          val sensory = SensoryInformation.Sensory(tunnel._3, probe.expectMsgType[SensoryInformation.Sensory].sensoryPayload)
           tunnel._1.send("|" + Json.stringify(Json.toJson(sensory)))
           sensory.sensoryPayload
         }
 
+        log.info("[-] SampleMultiJvmRacSpecNode1 Pipe: Sending camera data")
+
         val data = sendCameraDataToAvatar()
+
+        log.info("[-] SampleMultiJvmRacSpecNode1 Pipe: Awaiting replication")
 
         //waiting for data replication
         awaitCond(p = {
@@ -307,22 +309,23 @@ class SampleMultiJvmRacSpecNode1 extends MultiJvmRacTests {
           result.result.contains(data)
         }, max = 10.seconds)
 
+        log.info("[-] SampleMultiJvmRacSpecNode1 Pipe: Awaiting command from avatar")
+
         var rawMessage = tunnel._4.poll()
         while (rawMessage == null) {
           rawMessage = tunnel._4.poll()
           Thread.sleep(1)
         }
 
+        implicit val controlReads = Json.reads[RobotMessages.Control]
         val rawJson = rawMessage.splitAt(rawMessage.indexOf("|"))._2.drop(1)
-
-        import common.Implicits._
-        Json.parse(rawJson).validate[Control].get shouldBe Control(tunnel._3, "testCommand")
+        Json.parse(rawJson).validate[RobotMessages.Control].get shouldBe RobotMessages.Control(tunnel._3, "testCommand")
 
         testConductor.enter("Tunnel created")
-        log.info("\n------>Pipe: Tunnel created")
+        log.info("[-] SampleMultiJvmRacSpecNode1 Pipe: Tunnel created")
         Thread.sleep(1000)
         testConductor.enter("Done")
-        log.info("\n------>Pipe: Done")
+        log.info("[-] SampleMultiJvmRacSpecNode1 Pipe: Done")
       }
     }
 

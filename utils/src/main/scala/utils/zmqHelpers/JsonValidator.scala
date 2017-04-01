@@ -1,8 +1,8 @@
-package common.zmqHelpers
+package utils.zmqHelpers
 
 import akka.actor.{Actor, ActorLogging}
 import akka.util.ByteString
-import play.api.libs.json.{JsError, JsSuccess, JsValue, Json}
+import play.api.libs.json._
 
 import scala.util.{Failure, Success, Try}
 
@@ -14,36 +14,38 @@ object JsonValidator {
   case class ValidationResult(msg: AnyRef)
 }
 
-class JsonValidator extends Actor with ActorLogging {
+// Json.validate needs implicit reads, provide them in implementation
+//
+// override def getReads = List(Json.reads[NumeratedMessageChild])
+abstract class JsonValidator extends Actor with ActorLogging {
   import JsonValidator._
-  import common.Implicits._
 
-  lazy val allReads = List(createAvatarReads, sensoryReads, controlReads, avatarCreatedReads)
+  def getReads: List[Reads[_ <: AnyRef]]
 
   override def receive: Receive = {
     case Validate(bytes) =>
       processBytes(bytes)
 
     case other =>
-      log.error("JsonValidator: other [{}] from [{}]", other, sender())
+      log.error("[-] JsonValidator: other [{}] from [{}]", other, sender())
   }
 
-  def processBytes(bytes: Array[Byte]) = {
+  private def processBytes(bytes: Array[Byte]) = {
     val bytesAsString = ByteString(bytes).utf8String
     val (_, data) = bytesAsString.splitAt(bytesAsString.indexOf("|"))
     Try(Json.parse(data.drop(1))) match {
       case Success(parsedJson) =>
         validateJson(parsedJson)
       case Failure(exception) =>
-        log.error("Malformed message [{}] caused exception [{}]", bytesAsString, exception.getMessage)
+        log.error("[-] JsonValidator: Malformed message [{}] caused exception [{}]", bytesAsString, exception.getMessage)
     }
   }
 
   //todo: come up with a better way
-  def validateJson(json: JsValue) = {
-    allReads.map { reads =>
+  private def validateJson(json: JsValue) = {
+    getReads.map { reads =>
       json.validate(reads) match {
-        case JsSuccess(value, path) =>
+        case JsSuccess(value, _) =>
           Some(ValidationResult(value))
 
         case JsError(_) =>
@@ -54,7 +56,7 @@ class JsonValidator extends Actor with ActorLogging {
       case _ => false
     } match {
       case Some(Some(x)) => sender() ! x
-      case None => log.error("Failed to validate json [{}]", json)
+      case None => log.error("[-] JsonValidator: Failed to validate json [{}]", json)
     }
   }
 }

@@ -27,16 +27,16 @@ class OpenstackActor extends Actor with ActorLogging {
   def pendingStarts(roles: Set[String]): Receive = {
     case LaunchCommand(image, _) =>
       if (knownImages.contains(image)) {
-        log.info("Launching image [{}]", image)
+        log.info("[-] dashboard.OpenstackActor: Launching image [{}]", image)
         if (!roles.contains(image)) {
           context.become(pendingStarts(roles + image))
           // do start
         }
       } else {
-        log.error("Unknown image")
+        log.error("[-] dashboard.OpenstackActor: Unknown image")
       }
 
     case other =>
-      log.error("dashboard.OpenstackActor: other {} from {}", other, sender())
+      log.error("[-] dashboard.OpenstackActor: other {} from {}", other, sender())
   }
 }

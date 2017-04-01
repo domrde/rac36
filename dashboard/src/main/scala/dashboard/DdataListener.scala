@@ -5,7 +5,7 @@ import akka.cluster.Cluster
 import akka.cluster.ddata.Replicator._
 import akka.cluster.ddata.{DistributedData, ORSet}
 import common.Constants.DdataSetKey
-import common.SharedMessages.Position
+import messages.SensoryInformation.Position
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -26,12 +26,12 @@ class DdataListener extends Actor with ActorLogging {
         case data: ORSet[Position] =>
           context.parent ! MetricsAggregator.DdataStatus(data.elements)
 
-        case _ => log.info("no ddata collected with GetSuccess")
+        case _ => log.info("[-] dashboard.DdataListener: no ddata collected with GetSuccess")
       }
 
     case NotFound(DdataSetKey, _) =>
 
     case other =>
-      log.error("dashboard.DdataListener: other [{}] from [{}]", other, sender())
+      log.error("[-] dashboard.DdataListener: other [{}] from [{}]", other, sender())
   }
 }

@@ -1,4 +1,4 @@
-package pipetest
+package testmulti
 
 import java.util.concurrent.ConcurrentLinkedQueue
 
@@ -7,10 +7,11 @@ import akka.actor.{ActorRef, ActorSystem}
 import akka.testkit.TestProbe
 import akka.util.{ByteString, Timeout}
 import com.typesafe.config.ConfigFactory
-import common.SharedMessages._
-import common.zmqHelpers.ZeroMQHelper
 import org.zeromq.ZMQ
-import play.api.libs.json._
+import pipe.TunnelManager
+import play.api.libs.json.{JsError, JsSuccess, Json}
+import utils.zmqHelpers.ZeroMQHelper
+import vivarium.Avatar
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -20,7 +21,6 @@ import scala.concurrent.{Await, Future}
   * Created by dda on 9/10/16.
   */
 class TunnelCreator(actorSystem: ActorSystem) {
-  import common.Implicits._
 
   implicit val system = actorSystem
 
@@ -30,8 +30,12 @@ class TunnelCreator(actorSystem: ActorSystem) {
 
   val zmqHelpers = ZeroMQHelper(system)
 
+  implicit val avatarWrites = Json.writes[Avatar.Create]
+  implicit val tunnelCreatedReads = Json.reads[TunnelManager.TunnelCreated]
+  implicit val failedToCreateTunnelReads = Json.reads[TunnelManager.FailedToCreateTunnel]
+
   def apiJson(id: String) = Json.stringify(Json.toJson(
-    CreateAvatar(id, "brain-assembly-1.0.jar", "com.dda.brain.Brain")
+    Avatar.Create(id, "brain-assembly-1.0.jar", "com.dda.brain.Brain")
   ))
 
   case class ManageConnection(id: String, port: Int)
@@ -79,12 +83,12 @@ class TunnelCreator(actorSystem: ActorSystem) {
       }
       val rawJson = rawMessage.splitAt(rawMessage.indexOf("|"))._2.drop(1)
 
-      Json.parse(rawJson).validate[FailedToCreateTunnel] match {
+      Json.parse(rawJson).validate[TunnelManager.FailedToCreateTunnel] match {
         case JsSuccess(value, path) => throw new Exception("Failed to create avatar: " + value.reason)
         case JsError(errors) =>
       }
 
-      val tunnel: TunnelCreated = Json.parse(rawJson).validate[TunnelCreated].get
+      val tunnel: TunnelManager.TunnelCreated = Json.parse(rawJson).validate[TunnelManager.TunnelCreated].get
       assert(tunnel.id == id)
       (dealer, tunnel.url, tunnel.id, queue)
     }

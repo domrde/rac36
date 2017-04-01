@@ -1,4 +1,4 @@
-package common.zmqHelpers
+package utils.zmqHelpers
 
 import akka.actor.{ActorRef, ActorSystem, ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvider, Props}
 import akka.util.ByteString
@@ -29,14 +29,18 @@ class ZeroMQHelper(system: ActorSystem, zmqContext: ZMQ.Context) extends Extensi
   def connectDealerActor(id: String,
                          url: String,
                          port: Int,
+                         validator: Props,
+                         stringifier: Props,
                          targetAddress: ActorRef): ActorRef = {
-    system.actorOf(ZmqDealer(id, url, port, Props[JsonValidator], Props[JsonStringifier], targetAddress))
+    system.actorOf(ZmqDealer(id, url, port, validator, stringifier, targetAddress))
   }
 
   def bindRouterActor(url: String,
                       port: Int,
+                      validator: Props,
+                      stringifier: Props,
                       targetAddress: ActorRef): ActorRef = {
-    system.actorOf(ZmqRouter(url, port, Props[JsonValidator], Props[JsonStringifier], targetAddress))
+    system.actorOf(ZmqRouter(url, port, validator, stringifier, targetAddress))
   }
 
   def bindRouterSocket(url: String): ZMQ.Socket = {

@@ -1,26 +1,25 @@
 package com.dda.brain
 
 import akka.actor.{Actor, ActorLogging}
-import com.dda.brain.BrainMessages._
+import messages.BrainMessages._
 
 /**
   * Created by dda on 9/27/16.
   */
 class CatBrain extends Actor with ActorLogging {
 
-  log.info("\n\n\n           Brain started           \n\n\n")
+  log.info("[-] CatBrain started")
 
   override def receive: Receive = {
     case Sensory(id, payload) =>
       chooseNextAction(id, payload)
 
     case t @ TellToOtherAvatar(to, from, message) =>
-      println("\n\n" + t + "\n\n")
       if (Integer.parseInt(message) > 0)
         sender() ! TellToOtherAvatar(from, to, (Integer.parseInt(message) - 1).toString)
 
     case other =>
-      log.error("Brain: received unknown message [{}] from [{}]", other, sender())
+      log.error("[-] CatBrain: received unknown message [{}] from [{}]", other, sender())
   }
 
   def chooseNextAction(id: String, payload: Set[Position]) = {
@@ -32,9 +31,9 @@ class CatBrain extends Actor with ActorLogging {
       val rowInc = mousePos.get.row - catPos.get.row
       sender() ! FromAvatarToRobot("{\"name\": \"move\", \"id\":\"" + id + "\", \"colInc\":\"" + colInc + "\"" +
       "\"rowInc\":\"" + rowInc + "\"")
-      log.info("CatBrain [{}]: control sended", id)
+      log.info("[-] CatBrain [{}]: control sended", id)
     } else {
-      log.info("CatBrain [{}]: cat [{}] or mouse [{}] not found ", id, catPos, mousePos)
+      log.info("[-] CatBrain [{}]: cat [{}] or mouse [{}] not found ", id, catPos, mousePos)
     }
   }
 }

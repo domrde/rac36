@@ -5,17 +5,18 @@ import akka.cluster.Cluster
 import akka.cluster.ddata.Replicator._
 import akka.cluster.ddata._
 import common.Constants.DdataSetKey
-import common.SharedMessages.Position
+import messages.SensoryInformation.Position
 
 // todo: extend example so it may be used with different sensor types
 object ReplicatedSet {
+  trait ReplicatedSetMessage
 
   def apply() = Props[ReplicatedSet]
 
-  case class AddAll(values: Set[Position])
-  case class RemoveAll(values: Set[Position])
-  case object Lookup
-  case class LookupResult(result: Option[Set[Position]])
+  case class AddAll(values: Set[Position]) extends ReplicatedSetMessage
+  case class RemoveAll(values: Set[Position]) extends ReplicatedSetMessage
+  case object Lookup extends ReplicatedSetMessage
+  case class LookupResult(result: Option[Set[Position]]) extends ReplicatedSetMessage
 }
 
 class ReplicatedSet extends Actor with ActorLogging {
@@ -53,7 +54,7 @@ class ReplicatedSet extends Actor with ActorLogging {
       replyTo ! LookupResult(None)
 
     case other =>
-      log.error("\nReplicatedSet: other [{}] from [{}]", other, sender())
+      log.error("[-] ReplicatedSet: other [{}] from [{}]", other, sender())
   }
 
 }
