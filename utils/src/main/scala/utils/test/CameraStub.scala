@@ -1,7 +1,8 @@
 package utils.test
 
 import akka.actor.{Actor, ActorLogging}
-import messages.SensoryInformation.{Position, Sensory}
+import com.dda.brain.BrainMessages
+import common.messages.SensoryInformation.{Position, Sensory}
 import utils.test.CameraStub.{GetInfo, MoveRobot}
 
 import scala.language.postfixOps
@@ -27,7 +28,7 @@ class CameraStub(initialMap: String) extends Actor with ActorLogging {
           case '1' => Some(Position("1", row, col, 0))
           case '2' => Some(Position("2", row, col, 0))
           case '3' => Some(Position("3", row, col, 0))
-          case '#' => Some(Position("obstacle", row, col, 0))
+          case '#' => Some(Position(BrainMessages.OBSTACLE_NAME, row, col, 0))
           case _ => None
         }
       }

@@ -35,7 +35,7 @@ class TunnelCreator(actorSystem: ActorSystem) {
   implicit val failedToCreateTunnelReads = Json.reads[TunnelManager.FailedToCreateTunnel]
 
   def apiJson(id: String) = Json.stringify(Json.toJson(
-    Avatar.Create(id, "brain-assembly-1.0.jar", "com.dda.brain.Brain")
+    Avatar.Create(id, "brain-assembly-1.0.jar", "com.dda.brain.ParrotBrain")
   ))
 
   case class ManageConnection(id: String, port: Int)

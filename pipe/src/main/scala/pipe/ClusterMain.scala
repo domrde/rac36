@@ -7,7 +7,7 @@ import akka.cluster.metrics.ClusterMetricsExtension
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.sharding.{ClusterSharding, ShardRegion}
 import akka.cluster.{Cluster, ClusterEvent}
-import messages.NumeratedMessage
+import common.messages.NumeratedMessage
 
 class ClusterMain extends Actor with ActorLogging {
   val cluster = Cluster(context.system)

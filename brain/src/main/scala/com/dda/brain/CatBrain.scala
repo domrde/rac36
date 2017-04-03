@@ -1,39 +1,34 @@
 package com.dda.brain
 
-import akka.actor.{Actor, ActorLogging}
-import messages.BrainMessages._
+import com.dda.brain.BrainMessages._
 
 /**
   * Created by dda on 9/27/16.
   */
-class CatBrain extends Actor with ActorLogging {
+class CatBrain(id: String) extends BrainActor(id) {
 
-  log.info("[-] CatBrain started")
-
-  override def receive: Receive = {
-    case Sensory(id, payload) =>
-      chooseNextAction(id, payload)
-
-    case t @ TellToOtherAvatar(to, from, message) =>
-      if (Integer.parseInt(message) > 0)
-        sender() ! TellToOtherAvatar(from, to, (Integer.parseInt(message) - 1).toString)
-
-    case other =>
-      log.error("[-] CatBrain: received unknown message [{}] from [{}]", other, sender())
-  }
-
-  def chooseNextAction(id: String, payload: Set[Position]) = {
+  override protected def handleSensory(payload: Set[BrainMessages.Position]): Unit = {
     val catPos = payload.find(p => p.name == id)
-    val mousePos = payload.find(p => p.name != "obstacle")
+    val mousePos = payload.find(p => p.name != BrainMessages.OBSTACLE_NAME)
     if (catPos.isDefined && mousePos.isDefined) {
-      sender() ! TellToOtherAvatar(mousePos.get.name, id, "2")
+      sender() ! TellToOtherAvatar(mousePos.get.name, "2")
       val colInc = mousePos.get.col - catPos.get.col
       val rowInc = mousePos.get.row - catPos.get.row
       sender() ! FromAvatarToRobot("{\"name\": \"move\", \"id\":\"" + id + "\", \"colInc\":\"" + colInc + "\"" +
-      "\"rowInc\":\"" + rowInc + "\"")
+        "\"rowInc\":\"" + rowInc + "\"")
       log.info("[-] CatBrain [{}]: control sended", id)
     } else {
       log.info("[-] CatBrain [{}]: cat [{}] or mouse [{}] not found ", id, catPos, mousePos)
     }
   }
+
+  override protected def handleAvatarMessage(from: String, message: String): Unit = {
+    if (Integer.parseInt(message) > 0)
+      sender() ! TellToOtherAvatar(from, (Integer.parseInt(message) - 1).toString)
+  }
+
+  override protected def handleRobotMessage(message: String): Unit = {
+    sender() ! FromAvatarToRobot(message)
+  }
+
 }

@@ -2,7 +2,7 @@ package utils.zmqHelpers
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
 import akka.routing.{ActorRefRoutee, RoundRobinRoutingLogic, Router}
-import messages.NumeratedMessage
+import common.messages.NumeratedMessage
 import org.zeromq.ZMQ
 
 import scala.concurrent.duration._

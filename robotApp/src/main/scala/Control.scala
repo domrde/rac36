@@ -2,8 +2,8 @@ import akka.actor.{Actor, ActorLogging, Props}
 import akka.pattern.ask
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
-import messages.SensoryInformation.Sensory
-import messages.{RobotMessages, SensoryInformation}
+import common.messages.SensoryInformation.Sensory
+import common.messages.{RobotMessages, SensoryInformation}
 import pipe.TunnelManager
 import play.api.libs.json.{JsValue, Json, Reads}
 import utils.test.CameraStub

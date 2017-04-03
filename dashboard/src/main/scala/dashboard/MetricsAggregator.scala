@@ -3,7 +3,7 @@ package dashboard
 import akka.actor.{Actor, ActorLogging, Address, Props}
 import com.typesafe.config.ConfigFactory
 import dashboard.ServerClient.LaunchCommand
-import messages.SensoryInformation.Position
+import common.messages.SensoryInformation.Position
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -12,24 +12,28 @@ import scala.concurrent.duration._
   * Created by dda on 9/6/16.
   */
 object MetricsAggregator {
+  sealed trait MetricsAggregationMessage
+
   // From ClusterMain
-  case class NodeUp(address: Address, role: String)
-  case class NodeDown(address: Address)
+  case class NodeUp(address: Address, role: String) extends MetricsAggregationMessage
+  case class NodeDown(address: Address) extends MetricsAggregationMessage
 
   // From ClusterMetricsListener
-  case class MemoryMetrics(address: Address, usedHeap: Long, maxHeap: Long)
-  case class CpuMetrics(address: Address, average: Double, processors: Int)
-  case class Member(address: Address, status: String, role: String)
-  case class Members(members: Set[Member])
+  case class MemoryMetrics(address: Address, usedHeap: Long, maxHeap: Long) extends MetricsAggregationMessage
+  case class CpuMetrics(address: Address, average: Double, processors: Int) extends MetricsAggregationMessage
+  case class Member(address: Address, status: String, role: String) extends MetricsAggregationMessage
+  case class Members(members: Set[Member]) extends MetricsAggregationMessage
 
   // From DdataListener
-  case class DdataStatus(data: Set[Position])
+  case class DdataStatus(data: Set[Position]) extends MetricsAggregationMessage
 
   //From ShardingStatsListener
-  case class RegionMetric(shardId: String, entities: Set[String])
-  case class RegionMetrics(metrics: Set[RegionMetric])
-  case class ShardingStats(address: Address, stats: Map[String, Int])
+  case class RegionMetric(shardId: String, entities: Set[String]) extends MetricsAggregationMessage
+  case class RegionMetrics(metrics: Set[RegionMetric]) extends MetricsAggregationMessage
+  case class ShardingStats(address: Address, stats: Map[String, Int]) extends MetricsAggregationMessage
 
+  case object SendMetricsToServer
+  case class CollectedMetrics(metrics: List[NodeMetrics], t: String = "CollectedMetrics")
   case class NodeMetrics(address: Address,
                          cpuCur:  Option[Double],
                          cpuMax:  Option[Double],
@@ -38,9 +42,6 @@ object MetricsAggregator {
                          role:    Option[String],
                          status:  Option[String],
                          clients: Option[Int])
-
-  case object SendMetricsToServer
-  case class CollectedMetrics(metrics: List[NodeMetrics], t: String = "CollectedMetrics")
 }
 
 class MetricsAggregator extends Actor with ActorLogging {
@@ -58,33 +59,23 @@ class MetricsAggregator extends Actor with ActorLogging {
     )
   }
 
-  val server = context.actorOf(Props[Server], "Server")
-
-  val starter = context.actorOf(Props[OpenstackActor], "OpenstackActor")
-
   val updatePeriod = FiniteDuration(config.getDuration("application.updatePeriod").getSeconds, SECONDS)
   context.system.scheduler.schedule(1.second, updatePeriod, self, SendMetricsToServer)
 
   override def receive: Receive = receiveWithNodesMetrics(Map.empty)
 
   def receiveWithNodesMetrics(metrics: Map[Address, NodeMetrics]): Receive = {
-    case l: LaunchCommand =>
-      starter forward l
-
     case SendMetricsToServer =>
-      server ! CollectedMetrics(metrics.values.toList.sortBy(_.address.host))
+      context.parent ! CollectedMetrics(metrics.values.toList.sortBy(_.address.host))
 
-    case anything if listeners.contains(sender()) =>
-      aggregateMetrics(anything, metrics)
-
-    case anything if sender() == context.parent =>
-      aggregateMetrics(anything, metrics)
+    case m: MetricsAggregationMessage =>
+      aggregateMetrics(m, metrics)
 
     case other =>
       log.error("[-] MetricsAggregator: other [{}] from [{}]", other, sender())
   }
 
-  def aggregateMetrics(msg: Any, nodes: Map[Address, NodeMetrics]) = msg match {
+  def aggregateMetrics(msg: MetricsAggregationMessage, nodes: Map[Address, NodeMetrics]) = msg match {
     case c: Members =>
       val currentNodes = c.members.map { member =>
         val cur = nodes.getOrElse(member.address, NodeMetrics(member.address, None, None, None, None, None, None, None))

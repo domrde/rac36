@@ -1,7 +1,7 @@
 
 resolvers += "OSS Sonatype" at "https://repo1.maven.org/maven2/"
 
-lazy val akkaVersion = "2.4.10"
+lazy val akkaVersion = "2.4.11"
 
 lazy val commonSettings = Seq(
   version := "1.0",
@@ -44,29 +44,11 @@ lazy val additionalMultiJvmSettings = Seq(
   }
 )
 
-lazy val root = (project in file(".")).
+lazy val common = (project in file("common")).
   settings(commonSettings: _*).
   settings(
-    name := "root"
-  ).
-  dependsOn(test)
-
-lazy val messages = (project in file("messages")).
-  settings(commonSettings: _*).
-  settings(
-    name := "messages"
+    name := "common"
   )
-
-lazy val utils = (project in file("utils")).
-  settings(commonSettings: _*).
-  settings(
-    name := "utils",
-    libraryDependencies ++= Seq(
-      "org.zeromq" % "jeromq" % "0.3.5",
-      "com.typesafe.play" %% "play-json" % "2.5.4"
-    )
-  ).
-  dependsOn(messages)
 
 lazy val brain = (project in file("brain")).
   settings(
@@ -79,21 +61,25 @@ lazy val brain = (project in file("brain")).
         "com.typesafe.akka" %% "akka-actor" % akkaVersion
       )
   ).
-  dependsOn(messages)
+  dependsOn(common)
 
-lazy val common = (project in file("common")).
+lazy val utils = (project in file("utils")).
   settings(commonSettings: _*).
   settings(
-    name := "common"
+    name := "utils",
+    libraryDependencies ++= Seq(
+      "org.zeromq" % "jeromq" % "0.3.5",
+      "com.typesafe.play" %% "play-json" % "2.5.4"
+    )
   ).
-  dependsOn(messages)
+  dependsOn(brain)
 
 lazy val vivarium = (project in file("vivarium")).
   settings(commonSettings: _*).
   settings(
     name := "vivarium"
   ).
-  dependsOn(common, brain, utils)
+  dependsOn(utils)
 
 lazy val pipe = (project in file("pipe")).
   settings(commonSettings: _*).
@@ -107,8 +93,13 @@ lazy val dashboard = (project in file("dashboard")).
   settings(
     name := "dashboard",
     libraryDependencies ++= Seq(
+      //      "com.typesafe.akka" %% "akka-http" % "10.0.5",
+      //      "com.typesafe.akka" %% "akka-http-spray-json" % "10.0.5"
+
+      "com.typesafe.akka" %% "akka-stream" % akkaVersion,
       "com.typesafe.akka" %% "akka-http-core" % akkaVersion,
-      "com.typesafe.akka" %% "akka-http-experimental" % akkaVersion
+      "com.typesafe.akka" %% "akka-http-experimental" % akkaVersion,
+      "com.typesafe.akka" %% "akka-http-spray-json-experimental" % akkaVersion
     )
   ).
   dependsOn(pipe)
@@ -116,11 +107,7 @@ lazy val dashboard = (project in file("dashboard")).
 lazy val robotApp = (project in file("robotApp")).
   settings(commonSettings: _*).
   settings(
-    name := "robotApp",
-    libraryDependencies ++= Seq(
-      "com.typesafe.akka" %% "akka-http-core" % akkaVersion,
-      "com.typesafe.akka" %% "akka-http-experimental" % akkaVersion
-    )
+    name := "robotApp"
   ).
   dependsOn(dashboard)
 
@@ -137,3 +124,9 @@ lazy val test = (project in file("test")).
   ).
   dependsOn(dashboard)
 
+lazy val root = (project in file(".")).
+  settings(commonSettings: _*).
+  settings(
+    name := "root"
+  ).
+  dependsOn(test)

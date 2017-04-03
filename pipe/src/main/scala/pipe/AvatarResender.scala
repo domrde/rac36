@@ -2,7 +2,7 @@ package pipe
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.cluster.sharding.ClusterSharding
-import messages.NumeratedMessage
+import common.messages.NumeratedMessage
 import pipe.AvatarResender.WorkWithQueue
 import vivarium.Avatar._
 

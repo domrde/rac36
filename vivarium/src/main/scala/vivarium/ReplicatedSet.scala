@@ -5,18 +5,18 @@ import akka.cluster.Cluster
 import akka.cluster.ddata.Replicator._
 import akka.cluster.ddata._
 import common.Constants.DdataSetKey
-import messages.SensoryInformation.Position
+import common.messages.SensoryInformation
 
-// todo: extend example so it may be used with different sensor types
+// todo: extend storage so it may be used with different sensor types
 object ReplicatedSet {
   trait ReplicatedSetMessage
 
   def apply() = Props[ReplicatedSet]
 
-  case class AddAll(values: Set[Position]) extends ReplicatedSetMessage
-  case class RemoveAll(values: Set[Position]) extends ReplicatedSetMessage
+  case class AddAll(values: Set[SensoryInformation.Position]) extends ReplicatedSetMessage
+  case class RemoveAll(values: Set[SensoryInformation.Position]) extends ReplicatedSetMessage
   case object Lookup extends ReplicatedSetMessage
-  case class LookupResult(result: Option[Set[Position]]) extends ReplicatedSetMessage
+  case class LookupResult(result: Option[Set[SensoryInformation.Position]]) extends ReplicatedSetMessage
 }
 
 class ReplicatedSet extends Actor with ActorLogging {
@@ -37,7 +37,7 @@ class ReplicatedSet extends Actor with ActorLogging {
 
     case c @ Changed(DdataSetKey) =>
       c.dataValue match {
-        case data: ORSet[Position] => context.parent ! LookupResult(Some(data.elements))
+        case data: ORSet[SensoryInformation.Position] => context.parent ! LookupResult(Some(data.elements))
         case _ => context.parent ! LookupResult(None)
       }
 
@@ -46,7 +46,7 @@ class ReplicatedSet extends Actor with ActorLogging {
 
     case g @ GetSuccess(DdataSetKey, Some(replyTo: ActorRef)) =>
       g.dataValue match {
-        case data: ORSet[Position] => replyTo ! LookupResult(Some(data.elements))
+        case data: ORSet[SensoryInformation.Position] => replyTo ! LookupResult(Some(data.elements))
         case _ => replyTo ! LookupResult(None)
       }
 

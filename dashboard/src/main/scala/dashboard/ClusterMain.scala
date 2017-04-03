@@ -5,7 +5,9 @@ import akka.cluster.ClusterEvent.{CurrentClusterState, MemberRemoved, MemberUp}
 import akka.cluster.ddata.DistributedData
 import akka.cluster.metrics.ClusterMetricsExtension
 import akka.cluster.pubsub.DistributedPubSub
+import akka.cluster.sharding.{ClusterSharding, ShardRegion}
 import akka.cluster.{Cluster, ClusterEvent}
+import common.messages.NumeratedMessage
 
 class ClusterMain extends Actor with ActorLogging {
 
@@ -16,6 +18,20 @@ class ClusterMain extends Actor with ActorLogging {
   val mediator = DistributedPubSub(context.system).mediator
 
   ClusterMetricsExtension(context.system)
+
+  val extractEntityId: ShardRegion.ExtractEntityId = {
+    case m: NumeratedMessage => (m.id, m)
+  }
+  val numberOfShards = 100 // ten times of expected
+  val extractShardId: ShardRegion.ExtractShardId = {
+    case m: NumeratedMessage => Math.floorMod(m.id.hashCode, numberOfShards).toString
+  }
+  val shardProxy = ClusterSharding(context.system).startProxy(
+    typeName = "Avatar",
+    role = Some("Avatar"),
+    extractEntityId = extractEntityId,
+    extractShardId = extractShardId
+  )
 
   cluster.subscribe(self, classOf[ClusterEvent.MemberUp], classOf[ClusterEvent.MemberRemoved])
 
@@ -30,19 +46,19 @@ class ClusterMain extends Actor with ActorLogging {
   }
 
   def startMainSystem() = {
-    context.become(initialised(context.actorOf(Props[MetricsAggregator], "dashboard.MetricsAggregator")))
+    context.become(initialised(context.actorOf(Props[Server], "Server")))
     log.info("[-] DashboardClusterMain: Avatar cluster started with mediator [{}] and replicator [{}]",
       mediator, replicator)
   }
 
-  def initialised(aggregator: ActorRef): Receive = {
+  def initialised(server: ActorRef): Receive = {
     case MemberUp(member) =>
       log.info("[-] DashboardClusterMain: MemberUp {} with roles {}", member.uniqueAddress, member.roles)
-      aggregator ! MetricsAggregator.NodeUp(member.address, member.roles.head)
+      server ! MetricsAggregator.NodeUp(member.address, member.roles.head)
 
     case MemberRemoved(member, _) =>
       log.info("[-] DashboardClusterMain: MemberRemoved {} with roles {}", member.uniqueAddress, member.roles)
-      aggregator ! MetricsAggregator.NodeDown(member.address)
+      server ! MetricsAggregator.NodeDown(member.address)
   }
 
 }

@@ -1,6 +1,7 @@
 package dashboard
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Address}
+import com.dda.brain.BrainMessages
 import play.api.libs.json.{JsError, JsSuccess, Json}
 
 /**
@@ -16,8 +17,8 @@ object ServerClient {
 class ServerClient extends Actor with ActorLogging {
   import ServerClient._
 
-  implicit val addressWrite = Json.writes[Address]
   implicit val launchCommandReads = Json.reads[LaunchCommand]
+  implicit val addressWrite = Json.writes[Address]
   implicit val metricWrites = Json.writes[MetricsAggregator.NodeMetrics]
   implicit val metricsWrites = Json.writes[MetricsAggregator.CollectedMetrics]
 

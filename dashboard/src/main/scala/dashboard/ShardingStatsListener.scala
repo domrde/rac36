@@ -16,14 +16,15 @@ import scala.concurrent.duration._
 class ShardingStatsListener extends Actor with ActorLogging {
   val mediator = DistributedPubSub(context.system).mediator
   val config = ConfigFactory.load()
-  val avatarAddress = config.getString("application.avatarAddress")
+  val avatarAddress =
+    if (config.hasPath("application.avatarAddress")) Some(config.getString("application.avatarAddress")) else None
 
   context.system.scheduler.schedule(1.seconds, 3.seconds) {
-    mediator ! Send(avatarAddress, ShardRegion.GetShardRegionState, localAffinity = false)
+    avatarAddress.foreach(addr => mediator ! Send(addr, ShardRegion.GetShardRegionState, localAffinity = false))
   }
 
   context.system.scheduler.schedule(1.seconds, 3.seconds) {
-    mediator ! Send(avatarAddress, ShardRegion.GetClusterShardingStats, localAffinity = false)
+    avatarAddress.foreach(addr => mediator ! Send(addr, ShardRegion.GetClusterShardingStats, localAffinity = false))
   }
 
   override def receive: Receive = {

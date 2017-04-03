@@ -5,7 +5,7 @@ import akka.cluster.Cluster
 import akka.cluster.ddata.Replicator._
 import akka.cluster.ddata.{DistributedData, ORSet}
 import common.Constants.DdataSetKey
-import messages.SensoryInformation.Position
+import common.messages.SensoryInformation.Position
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._

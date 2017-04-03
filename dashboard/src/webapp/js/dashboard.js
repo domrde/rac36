@@ -1,4 +1,4 @@
-var ws = new WebSocket("ws://" + window.location.host + "/ws");
+var ws = new WebSocket("ws://" + window.location.host + "/stats");
 var mainPanel = null;
 
 ws.onopen = function (evt) {

@@ -3,15 +3,20 @@ package testmulti
 import akka.actor.Props
 import akka.cluster.Cluster
 import akka.cluster.MemberStatus.Up
+import akka.cluster.client.ClusterClient.Publish
+import akka.cluster.pubsub.DistributedPubSub
+import akka.cluster.sharding.ClusterSharding
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.TestProbe
 import akka.util.Timeout
+import com.dda.brain.BrainMessages
 import com.typesafe.config.ConfigFactory
-import messages.{RobotMessages, SensoryInformation}
+import common.Constants.AVATAR_STATE_SUBSCRIPTION
+import common.messages.SensoryInformation
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 import play.api.libs.json.Json
 import utils.test.CameraStub
-import vivarium.ReplicatedSet
+import vivarium.{Avatar, ReplicatedSet}
 import vivarium.ReplicatedSet.{Lookup, LookupResult}
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -23,18 +28,18 @@ import scala.concurrent.{Await, Future}
   */
 
 object MultiNodeRacTestsConfig extends MultiNodeConfig {
-  val first  = role("Pipe-1")
-  val second = role("Avatar-1")
-  val third = role("Avatar-2")
-  val fourth = role("Pipe-2")
+  val pipe1  = role("Pipe-1")
+  val avatar1 = role("Avatar-1")
+  val avatar2 = role("Avatar-2")
+  val pipe2 = role("Pipe-2")
 
-  nodeConfig(second, third)(ConfigFactory.parseString(
+  nodeConfig(avatar1, avatar2)(ConfigFactory.parseString(
     """
       akka.cluster.roles = ["Avatar"]
-      jars.nfs-directory = brain/target/scala-2.11/
+      application.jars-nfs-directory = brain/target/scala-2.11/
     """))
 
-  nodeConfig(first, fourth)(ConfigFactory.parseString(
+  nodeConfig(pipe1, pipe2)(ConfigFactory.parseString(
     """
       akka.cluster.roles = ["Pipe"]
       pipe.ports.input  = 34671
@@ -52,7 +57,7 @@ object MultiNodeRacTestsConfig extends MultiNodeConfig {
             kryo = "com.romix.akka.serialization.kryo.KryoSerializer"
           }
           serialization-bindings {
-            "messages.NumeratedMessage" = kryo
+            "common.messages.NumeratedMessage" = kryo
             "java.io.Serializable" = kryo
             "akka.actor.Identify" = akka-misc
             "akka.actor.ActorIdentity" = akka-misc
@@ -63,7 +68,6 @@ object MultiNodeRacTestsConfig extends MultiNodeConfig {
           kryo.resolve-subclasses = true
         }
         cluster {
-          auto-down-unreachable-after = 10s
           sharding {
             guardian-name = "AvatarSharding"
             state-store-mode = "ddata"
@@ -82,7 +86,7 @@ object MultiNodeRacTestsConfig extends MultiNodeConfig {
         }
         extensions = ["com.romix.akka.serialization.kryo.KryoSerializationExtension$"]
       }
-      
+
       kamon.sigar.folder = akka.cluster.metrics.native-library-extract-folder
     """))
 }
@@ -112,10 +116,41 @@ abstract class MultiJvmRacTests extends MultiNodeSpec(MultiNodeRacTestsConfig) w
 
   val replicatedSet = system.actorOf(ReplicatedSet())
 
-  val firstAddress = node(first).address
-  val secondAddress = node(second).address
-  val fourthAddress = node(third).address
-  val fifthAddress = node(fourth).address
+  val mediator = DistributedPubSub(system).mediator
+
+  val idOfAvatarToCreate = "MultiJvmRacTestsAvatar"
+
+  def awaitAvatarCreation() = awaitCond({
+    val probe = TestProbe()
+    val shard = ClusterSharding(system).shardRegion("Avatar")
+    shard.tell(Avatar.GetState(idOfAvatarToCreate), probe.ref)
+    val result = probe.expectMsgType[Avatar.State]
+    result.brain.isDefined && result.tunnel.isDefined
+  }, 10.seconds)
+
+  def awaitCameraDataReplication() = {
+    awaitCond({
+      val probe = TestProbe()
+      camera.tell(CameraStub.GetInfo, probe.ref)
+      probe.expectMsgType[SensoryInformation.Sensory].sensoryPayload.nonEmpty
+    }, 10.seconds)
+
+    val probe = TestProbe()
+    camera.tell(CameraStub.GetInfo, probe.ref)
+    val sensory = probe.expectMsgType[SensoryInformation.Sensory].sensoryPayload
+
+    awaitCond({
+      val probe = TestProbe()
+      replicatedSet.tell(Lookup, probe.ref)
+      val result = probe.expectMsgType[LookupResult]
+      result.result.contains(sensory)
+    }, 10.seconds)
+  }
+
+  val pipe1address = node(pipe1).address
+  val avatar1address = node(avatar1).address
+  val avatar2address = node(avatar2).address
+  val pipe2address = node(pipe2).address
 
   "Multiple nodes" must {
 
@@ -123,148 +158,44 @@ abstract class MultiJvmRacTests extends MultiNodeSpec(MultiNodeRacTestsConfig) w
 
       testConductor.enter("Starting ClusterMain")
 
-      runOn(first) {
+      runOn(pipe1) {
         system.actorOf(Props[pipe.ClusterMain], "ClusterMain")
       }
 
-      runOn(second) {
-
+      runOn(avatar1) {
         system.actorOf(Props[vivarium.ClusterMain], "ClusterMain")
       }
 
-      runOn(third) {
+      runOn(avatar2) {
         system.actorOf(Props[vivarium.ClusterMain], "ClusterMain")
       }
 
-      runOn(fourth) {
+      runOn(pipe2) {
         system.actorOf(Props[pipe.ClusterMain], "ClusterMain")
       }
-
-      Thread.sleep(1000)
 
       val clusters = Await.result(Future.sequence(List(
-        system.actorSelection(firstAddress + "/user/ClusterMain").resolveOne(timeout.duration),
-        system.actorSelection(secondAddress + "/user/ClusterMain").resolveOne(timeout.duration),
-        system.actorSelection(fourthAddress + "/user/ClusterMain").resolveOne(timeout.duration),
-        system.actorSelection(fifthAddress + "/user/ClusterMain").resolveOne(timeout.duration)
+        system.actorSelection(pipe1address + "/user/ClusterMain").resolveOne(timeout.duration),
+        system.actorSelection(avatar1address + "/user/ClusterMain").resolveOne(timeout.duration),
+        system.actorSelection(avatar2address + "/user/ClusterMain").resolveOne(timeout.duration),
+        system.actorSelection(pipe2address + "/user/ClusterMain").resolveOne(timeout.duration)
       )), timeout.duration)
 
-      assert(clusters.map(_.path.toString).count(_.contains("/user/ClusterMain")) == roles.size)
+      awaitCond(clusters.map(_.path.toString).count(_.contains("/user/ClusterMain")) == roles.size)
 
       testConductor.enter("ClusterMain started")
 
-      runOn(first, second, third, fourth) {
-        Cluster(system) join firstAddress
+      runOn(pipe1, avatar1, avatar2, pipe2) {
+        Cluster(system) join pipe1address
       }
 
-      val expected =
-        Set(firstAddress, secondAddress, fourthAddress, fifthAddress)
+      val expected = Set(pipe1address, avatar1address, avatar2address, pipe2address)
 
-      awaitCond(
-        Cluster(system).state.members.
-          map(_.address) == expected)
+      awaitCond(Cluster(system).state.members.toList.map(_.address).toSet == expected)
 
-      awaitCond(
-        Cluster(system).state.members.
-          forall(_.status == Up))
+      awaitCond(Cluster(system).state.members.forall(_.status == Up))
 
       testConductor.enter("Nodes connected in cluster")
-    }
-  }
-}
-
-class SampleMultiJvmRacSpecNode2 extends MultiJvmRacTests {
-  import MultiNodeRacTestsConfig._
-
-  "Avatar" must {
-    "create tunnel" in {
-      runOn(second) {
-        testConductor.enter("Creating tunnel")
-        log.info("[-] SampleMultiJvmRacSpecNode2 Avatar: Creating tunnel")
-
-        awaitCond {
-          val probe = TestProbe()
-          camera.tell(CameraStub.GetInfo, probe.ref)
-          probe.expectMsgType[SensoryInformation.Sensory].sensoryPayload.nonEmpty
-        }
-
-        val probe = TestProbe()
-        camera.tell(CameraStub.GetInfo, probe.ref)
-        val sensory = probe.expectMsgType[SensoryInformation.Sensory].sensoryPayload
-
-        //waiting for data replication
-        awaitCond({
-          val probe = TestProbe()
-          replicatedSet.tell(Lookup, probe.ref)
-          val result = probe.expectMsgType[LookupResult]
-          result.result.contains(sensory)
-        }, 10.seconds)
-
-        testConductor.enter("Tunnel created")
-        Thread.sleep(1000)
-        testConductor.enter("Done")
-        log.info("[-] SampleMultiJvmRacSpecNode2 Avatar: Done")
-      }
-    }
-
-    "wait 2 sec" in {
-      runOn(second) {
-        Thread.sleep(2000)
-        testConductor.enter("Two seconds elapsed")
-      }
-    }
-  }
-
-}
-
-class SampleMultiJvmRacSpecNode4 extends MultiJvmRacTests {
-  import MultiNodeRacTestsConfig._
-
-  "Avatar2" must {
-    "create tunnel" in {
-      runOn(third) {
-        testConductor.enter("Creating tunnel")
-        log.info("[-] SampleMultiJvmRacSpecNode4 Avatar2: Creating tunnel")
-        Thread.sleep(1000)
-        testConductor.enter("Tunnel created")
-        log.info("[-] SampleMultiJvmRacSpecNode4 Avatar2: Tunnel created")
-        Thread.sleep(1000)
-        testConductor.enter("Done")
-        log.info("[-] SampleMultiJvmRacSpecNode4 Avatar2: Done")
-      }
-    }
-
-    "wait 2 sec" in {
-      runOn(third) {
-        Thread.sleep(2000)
-        testConductor.enter("Two seconds elapsed")
-      }
-    }
-  }
-}
-
-class SampleMultiJvmRacSpecNode5 extends MultiJvmRacTests {
-  import MultiNodeRacTestsConfig._
-
-  "Pipe2" must {
-    "create tunnel" in {
-      runOn(fourth) {
-        testConductor.enter("Creating tunnel")
-        log.info("[-] SampleMultiJvmRacSpecNode5 Pipe2: Creating tunnel")
-        Thread.sleep(1000)
-        testConductor.enter("Tunnel created")
-        log.info("[-] SampleMultiJvmRacSpecNode5 Pipe2: Tunnel created")
-        Thread.sleep(1000)
-        testConductor.enter("Done")
-        log.info("[-] SampleMultiJvmRacSpecNode5 Pipe2: Done")
-      }
-    }
-
-    "wait 2 sec" in {
-      runOn(fourth) {
-        Thread.sleep(2000)
-        testConductor.enter("Two seconds elapsed")
-      }
     }
   }
 }
@@ -280,12 +211,23 @@ class SampleMultiJvmRacSpecNode1 extends MultiJvmRacTests {
 
   "Pipe" must {
     "create tunnel" in {
-      runOn(first) {
+      runOn(pipe1) {
 
         testConductor.enter("Creating tunnel")
         log.info("[-] SampleMultiJvmRacSpecNode1 Pipe: Creating tunnel")
 
-        val tunnel = tunnelCreator.createTunnel(TestProbe().ref, "MultiJvmRacTests1")
+        val tunnel = tunnelCreator.createTunnel(TestProbe().ref, idOfAvatarToCreate)
+
+        testConductor.enter("Waiting for avatar response")
+        awaitAvatarCreation()
+        testConductor.enter("Avatar responded")
+
+        log.info("[-] SampleMultiJvmRacSpecNode1 Pipe: Sending ChangeState")
+
+        ClusterSharding(system).shardRegion("Avatar").tell(
+          Avatar.ChangeState(idOfAvatarToCreate, BrainMessages.Start), TestProbe().ref)
+
+        log.info("[-] SampleMultiJvmRacSpecNode1 Pipe: Sending camera data")
 
         def sendCameraDataToAvatar() = {
           val probe = TestProbe()
@@ -294,8 +236,6 @@ class SampleMultiJvmRacSpecNode1 extends MultiJvmRacTests {
           tunnel._1.send("|" + Json.stringify(Json.toJson(sensory)))
           sensory.sensoryPayload
         }
-
-        log.info("[-] SampleMultiJvmRacSpecNode1 Pipe: Sending camera data")
 
         val data = sendCameraDataToAvatar()
 
@@ -317,9 +257,9 @@ class SampleMultiJvmRacSpecNode1 extends MultiJvmRacTests {
           Thread.sleep(1)
         }
 
-        implicit val controlReads = Json.reads[RobotMessages.Control]
+        implicit val controlReads = Json.reads[Avatar.FromAvatarToRobot]
         val rawJson = rawMessage.splitAt(rawMessage.indexOf("|"))._2.drop(1)
-        Json.parse(rawJson).validate[RobotMessages.Control].get shouldBe RobotMessages.Control(tunnel._3, "testCommand")
+        Json.parse(rawJson).validate[Avatar.FromAvatarToRobot].get shouldBe Avatar.FromAvatarToRobot(tunnel._3, "testCommand")
 
         testConductor.enter("Tunnel created")
         log.info("[-] SampleMultiJvmRacSpecNode1 Pipe: Tunnel created")
@@ -330,7 +270,89 @@ class SampleMultiJvmRacSpecNode1 extends MultiJvmRacTests {
     }
 
     "wait 2 sec" in {
-      runOn(first) {
+      runOn(pipe1) {
+        Thread.sleep(2000)
+        testConductor.enter("Two seconds elapsed")
+      }
+    }
+  }
+}
+
+class SampleMultiJvmRacSpecNode2 extends MultiJvmRacTests {
+  import MultiNodeRacTestsConfig._
+
+  "Avatar" must {
+    "create avatar" in {
+      runOn(avatar1) {
+        testConductor.enter("Creating tunnel")
+        Thread.sleep(1000)
+        testConductor.enter("Waiting for avatar response")
+        awaitAvatarCreation()
+        testConductor.enter("Avatar responded")
+        awaitCameraDataReplication()
+        testConductor.enter("Tunnel created")
+        Thread.sleep(1000)
+        testConductor.enter("Done")
+      }
+    }
+
+    "wait 2 sec" in {
+      runOn(avatar1) {
+        Thread.sleep(2000)
+        testConductor.enter("Two seconds elapsed")
+      }
+    }
+  }
+
+}
+
+class SampleMultiJvmRacSpecNode3 extends MultiJvmRacTests {
+  import MultiNodeRacTestsConfig._
+
+  "Avatar2" must {
+    "share data" in {
+      runOn(avatar2) {
+        testConductor.enter("Creating tunnel")
+        Thread.sleep(1000)
+        testConductor.enter("Waiting for avatar response")
+        awaitAvatarCreation()
+        testConductor.enter("Avatar responded")
+        awaitCameraDataReplication()
+        testConductor.enter("Tunnel created")
+        Thread.sleep(1000)
+        testConductor.enter("Done")
+      }
+    }
+
+    "wait 2 sec" in {
+      runOn(avatar2) {
+        Thread.sleep(2000)
+        testConductor.enter("Two seconds elapsed")
+      }
+    }
+  }
+}
+
+class SampleMultiJvmRacSpecNode4 extends MultiJvmRacTests {
+  import MultiNodeRacTestsConfig._
+
+  "Pipe2" must {
+    "share load" in {
+      runOn(pipe2) {
+        testConductor.enter("Creating tunnel")
+        Thread.sleep(1000)
+        testConductor.enter("Waiting for avatar response")
+        awaitAvatarCreation()
+        testConductor.enter("Avatar responded")
+        awaitCameraDataReplication()
+        testConductor.enter("Tunnel created")
+        Thread.sleep(1000)
+        testConductor.enter("Done")
+      }
+    }
+
+    "wait 2 sec" in {
+      runOn(pipe2) {
         Thread.sleep(2000)
         testConductor.enter("Two seconds elapsed")
       }

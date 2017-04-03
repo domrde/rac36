@@ -2,7 +2,7 @@ package pipe
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import com.typesafe.config.ConfigFactory
-import messages.{NumeratedMessage, RobotMessages, SensoryInformation}
+import common.messages.{NumeratedMessage, SensoryInformation}
 import pipe.LowestLoadFinder.{IncrementClients, ToReturnAddress, ToTmWithLowestLoad}
 import pipe.TunnelManager.{FailedToCreateTunnel, TunnelCreated}
 import play.api.libs.json.{JsValue, Json, Reads}
@@ -23,20 +23,21 @@ object TunnelManager {
 
 class ValidatorImpl extends JsonValidator {
   private implicit val createAvatarReads = Json.reads[Avatar.Create]
+  private implicit val fromRobotToAvatarReads = Json.reads[Avatar.FromRobotToAvatar]
   private implicit val positionReads = Json.reads[SensoryInformation.Position]
   private implicit val sensoryReads = Json.reads[SensoryInformation.Sensory]
-  override val getReads: List[Reads[_ <: AnyRef]] = List(createAvatarReads, sensoryReads)
+  override val getReads: List[Reads[_ <: AnyRef]] = List(createAvatarReads, sensoryReads, fromRobotToAvatarReads)
 }
 
 class StringifierImpl extends JsonStringifier {
   private implicit val tunnelCreatedWrites = Json.writes[TunnelManager.TunnelCreated]
   private implicit val failedToCreateTunnelWrites = Json.writes[TunnelManager.FailedToCreateTunnel]
-  private implicit val controlWrites = Json.writes[RobotMessages.Control]
+  private implicit val controlWrites = Json.writes[Avatar.FromAvatarToRobot]
   override def toJson(msg: AnyRef): Option[JsValue] = {
     msg match {
       case a: TunnelManager.TunnelCreated => Some(tunnelCreatedWrites.writes(a))
       case a: TunnelManager.FailedToCreateTunnel => Some(failedToCreateTunnelWrites.writes(a))
-      case a: RobotMessages.Control => Some(controlWrites.writes(a))
+      case a: Avatar.FromAvatarToRobot => Some(controlWrites.writes(a))
       case _ => None
     }
   }
