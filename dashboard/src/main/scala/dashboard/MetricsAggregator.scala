@@ -2,7 +2,7 @@ package dashboard
 
 import akka.actor.{Actor, ActorLogging, Address, Props}
 import com.typesafe.config.ConfigFactory
-import dashboard.ServerClient.LaunchCommand
+import dashboard.clients.MetricsClient.LaunchCommand
 import common.messages.SensoryInformation.Position
 
 import scala.concurrent.ExecutionContext.Implicits.global

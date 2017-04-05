@@ -4,7 +4,7 @@ import akka.actor.{Actor, ActorLogging}
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.Put
 import com.typesafe.config.ConfigFactory
-import dashboard.ServerClient.LaunchCommand
+import dashboard.clients.MetricsClient.LaunchCommand
 
 /**
   * Created by dda on 9/7/16.

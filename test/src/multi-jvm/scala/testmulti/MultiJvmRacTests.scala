@@ -3,7 +3,6 @@ package testmulti
 import akka.actor.Props
 import akka.cluster.Cluster
 import akka.cluster.MemberStatus.Up
-import akka.cluster.client.ClusterClient.Publish
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.sharding.ClusterSharding
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
@@ -11,13 +10,13 @@ import akka.testkit.TestProbe
 import akka.util.Timeout
 import com.dda.brain.BrainMessages
 import com.typesafe.config.ConfigFactory
-import common.Constants.{AVATAR_STATE_SUBSCRIPTION, AvatarsDdataSetKey, PositionDdataSetKey}
+import common.Constants.{AvatarsDdataSetKey, PositionDdataSetKey}
 import common.messages.SensoryInformation
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 import play.api.libs.json.Json
 import utils.test.CameraStub
-import vivarium.{Avatar, ReplicatedSet}
 import vivarium.ReplicatedSet.{Lookup, LookupResult}
+import vivarium.{Avatar, ReplicatedSet}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._

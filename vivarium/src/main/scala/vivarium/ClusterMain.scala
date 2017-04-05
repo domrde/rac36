@@ -5,10 +5,8 @@ import akka.cluster.ClusterEvent.{CurrentClusterState, MemberRemoved, MemberUp}
 import akka.cluster.ddata.DistributedData
 import akka.cluster.metrics.ClusterMetricsExtension
 import akka.cluster.pubsub.DistributedPubSub
-import akka.cluster.pubsub.DistributedPubSubMediator.Subscribe
 import akka.cluster.sharding.{ClusterSharding, ClusterShardingSettings, ShardRegion}
 import akka.cluster.{Cluster, ClusterEvent}
-import common.Constants.AVATAR_STATE_SUBSCRIPTION
 import common.messages.NumeratedMessage
 
 

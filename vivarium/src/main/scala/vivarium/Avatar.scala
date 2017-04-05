@@ -30,7 +30,6 @@ object Avatar {
   @SerialVersionUID(101L) case class Init(id: String) extends AvatarMessage
   @SerialVersionUID(101L) case class Create(id: String, jarName: String, className: String) extends AvatarMessage
   @SerialVersionUID(101L) case class GetState(id: String) extends AvatarMessage
-  // for tests
   @SerialVersionUID(101L) case class State(id: String, tunnel: Option[ActorRef], brain: Option[ActorRef]) extends AvatarMessage
   @SerialVersionUID(101L) case class TunnelEndpoint(id: String, endpoint: ActorRef) extends AvatarMessage
 
