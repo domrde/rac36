@@ -4,49 +4,48 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.cluster.Cluster
 import akka.cluster.ddata.Replicator._
 import akka.cluster.ddata._
-import common.Constants.DdataSetKey
-import common.messages.SensoryInformation
 
-// todo: extend storage so it may be used with different sensor types
 object ReplicatedSet {
   trait ReplicatedSetMessage
 
-  def apply() = Props[ReplicatedSet]
+  def apply[T](SetKey: ORSetKey[T]) = Props(classOf[ReplicatedSet[T]], SetKey)
 
-  case class AddAll(values: Set[SensoryInformation.Position]) extends ReplicatedSetMessage
-  case class RemoveAll(values: Set[SensoryInformation.Position]) extends ReplicatedSetMessage
+  case class AddAll(values: Set[_ <: AnyRef]) extends ReplicatedSetMessage
+  case class RemoveAll(values: Set[_ <: AnyRef]) extends ReplicatedSetMessage
   case object Lookup extends ReplicatedSetMessage
-  case class LookupResult(result: Option[Set[SensoryInformation.Position]]) extends ReplicatedSetMessage
+  case class LookupResult(result: Option[Set[_ <: AnyRef]]) extends ReplicatedSetMessage
 }
 
-class ReplicatedSet extends Actor with ActorLogging {
+class ReplicatedSet[ItemType <: AnyRef](SetKey: ORSetKey[ItemType]) extends Actor with ActorLogging {
   import ReplicatedSet._
 
-  val replicator = DistributedData(context.system).replicator
-  replicator ! Subscribe(DdataSetKey, self)
+  log.info("[-] ReplicatedSet initialised [{}] for parent [{}]", SetKey, context.parent)
+
+  private val replicator = DistributedData(context.system).replicator
+  replicator ! Subscribe(SetKey, self)
   implicit val cluster = Cluster(context.system)
 
-  def receive = {
-    case AddAll(values) =>
-      values.foreach(value => replicator ! Update(DdataSetKey, ORSet(), WriteLocal)(_ + value))
+  def receive: Receive = {
+    case AddAll(values: Set[ItemType]) =>
+      values.foreach(value => replicator ! Update(SetKey, ORSet(), WriteLocal)(_ + value))
 
-    case RemoveAll(values) =>
-      values.foreach(value => replicator ! Update(DdataSetKey, ORSet(), WriteLocal)(_ - value))
+    case RemoveAll(values: Set[ItemType]) =>
+      values.foreach(value => replicator ! Update(SetKey, ORSet(), WriteLocal)(_ - value))
 
     case UpdateSuccess(_, _) =>
 
-    case c @ Changed(DdataSetKey) =>
+    case c @ Changed(SetKey) =>
       c.dataValue match {
-        case data: ORSet[SensoryInformation.Position] => context.parent ! LookupResult(Some(data.elements))
+        case data: ORSet[ItemType] => context.parent ! LookupResult(Some(data.elements))
         case _ => context.parent ! LookupResult(None)
       }
 
     case Lookup =>
-      replicator ! Get(DdataSetKey, ReadLocal, Some(sender()))
+      replicator ! Get(SetKey, ReadLocal, Some(sender()))
 
-    case g @ GetSuccess(DdataSetKey, Some(replyTo: ActorRef)) =>
+    case g @ GetSuccess(SetKey, Some(replyTo: ActorRef)) =>
       g.dataValue match {
-        case data: ORSet[SensoryInformation.Position] => replyTo ! LookupResult(Some(data.elements))
+        case data: ORSet[ItemType] => replyTo ! LookupResult(Some(data.elements))
         case _ => replyTo ! LookupResult(None)
       }
 

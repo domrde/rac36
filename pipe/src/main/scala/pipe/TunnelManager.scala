@@ -13,6 +13,7 @@ import vivarium.Avatar
   * Created by dda on 24.04.16.
   */
 //todo: check balancing really works
+//todo: send error message if robot has not unique identifier
 //todo: use cluster metrics-based selection of lowest loaded TM
 //todo: use pool of ZmqRouter to lower socket load http://doc.akka.io/docs/akka/current/scala/routing.html
 object TunnelManager {

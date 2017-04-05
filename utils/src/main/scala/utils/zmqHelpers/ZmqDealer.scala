@@ -8,7 +8,7 @@ import akka.actor.{ActorRef, Props}
 
 object ZmqDealer {
   def apply(id: String, url: String, port: Int, validator: Props, stringifier: Props, receiver: ActorRef) = {
-    Props(classOf[ZmqDealer], id: String, url, port, validator, stringifier, receiver)
+    Props(classOf[ZmqDealer], id, url, port, validator, stringifier, receiver)
   }
 
   case object Poll

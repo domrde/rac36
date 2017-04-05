@@ -11,7 +11,7 @@ import akka.testkit.TestProbe
 import akka.util.Timeout
 import com.dda.brain.BrainMessages
 import com.typesafe.config.ConfigFactory
-import common.Constants.AVATAR_STATE_SUBSCRIPTION
+import common.Constants.{AVATAR_STATE_SUBSCRIPTION, AvatarsDdataSetKey, PositionDdataSetKey}
 import common.messages.SensoryInformation
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 import play.api.libs.json.Json
@@ -114,19 +114,32 @@ abstract class MultiJvmRacTests extends MultiNodeSpec(MultiNodeRacTestsConfig) w
 
   val camera = system.actorOf(Props(classOf[CameraStub], map))
 
-  val replicatedSet = system.actorOf(ReplicatedSet())
+  val replicatedSet = system.actorOf(ReplicatedSet(PositionDdataSetKey))
+
+  val avatarIdsSet = system.actorOf(ReplicatedSet(AvatarsDdataSetKey))
 
   val mediator = DistributedPubSub(system).mediator
 
   val idOfAvatarToCreate = "MultiJvmRacTestsAvatar"
 
-  def awaitAvatarCreation() = awaitCond({
-    val probe = TestProbe()
-    val shard = ClusterSharding(system).shardRegion("Avatar")
-    shard.tell(Avatar.GetState(idOfAvatarToCreate), probe.ref)
-    val result = probe.expectMsgType[Avatar.State]
-    result.brain.isDefined && result.tunnel.isDefined
-  }, 10.seconds)
+  def awaitAvatarCreation() = {
+    awaitCond({
+      val probe = TestProbe()
+      val shard = ClusterSharding(system).shardRegion("Avatar")
+      shard.tell(Avatar.GetState(idOfAvatarToCreate), probe.ref)
+      val result = probe.expectMsgType[Avatar.State]
+      result.brain.isDefined && result.tunnel.isDefined
+    }, 10.seconds)
+  }
+
+  def awaitAvatarIdReplication() = {
+    awaitCond({
+      val probe = TestProbe()
+      avatarIdsSet.tell(Lookup, probe.ref)
+      val result = probe.expectMsgType[LookupResult]
+      result.result.contains(Set(idOfAvatarToCreate))
+    }, 10.seconds)
+  }
 
   def awaitCameraDataReplication() = {
     awaitCond({
@@ -288,6 +301,7 @@ class SampleMultiJvmRacSpecNode2 extends MultiJvmRacTests {
         Thread.sleep(1000)
         testConductor.enter("Waiting for avatar response")
         awaitAvatarCreation()
+        awaitAvatarIdReplication()
         testConductor.enter("Avatar responded")
         awaitCameraDataReplication()
         testConductor.enter("Tunnel created")
@@ -316,6 +330,7 @@ class SampleMultiJvmRacSpecNode3 extends MultiJvmRacTests {
         Thread.sleep(1000)
         testConductor.enter("Waiting for avatar response")
         awaitAvatarCreation()
+        awaitAvatarIdReplication()
         testConductor.enter("Avatar responded")
         awaitCameraDataReplication()
         testConductor.enter("Tunnel created")
@@ -343,6 +358,7 @@ class SampleMultiJvmRacSpecNode4 extends MultiJvmRacTests {
         Thread.sleep(1000)
         testConductor.enter("Waiting for avatar response")
         awaitAvatarCreation()
+        awaitAvatarIdReplication()
         testConductor.enter("Avatar responded")
         awaitCameraDataReplication()
         testConductor.enter("Tunnel created")

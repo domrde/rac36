@@ -2,14 +2,15 @@ package vivarium
 
 import java.net.{URL, URLClassLoader}
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
 import akka.cluster.pubsub.DistributedPubSubMediator.SubscribeAck
 import akka.cluster.sharding.ClusterSharding
 import com.dda
-import com.dda.brain.BrainMessages
+import com.dda.brain.{BrainActor, BrainMessages}
 import com.dda.brain.BrainMessages.BrainState
 import com.typesafe.config.ConfigFactory
 import common.messages.{NumeratedMessage, SensoryInformation}
+import common.Constants.{PositionDdataSetKey, AvatarsDdataSetKey}
 import vivarium.ReplicatedSet.LookupResult
 
 import scala.util.{Failure, Success, Try}
@@ -18,15 +19,18 @@ import scala.util.{Failure, Success, Try}
   * Created by dda on 8/2/16.
   */
 
+// todo: avatar state in dashboard
 // todo: auto-kill if client disconnected
-// todo: avatars should interact with each other
 // todo: send and load jars through NFS
 // todo: interaction with services
 object Avatar {
+
   trait AvatarMessage extends NumeratedMessage
 
+  @SerialVersionUID(101L) case class Init(id: String) extends AvatarMessage
   @SerialVersionUID(101L) case class Create(id: String, jarName: String, className: String) extends AvatarMessage
-  @SerialVersionUID(101L) case class GetState(id: String) extends AvatarMessage // for tests
+  @SerialVersionUID(101L) case class GetState(id: String) extends AvatarMessage
+  // for tests
   @SerialVersionUID(101L) case class State(id: String, tunnel: Option[ActorRef], brain: Option[ActorRef]) extends AvatarMessage
   @SerialVersionUID(101L) case class TunnelEndpoint(id: String, endpoint: ActorRef) extends AvatarMessage
 
@@ -39,6 +43,7 @@ object Avatar {
   @SerialVersionUID(101L) case class FromRobotToAvatar(id: String, message: String) extends BrainMessageWrapper
   @SerialVersionUID(101L) case class TellToAvatar(id: String, from: String, message: String) extends BrainMessageWrapper
   @SerialVersionUID(101L) case class ChangeState(id: String, newState: BrainState) extends BrainMessageWrapper
+
 }
 
 class Avatar extends Actor with ActorLogging {
@@ -46,11 +51,34 @@ class Avatar extends Actor with ActorLogging {
 
   private val config = ConfigFactory.load()
 
-  private val cache = context.actorOf(ReplicatedSet())
+  private val cache = context.actorOf(ReplicatedSet(PositionDdataSetKey))
+
+  private val avatarIdStorage = context.actorOf(ReplicatedSet(AvatarsDdataSetKey))
 
   private val shard = ClusterSharding(context.system).shardRegion("Avatar")
 
-  override def receive: Receive = receiveWithState(null, None, None, Set.empty)
+  override def receive: Receive = notInitialized
+
+  val notInitialized: Receive = {
+    case Avatar.Init(id) =>
+      avatarIdStorage ! ReplicatedSet.AddAll(Set(id))
+      context.become(receiveWithState(id, None, None, Set.empty))
+
+    case Avatar.Create(id, jarName, className) =>
+      Try {
+        startChildFromJar(id, jarName, className)
+      } match {
+        case Failure(exception) =>
+          sender() ! Avatar.FailedToCreateAvatar(id, exception.getMessage)
+        case Success(value) =>
+          avatarIdStorage ! ReplicatedSet.AddAll(Set(id))
+          sender() ! Avatar.AvatarCreated(id)
+          context.become(receiveWithState(id, None, Some(value), Set.empty))
+      }
+
+    case other =>
+      log.error("[-] Avatar: not initialized, unknown message [{}] from [{}]", other, sender())
+  }
 
   def receiveWithState(id: String, tunnel: Option[ActorRef],
                        brain: Option[ActorRef], buffer: Set[SensoryInformation.Position]): Receive =
@@ -62,7 +90,7 @@ class Avatar extends Actor with ActorLogging {
 
   def handleAvatarMessages(id: String, tunnel: Option[ActorRef],
                            brain: Option[ActorRef], buffer: Set[SensoryInformation.Position]): Receive = {
-    case Avatar.Create(_id, jarName, className) =>
+    case Avatar.Create(_id, jarName, className) if brain.isEmpty =>
       Try {
         startChildFromJar(_id, jarName, className)
       } match {
@@ -76,8 +104,10 @@ class Avatar extends Actor with ActorLogging {
     case Avatar.TunnelEndpoint(_id, endpoint) =>
       context.become(receiveWithState(_id, Some(endpoint), brain, buffer))
 
-    case LookupResult(Some(data)) =>
+    case LookupResult(Some(data: Set[SensoryInformation.Position])) if sender() == cache =>
       self ! SensoryInformation.Sensory(id, data)
+
+    case LookupResult(None) if sender() == avatarIdStorage =>
 
     case LookupResult(None) =>
     // no data in storage
@@ -112,6 +142,12 @@ class Avatar extends Actor with ActorLogging {
     case Avatar.ChangeState(_, newState) =>
       log.info("[-] Avatar: changing brains state to [{}]", newState)
       brain.foreach(_ ! BrainMessages.ChangeState(newState))
+
+    case Terminated(a) =>
+      if (brain.isDefined && brain.get == a)
+        context.become(receiveWithState(id, tunnel, None, buffer))
+      else if (tunnel.isDefined && tunnel.get == a)
+        context.become(receiveWithState(id, None, brain, buffer))
   }
 
   private def startChildFromJar(id: String, jarName: String, className: String) = {
@@ -119,6 +155,6 @@ class Avatar extends Actor with ActorLogging {
     // may be Thread.currentThread().getContextClassLoader() will be better
     val classLoader = URLClassLoader.newInstance(Array(url), this.getClass.getClassLoader)
     val clazz = classLoader.loadClass(className)
-    context.actorOf(Props(clazz.asInstanceOf[Class[Actor]], id), "Brain")
+    context.actorOf(Props(clazz.asInstanceOf[Class[BrainActor]], id), "Brain")
   }
 }

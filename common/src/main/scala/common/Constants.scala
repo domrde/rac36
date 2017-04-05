@@ -9,5 +9,7 @@ import common.messages.SensoryInformation.Position
 object Constants {
   val PIPE_SUBSCRIPTION = "PIPE_SUBSCRIPTION"
   val AVATAR_STATE_SUBSCRIPTION = "AVATAR_STATE_SUBSCRIPTION"
-  val DdataSetKey: ORSetKey[Position] = ORSetKey[Position]("SensoryInfoSet")
+
+  val PositionDdataSetKey: ORSetKey[Position] = ORSetKey[Position]("PositionDdataSetKey")
+  val AvatarsDdataSetKey: ORSetKey[String] = ORSetKey[String]("AvatarsDdataSetKey")
 }
