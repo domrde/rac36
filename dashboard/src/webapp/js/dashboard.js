@@ -11,8 +11,8 @@ function addrString(address) {
 
 ws.onmessage = function (evt) {
     var parsedData = JSON.parse(evt.data);
-    switch (parsedData.t) {
-        case "CollectedMetrics":
+    switch (parsedData.$type) {
+        case "dashboard.clients.ServerClient.CollectedMetrics":
             console.log("CollectedMetrics: " + JSON.stringify(parsedData));
             mainPanel.innerHTML = "";
             parsedData.metrics.forEach(function (item) {
