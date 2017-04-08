@@ -3,7 +3,6 @@ package dashboard
 import akka.actor.{Actor, Address}
 import dashboard.MetricsAggregator._
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.util.Random
 
@@ -11,19 +10,25 @@ import scala.util.Random
   * Created by dda on 9/12/16.
   */
 class TestMetrics extends Actor {
+  private implicit val executionContext = context.dispatcher
 
-  val ips = (1 to 10).map(_.toString)
+  private val ips = (1 to 10).map(_.toString)
 
   def randomAddress() = Address.apply("akka.tcp", "ClusterSystem", ips(Random.nextInt(ips.length)), 9999)
+
   val roles = List("Avatar", "Pipe")
+
   def randomNodeUp(): NodeUp =
     NodeUp(randomAddress(), roles(Random.nextInt(roles.length)))
+
   def randomNodeDown(): NodeDown =
     NodeDown(randomAddress())
+
   def randomMemMetrics(): MemoryMetrics = {
     val lower = Random.nextInt(1000)
     MemoryMetrics(randomAddress(), lower, lower + Random.nextInt(1000))
   }
+
   def randomCpuMetrics(): CpuMetrics =
     CpuMetrics(randomAddress(), Random.nextInt(80) / 100 + 0.01, 1 + Random.nextInt(3))
 

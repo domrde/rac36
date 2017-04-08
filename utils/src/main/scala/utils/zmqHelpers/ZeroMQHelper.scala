@@ -4,7 +4,6 @@ import akka.actor.{ActorRef, ActorSystem, ExtendedActorSystem, Extension, Extens
 import akka.util.ByteString
 import org.zeromq.ZMQ
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.language.postfixOps
@@ -21,6 +20,8 @@ object ZeroMQHelper extends ExtensionId[ZeroMQHelper] with ExtensionIdProvider {
 }
 
 class ZeroMQHelper(system: ActorSystem, zmqContext: ZMQ.Context) extends Extension {
+
+  private implicit val executionContext = system.dispatcher
 
   system.registerOnTermination {
     zmqContext.term()

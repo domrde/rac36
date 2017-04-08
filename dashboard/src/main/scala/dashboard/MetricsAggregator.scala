@@ -2,10 +2,8 @@ package dashboard
 
 import akka.actor.{Actor, ActorLogging, Address, Props}
 import com.typesafe.config.ConfigFactory
-import dashboard.clients.MetricsClient.LaunchCommand
 import common.messages.SensoryInformation.Position
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 
 /**
@@ -33,7 +31,7 @@ object MetricsAggregator {
   case class ShardingStats(address: Address, stats: Map[String, Int]) extends MetricsAggregationMessage
 
   case object SendMetricsToServer
-  case class CollectedMetrics(metrics: List[NodeMetrics], t: String = "CollectedMetrics")
+  case class CollectedMetrics(metrics: List[NodeMetrics])
   case class NodeMetrics(address: Address,
                          cpuCur:  Option[Double],
                          cpuMax:  Option[Double],
@@ -47,9 +45,11 @@ object MetricsAggregator {
 class MetricsAggregator extends Actor with ActorLogging {
   import MetricsAggregator._
 
-  val config = ConfigFactory.load()
+  private implicit val executionContext = context.dispatcher
 
-  val listeners = if (config.getBoolean("application.testData")) {
+  private val config = ConfigFactory.load()
+
+  private val listeners = if (config.getBoolean("application.testData")) {
     Set(context.actorOf(Props[TestMetrics], "TestMetrics"))
   } else {
     Set(

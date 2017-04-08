@@ -13,7 +13,6 @@ import play.api.libs.json.{JsError, JsSuccess, Json}
 import utils.zmqHelpers.ZeroMQHelper
 import vivarium.Avatar
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
@@ -23,6 +22,8 @@ import scala.concurrent.{Await, Future}
 class TunnelCreator(actorSystem: ActorSystem) {
 
   implicit val system = actorSystem
+
+  private implicit val executionContext = system.dispatcher
 
   val config = ConfigFactory.load()
 

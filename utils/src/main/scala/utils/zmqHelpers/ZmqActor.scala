@@ -16,7 +16,7 @@ object ZmqActor {
 }
 
 abstract class ZmqActor(validator: Props, stringifier: Props, receiver: ActorRef) extends Actor with ActorLogging {
-  import scala.concurrent.ExecutionContext.Implicits.global
+  private implicit val executionContext = context.dispatcher
   context.system.scheduler.schedule(0.second, 1.millis, self, ZmqActor.Poll)
 
   private var readersFan = {

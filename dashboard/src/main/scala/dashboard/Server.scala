@@ -1,17 +1,14 @@
 package dashboard
 
-import akka.NotUsed
 import akka.actor._
 import akka.cluster.sharding.ClusterSharding
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.ws.{Message, TextMessage}
+import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.server.{Directives, Route}
-import akka.stream.scaladsl.{Flow, Sink, Source}
-import akka.stream.{ActorMaterializer, OverflowStrategy}
+import akka.stream.ActorMaterializer
 import com.typesafe.config.ConfigFactory
 import common.Constants.AvatarsDdataSetKey
 import dashboard.MetricsAggregator.{CollectedMetrics, MetricsAggregationMessage}
-import dashboard.clients.MetricsClient.LaunchCommand
 import dashboard.clients.{AvatarClient, MetricsClient, ServerClient}
 import vivarium.ReplicatedSet
 import vivarium.ReplicatedSet.LookupResult
@@ -30,9 +27,11 @@ object Server {
 class Server extends Actor with ActorLogging {
   import Directives._
 
-  implicit val system = context.system
+  private implicit val system = context.system
 
-  implicit val materializer = ActorMaterializer()
+  private implicit val materializer = ActorMaterializer()
+
+  private implicit val executionContext = context.dispatcher
 
   private val config = ConfigFactory.load()
 
@@ -44,32 +43,7 @@ class Server extends Actor with ActorLogging {
 
   private val shard = ClusterSharding(system).shardRegion("Avatar")
 
-  def newMetricsUser(): Flow[Message, Message, NotUsed] = {
-    newServerUser(context.actorOf(Props[MetricsClient]))
-  }
-
-  def newAvatarUser(): Flow[Message, Message, NotUsed] = {
-    newServerUser(context.actorOf(Props(classOf[AvatarClient], avatarIdStorage, shard)))
-  }
-
-  def newServerUser(actor: ActorRef): Flow[Message, Message, NotUsed] = {
-    val incomingMessages: Sink[Message, NotUsed] =
-      Flow[Message].map {
-        case TextMessage.Strict(text) => ServerClient.IncomingMessage(text)
-      }.to(Sink.actorRef[ServerClient.IncomingMessage](actor, PoisonPill))
-
-    val outgoingMessages: Source[Message, NotUsed] =
-      Source.actorRef[ServerClient.OutgoingMessage](10, OverflowStrategy.fail)
-        .mapMaterializedValue { outActor =>
-          actor ! ServerClient.Connected(outActor)
-          NotUsed
-        }.map(
-        (outMsg: ServerClient.OutgoingMessage) => TextMessage(outMsg.text))
-
-    Flow.fromSinkAndSource(incomingMessages, outgoingMessages)
-  }
-
-  val route: Route = staticFilesRoute ~ avatarsRoute ~ robotsRoute ~ statsRoute
+  val route: Route = staticFilesRoute ~ avatarsRoute ~ statsRoute
 
   lazy val staticFilesRoute: Route =
     pathSingleSlash {
@@ -82,49 +56,41 @@ class Server extends Actor with ActorLogging {
   lazy val avatarsRoute: Route =
     path("avatar") {
       get {
-        handleWebSocketMessages(newAvatarUser())
-      }
-    }
-
-  lazy val robotsRoute: Route =
-    path("robot") {
-      get {
-        complete("Not implemented")
-      } ~
-        post {
-          complete("Not implemented")
+        handleWebSocketMessages(ServerClient.newServerUser(context.actorOf(AvatarClient(avatarIdStorage, shard))))
+      } ~ post {
+        fileUpload("jar") { case (metadata, byteSource) =>
+          complete(HttpResponse())
         }
+      }
     }
 
   lazy val statsRoute: Route =
     path("stats") {
       get {
-        handleWebSocketMessages(newMetricsUser())
+        handleWebSocketMessages(ServerClient.newServerUser(context.actorOf(MetricsClient())))
       }
     }
 
   Http().bindAndHandle(route, "127.0.0.1", config.getInt("application.httpBindingPort"))
 
-  override def receive = receiveWithClients(List.empty, List.empty)
+  override def receive: Receive = receiveWithClients(Map.empty.withDefaultValue(List.empty))
 
-  def receiveWithClients(metricClients: List[ActorRef], avatarClients: List[ActorRef]): Receive = {
+  def receiveWithClients(clients: Map[Server.ClientType, List[ActorRef]]): Receive = {
     case m: MetricsAggregationMessage =>
       metrics forward m
 
-    case l: LaunchCommand =>
+    case l: ServerClient.LaunchCommand =>
       starter forward l
 
-    case Server.Join(Server.MetricsClient) =>
-      context.become(receiveWithClients(sender() :: metricClients, avatarClients))
-
-    case Server.Join(Server.AvatarClient) =>
-      context.become(receiveWithClients(metricClients, sender() :: avatarClients))
+    case Server.Join(clientType) =>
+      val clientsOfThisType = sender() :: clients(clientType)
+      context.become(receiveWithClients(clients + (clientType -> clientsOfThisType)))
 
     case c: CollectedMetrics =>
-      metricClients.foreach(_ ! c)
+      clients(Server.MetricsClient).foreach(_ ! c)
 
     case l: LookupResult =>
-      avatarClients.foreach(_ ! l)
+      clients(Server.AvatarClient).foreach(_ ! l)
 
     case other =>
       log.error("[-] dashboard.Server: other {} from {}", other, sender())

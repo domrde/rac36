@@ -6,7 +6,6 @@ import akka.cluster.pubsub.DistributedPubSubMediator.Send
 import akka.cluster.sharding.ShardRegion
 import com.typesafe.config.ConfigFactory
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 
 /**
@@ -14,9 +13,10 @@ import scala.concurrent.duration._
   */
 // todo: check it's working
 class ShardingStatsListener extends Actor with ActorLogging {
-  val mediator = DistributedPubSub(context.system).mediator
-  val config = ConfigFactory.load()
-  val avatarAddress =
+  private implicit val executionContext = context.dispatcher
+  private val mediator = DistributedPubSub(context.system).mediator
+  private val config = ConfigFactory.load()
+  private val avatarAddress =
     if (config.hasPath("application.avatarAddress")) Some(config.getString("application.avatarAddress")) else None
 
   context.system.scheduler.schedule(1.seconds, 3.seconds) {

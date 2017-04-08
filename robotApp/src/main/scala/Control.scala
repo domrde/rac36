@@ -2,8 +2,8 @@ import akka.actor.{Actor, ActorLogging, Props}
 import akka.pattern.ask
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
+import common.messages.SensoryInformation
 import common.messages.SensoryInformation.Sensory
-import common.messages.{RobotMessages, SensoryInformation}
 import pipe.TunnelManager
 import play.api.libs.json.{JsValue, Json, Reads}
 import utils.test.CameraStub
@@ -13,7 +13,6 @@ import vivarium.Avatar
 import vivarium.Avatar.Create
 
 import scala.collection.JavaConversions._
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
@@ -24,7 +23,7 @@ import scala.concurrent.duration._
 class ValidatorImpl extends JsonValidator {
   private implicit val tunnelCreatedReads = Json.reads[TunnelManager.TunnelCreated]
   private implicit val failedToCreateTunnelReads = Json.reads[TunnelManager.FailedToCreateTunnel]
-  private implicit val controlReads = Json.reads[RobotMessages.Control]
+  private implicit val controlReads = Json.reads[Avatar.FromAvatarToRobot]
   override val getReads: List[Reads[_ <: AnyRef]] = List(controlReads, tunnelCreatedReads, failedToCreateTunnelReads)
 }
 
@@ -41,10 +40,10 @@ class StringifierImpl extends JsonStringifier {
 }
 
 class Control extends Actor with ActorLogging {
-
-  val config = ConfigFactory.load()
-  val camera = context.actorOf(Props(classOf[CameraStub], config.getString("robotapp.map")))
-  val classes = config.getStringList("robotapp.robots").zipWithIndex
+  private implicit val executionContext = context.dispatcher
+  private val config = ConfigFactory.load()
+  private val camera = context.actorOf(Props(classOf[CameraStub], config.getString("robotapp.map")))
+  private val classes = config.getStringList("robotapp.robots").zipWithIndex
 
   val helper = ZeroMQHelper(context.system)
 

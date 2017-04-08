@@ -4,7 +4,7 @@ import akka.actor.{Actor, ActorLogging}
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.Put
 import com.typesafe.config.ConfigFactory
-import dashboard.clients.MetricsClient.LaunchCommand
+import dashboard.clients.ServerClient
 
 /**
   * Created by dda on 9/7/16.
@@ -25,7 +25,7 @@ class OpenstackActor extends Actor with ActorLogging {
   override def receive: Receive = pendingStarts(Set.empty)
 
   def pendingStarts(roles: Set[String]): Receive = {
-    case LaunchCommand(image, _) =>
+    case ServerClient.LaunchCommand(image, _) =>
       if (knownImages.contains(image)) {
         log.info("[-] dashboard.OpenstackActor: Launching image [{}]", image)
         if (!roles.contains(image)) {

@@ -18,7 +18,6 @@ import utils.test.CameraStub
 import vivarium.ReplicatedSet.{Lookup, LookupResult}
 import vivarium.{Avatar, ReplicatedSet}
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
@@ -102,6 +101,8 @@ abstract class MultiJvmRacTests extends MultiNodeSpec(MultiNodeRacTestsConfig) w
   override def initialParticipants = roles.size
 
   implicit val timeout: Timeout = 30.seconds
+
+  private implicit val executionContext = system.dispatcher
 
   val map =
     "######################\n" +

@@ -5,11 +5,12 @@ import akka.cluster.Cluster
 import akka.cluster.metrics.StandardMetrics.{Cpu, HeapMemory}
 import akka.cluster.metrics.{ClusterMetricsChanged, ClusterMetricsExtension, NodeMetrics}
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 
 // based on source from http://doc.akka.io/docs/akka/current/scala/cluster-metrics.html
 class ClusterMetricsListener extends Actor with ActorLogging {
+
+  private implicit val executionContext = context.dispatcher
 
   val extension = ClusterMetricsExtension(context.system)
 

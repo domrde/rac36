@@ -7,7 +7,6 @@ import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 import org.zeromq.ZMQ
 import utils.zmqHelpers.ZeroMQHelper
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.language.postfixOps
@@ -19,6 +18,7 @@ import scala.util.Random
 class ZeroMQTests extends TestKit(ActorSystem("ClusterSystem")) with WordSpecLike with Matchers with BeforeAndAfterAll {
   implicit val timeout: Timeout = 2 second
   val zmqHelpers = ZeroMQHelper(system)
+  private implicit val executionContext = system.dispatcher
 
   "ZeroMQ" must {
 

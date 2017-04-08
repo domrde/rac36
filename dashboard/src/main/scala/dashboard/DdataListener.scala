@@ -7,7 +7,6 @@ import akka.cluster.ddata.{DistributedData, ORSet}
 import common.Constants.PositionDdataSetKey
 import common.messages.SensoryInformation.Position
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 
 /**
@@ -15,8 +14,9 @@ import scala.concurrent.duration._
   */
 // todo: test in real-life simulation
 class DdataListener extends Actor with ActorLogging {
-  val replicator = DistributedData(context.system).replicator
-  implicit val cluster = Cluster(context.system)
+  private implicit val executionContext = context.dispatcher
+  private implicit val cluster = Cluster(context.system)
+  private val replicator = DistributedData(context.system).replicator
 
   context.system.scheduler.schedule(2.seconds, 3.seconds, replicator, Get(PositionDdataSetKey, ReadLocal, None))
 
