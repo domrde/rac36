@@ -154,6 +154,6 @@ class Avatar extends Actor with ActorLogging {
     // may be Thread.currentThread().getContextClassLoader() will be better
     val classLoader = URLClassLoader.newInstance(Array(url), this.getClass.getClassLoader)
     val clazz = classLoader.loadClass(className)
-    context.actorOf(Props(clazz.asInstanceOf[Class[BrainActor]], id), "Brain")
+    context.actorOf(Props(clazz.asInstanceOf[Class[BrainActor]], id), "Brain" + className)
   }
 }

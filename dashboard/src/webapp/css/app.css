@@ -7,7 +7,7 @@ body {
 }
 
 .panel-default, .panel-default>.panel-heading {
-    background-color: #ffd8af;
+    background-color: #fff1cc;
     /*color: #dc7816;*/
     color: black;
 }
@@ -23,15 +23,15 @@ body {
 }
 
 .vm-pipe-panel {
-    background-color: #e7a35c;
+    background-color: #dee7a2;
 }
 
 .vm-avatar-panel {
-    background-color: #fba582;
+    background-color: #fbd5ad;
 }
 
 .vm-dashboard-panel {
-    background-color: #fbd283;
+    background-color: #fbf6bc;
 }
 
 .progress {

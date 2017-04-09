@@ -23,7 +23,7 @@ object ServerClient {
 
   sealed trait AvatarClientMessages
   case class ChangeAvatarState(id: String, newState: String) extends AvatarClientMessages with WsIncoming
-  case class AvatarStatus(id: String, connectedToTunnel: Boolean, brainStarted: Boolean) extends AvatarClientMessages
+  case class AvatarStatus(id: String, connectedToTunnel: Boolean, brainStarted: String) extends AvatarClientMessages
   case class AvatarsStatuses(statuses: List[AvatarStatus]) extends AvatarClientMessages with WsOutgoing
 
   sealed trait MetricsClientMessages

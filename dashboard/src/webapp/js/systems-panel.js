@@ -2,7 +2,7 @@ const ws = new WebSocket("ws://" + window.location.host + "/stats");
 let mainPanel = null;
 
 ws.onopen = function (evt) {
-    mainPanel = document.getElementById("mainPanelBody");
+    mainPanel = document.getElementById("systemsPanelBody");
 };
 
 ws.onmessage = function (evt) {
