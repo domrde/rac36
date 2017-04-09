@@ -12,7 +12,8 @@ import scala.util.Random
 class TestMetrics extends Actor {
   private implicit val executionContext = context.dispatcher
 
-  private val ips = (1 to 10).map(_.toString)
+  private val ips = (1 to 10).map(_ => Random.nextInt(256) + "." + Random.nextInt(256) +
+    "." + Random.nextInt(256) + "." + Random.nextInt(256))
 
   def randomAddress() = Address.apply("akka.tcp", "ClusterSystem", ips(Random.nextInt(ips.length)), 9999)
 
@@ -29,8 +30,11 @@ class TestMetrics extends Actor {
     MemoryMetrics(randomAddress(), lower, lower + Random.nextInt(1000))
   }
 
-  def randomCpuMetrics(): CpuMetrics =
-    CpuMetrics(randomAddress(), Random.nextInt(80) / 100 + 0.01, 1 + Random.nextInt(3))
+  def randomCpuMetrics(): CpuMetrics = {
+    val maxCpu = 1.0 + Random.nextInt(9)
+    val curCpu = 0.01 + (maxCpu - 0.01) * Random.nextDouble()
+    CpuMetrics(randomAddress(), Math.round(curCpu * 100.0) / 100.0, maxCpu)
+  }
 
   def randomMember(): Members =
     Members(ips.map(ip =>

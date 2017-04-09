@@ -18,7 +18,7 @@ object MetricsAggregator {
 
   // From ClusterMetricsListener
   case class MemoryMetrics(address: Address, usedHeap: Long, maxHeap: Long) extends MetricsAggregationMessage
-  case class CpuMetrics(address: Address, average: Double, processors: Int) extends MetricsAggregationMessage
+  case class CpuMetrics(address: Address, average: Double, processors: Double) extends MetricsAggregationMessage
   case class Member(address: Address, status: String, role: String) extends MetricsAggregationMessage
   case class Members(members: Set[Member]) extends MetricsAggregationMessage
 

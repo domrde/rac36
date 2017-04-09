@@ -1,19 +1,14 @@
-var ws = new WebSocket("ws://" + window.location.host + "/stats");
-var mainPanel = null;
+const ws = new WebSocket("ws://" + window.location.host + "/stats");
+let mainPanel = null;
 
 ws.onopen = function (evt) {
     mainPanel = document.getElementById("mainPanelBody");
 };
 
-function addrString(address) {
-    return address.protocol + "://" + address.system + "@" + address.host + ":" + address.port;
-}
-
 ws.onmessage = function (evt) {
-    var parsedData = JSON.parse(evt.data);
+    const parsedData = JSON.parse(evt.data);
     switch (parsedData.$type) {
         case "dashboard.clients.ServerClient.CollectedMetrics":
-            console.log("CollectedMetrics: " + JSON.stringify(parsedData));
             mainPanel.innerHTML = "";
             parsedData.metrics.forEach(function (item) {
                 drawPanel(mainPanel, item)
@@ -28,82 +23,33 @@ ws.onmessage = function (evt) {
     // $(".js-container").find("[data-address='" + address + "']").empty().append(INFOtemplate.render(info))
 };
 
-// заменить все, что ниже шаблоном на ejs или underscore
-function drawPanel(panel, info) {
-    var infoString = addrString(info.address) + " ROLE: " + info.role + " STATUS: " + info.status;
 
-    var panelBody = document.createElement('div');
-    panelBody.appendChild(document.createTextNode(infoString));
-
-    //"panel-body vm-" + info.role.tolower + "-panel"
-    var colorAttr = document.createAttribute("class");
-    switch (info.role) {
-        case "Dashboard":
-            colorAttr.value = "panel-body vm-dashboard-panel";
-            break;
-        case "Avatar":
-            colorAttr.value = "panel-body vm-avatar-panel";
-            break;
-        case "Pipe":
-            colorAttr.value = "panel-body vm-pipe-panel";
-            break;
-        default:
-            colorAttr.value = "panel-body vm-unknown";
-    }
-    panelBody.setAttributeNode(colorAttr);
-
-    var base = document.createElement('div');
-    var baseAttr = document.createAttribute("class");
-    baseAttr.value = "panel panel-default little-panel pull-left";
-    base.appendChild(panelBody);
-    base.setAttributeNode(baseAttr);
-
-    addProgressBar(panelBody, "CPU: ", info.cpuCur, info.cpuMax);
-    addProgressBar(panelBody, "RAM: ", info.memCur, info.memMax);
-
-    panel.appendChild(base);
+function addrString(address) {
+    return address.protocol + "://" + address.system + "@" + address.host + ":" + address.port;
 }
 
-function addProgressBar(parent, text, lower, upper) {
-    var progress = document.createElement('div');
-
-    var progressAttr = document.createAttribute("class");
-    progressAttr.value = "progress";
-    progress.setAttributeNode(progressAttr);
-
-    var bar = document.createElement('div');
-
-    var barAttr = document.createAttribute("class");
-    barAttr.value = "progress-bar";
-    bar.setAttributeNode(barAttr);
-
-    var roleAttr = document.createAttribute("role");
-    roleAttr.value = "progressbar";
-    bar.setAttributeNode(roleAttr);
-
-    var valNow = document.createAttribute("aria-valuenow");
-    valNow.value = lower;
-    bar.setAttributeNode(valNow);
-
-    var valMin = document.createAttribute("aria-valuemin");
-    valMin.value = "0";
-    bar.setAttributeNode(valMin);
-
-    var valMax = document.createAttribute("aria-valuemax");
-    valMax.value = upper;
-    bar.setAttributeNode(valMax);
-
-    var width = document.createAttribute("style");
-    width.value = "width: " + Math.round(lower / upper * 100) + "%;";
-    bar.setAttributeNode(width);
-
-    progress.appendChild(bar);
-
-    var span = document.createElement('span');
-    span.appendChild(document.createTextNode(text + lower + "/" + upper));
-    progress.appendChild(span);
-
-    parent.appendChild(progress);
+function drawPanel(panel, info) {
+    const compiled = _.template(`
+        <div class="panel-body vm-<% print(role[0].toLowerCase()); %>-panel">
+            <% print(addrString(address)); %>
+            </br>
+            ROLE: <%= role %> STATUS:  <%= status %>
+            <div class="progress">
+                <div class="progress-bar" role="progressbar" aria-valuenow="<%= cpuCur %>" aria-valuemin="0" 
+                     aria-valuemax="<%= cpuMax %>" style="width: <% print(Math.round(cpuCur / cpuMax * 100)); %>%;"></div>
+                <span>CPU: <%= cpuCur %>/<%= cpuMax %></span>
+            </div>
+            <div class="progress">
+                <div class="progress-bar" role="progressbar" aria-valuenow="<%= memCur %>" aria-valuemin="0"
+                     aria-valuemax="<%= memMax %>" style="width: <% print(Math.round(memCur / memMax * 100));%>%;"></div>
+                <span>RAM: <%= memCur %>/<%= memMax %></span>
+            </div>
+        </div>
+    `);
+    const base = document.createElement("div");
+    base.setAttribute("class", "panel panel-default little-panel pull-left");
+    base.innerHTML = compiled(info);
+    panel.appendChild(base);
 }
 
 function launchVm(image) {

@@ -34,10 +34,6 @@ body {
     background-color: #fbd283;
 }
 
-.vm-unknown {
-    background-color: #aaaaaa;
-}
-
 .progress {
     position: relative;
     text-align: center;
