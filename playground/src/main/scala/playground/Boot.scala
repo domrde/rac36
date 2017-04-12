@@ -1,3 +1,5 @@
+package playground
+
 import akka.actor.{ActorSystem, Props}
 
 /**

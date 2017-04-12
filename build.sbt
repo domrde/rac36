@@ -44,6 +44,40 @@ lazy val additionalMultiJvmSettings = Seq(
   }
 )
 
+lazy val dockerSettings = Seq(
+  dockerfile in docker := {
+    // The assembly task generates a fat JAR file
+    val artifact: File = assembly.value
+    val artifactTargetPath = s"/app/${artifact.name}"
+
+    new Dockerfile {
+      from("java")
+      add(artifact, artifactTargetPath)
+      entryPoint("java", "-jar", artifactTargetPath)
+      expose(34051)
+      expose(34052)
+      expose(34053)
+      expose(8888)
+      expose(34671)
+    }
+  },
+  buildOptions in docker := BuildOptions(
+    cache = false,
+    removeIntermediateContainers = BuildOptions.Remove.Always,
+    pullBaseImage = BuildOptions.Pull.Always
+  )
+)
+
+lazy val assemblyMergeApplicationConfs = Seq(
+  assemblyMergeStrategy in assembly := {
+    case "application.conf" =>
+      MergeStrategy.first
+    case x =>
+      val oldStrategy = (assemblyMergeStrategy in assembly).value
+      oldStrategy(x)
+  }
+)
+
 lazy val common = (project in file("common")).
   settings(commonSettings: _*).
   settings(
@@ -79,20 +113,30 @@ lazy val utils = (project in file("utils")).
 
 lazy val vivarium = (project in file("vivarium")).
   settings(commonSettings: _*).
+  settings(dockerSettings: _*).
+  settings(assemblyMergeApplicationConfs: _*).
   settings(
-    name := "vivarium"
-  ).
-  dependsOn(utils)
+    name := "vivarium",
+    mainClass in assembly := Some("vivarium.Boot")
+  )
+  .dependsOn(utils)
+  .enablePlugins(DockerPlugin)
 
 lazy val pipe = (project in file("pipe")).
   settings(commonSettings: _*).
+  settings(dockerSettings: _*).
+  settings(assemblyMergeApplicationConfs: _*).
   settings(
-    name := "pipe"
-  ).
-  dependsOn(vivarium)
+    name := "pipe",
+    mainClass in assembly := Some("pipe.Boot")
+  )
+  .dependsOn(vivarium)
+  .enablePlugins(DockerPlugin)
 
 lazy val dashboard = (project in file("dashboard")).
   settings(commonSettings: _*).
+  settings(dockerSettings: _*).
+  settings(assemblyMergeApplicationConfs: _*).
   settings(
     name := "dashboard",
     libraryDependencies ++= Seq(
@@ -102,16 +146,18 @@ lazy val dashboard = (project in file("dashboard")).
 
       "com.typesafe.akka" %% "akka-http-core" % akkaVersion,
       "com.typesafe.akka" %% "akka-http-experimental" % akkaVersion
-    )
-  ).
-  dependsOn(pipe)
+    ),
+    mainClass in assembly := Some("dashboard.Boot")
+  )
+  .dependsOn(pipe)
+  .enablePlugins(DockerPlugin)
 
-lazy val robotApp = (project in file("robotApp")).
+lazy val playground = (project in file("playground")).
   settings(commonSettings: _*).
   settings(
-    name := "robotApp"
-  ).
-  dependsOn(dashboard)
+    name := "playground"
+  )
+  .dependsOn(dashboard)
 
 lazy val test = (project in file("test")).
   settings(commonSettings: _*).
@@ -123,12 +169,13 @@ lazy val test = (project in file("test")).
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-multi-node-testkit" % akkaVersion % "test"
     )
-  ).
-  dependsOn(dashboard)
+  )
+  .dependsOn(dashboard)
 
 lazy val root = (project in file(".")).
   settings(commonSettings: _*).
   settings(
     name := "root"
-  ).
-  dependsOn(test)
+  )
+  .dependsOn(test)
+  .aggregate(common, brain, utils, vivarium, pipe, dashboard, playground, test)

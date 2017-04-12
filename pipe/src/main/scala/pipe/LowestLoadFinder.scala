@@ -13,7 +13,7 @@ import vivarium.Avatar.{AvatarCreateResponse, Create}
 object LowestLoadFinder {
   @SerialVersionUID(101L) case class PipeInfo(tm: ActorRef, url: String, load: Int)
   @SerialVersionUID(101L) case class ToTmWithLowestLoad(ctr: Create, returnAddress: ActorRef)
-  @SerialVersionUID(101L) case class ToReturnAddress(at: AvatarCreateResponse, url: String)
+  @SerialVersionUID(101L) case class ToReturnAddress(at: AvatarCreateResponse, url: String, port: Int)
   @SerialVersionUID(101L) case class IncrementClients(url: String)
 }
 

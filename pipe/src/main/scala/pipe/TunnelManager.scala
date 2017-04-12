@@ -18,7 +18,7 @@ import vivarium.Avatar
 //todo: use pool of ZmqRouter to lower socket load http://doc.akka.io/docs/akka/current/scala/routing.html
 object TunnelManager {
   trait TunnelCreateResponse extends NumeratedMessage
-  @SerialVersionUID(101L) case class TunnelCreated(url: String, id: String) extends TunnelCreateResponse
+  @SerialVersionUID(101L) case class TunnelCreated(url: String, port: Int, id: String) extends TunnelCreateResponse
   @SerialVersionUID(101L) case class FailedToCreateTunnel(id: String, reason: String) extends TunnelCreateResponse
 }
 
@@ -48,7 +48,7 @@ class TunnelManager extends Actor with ActorLogging {
 
   private val config = ConfigFactory.load()
 
-  private val url = "tcp://" + config.getString("akka.remote.netty.tcp.hostname") + ":" + config.getInt("pipe.ports.input")
+  private val url = "tcp://" + config.getString("akka.remote.netty.tcp.hostname")
   private val port = config.getInt("pipe.ports.input")
 
   private val zmqReceiver = context.actorOf(AvatarResender(self), name = "AvatarResender")
@@ -77,24 +77,24 @@ class TunnelManager extends Actor with ActorLogging {
       context.become(receiveWithClientsStorage(clients + (ctr.id -> returnAddress)))
 
     case ac @ Avatar.AvatarCreated(id) =>
-      clients(id) ! ToReturnAddress(ac, url)
+      clients(id) ! ToReturnAddress(ac, url, port)
       zmqReceiver ! AvatarResender.WorkWithQueue(id, worker)
       lowestFinder ! IncrementClients(url)
       context.become(receiveWithClientsStorage(clients - id))
       log.info("[-] TunnelManager: Avatar and tunnel created with id [{}], sending result to original sender [{}]", id, sender())
 
     case fac @ Avatar.FailedToCreateAvatar(id, _) =>
-      clients(id) ! ToReturnAddress(fac, url)
+      clients(id) ! ToReturnAddress(fac, url, port)
       context.become(receiveWithClientsStorage(clients - id))
       log.info("[-] TunnelManager: Failed to create avatar with id [{}], sending result to original sender [{}]", id, sender())
 
-    case ToReturnAddress(Avatar.AvatarCreated(id), tunnelUrl) =>
-      worker ! TunnelCreated(tunnelUrl, id.toString)
+    case ToReturnAddress(Avatar.AvatarCreated(id), tunnelUrl, tunnelPort) =>
+      worker ! TunnelCreated(tunnelUrl, tunnelPort, id.toString)
       log.info("[-] TunnelManager: I'm the original sender. Printing tunnel info with topic [{}] to client.", id)
 
-    case ToReturnAddress(Avatar.FailedToCreateAvatar(id, ex), tunnelUrl) =>
+    case ToReturnAddress(Avatar.FailedToCreateAvatar(id, ex), _, _) =>
       worker ! FailedToCreateTunnel(id.toString, ex)
-      log.info("[-] TunnelManager: I'm the original sender. Faild to create tunnel, printing info with topic [{}] to client.", id)
+      log.info("[-] TunnelManager: I'm the original sender. Failed to create tunnel, printing info with topic [{}] to client.", id)
 
     case other =>
       log.error("[-] TunnelManager: other {} from {}", other, sender())

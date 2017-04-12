@@ -12,6 +12,8 @@ import com.typesafe.config.ConfigFactory
 import common.messages.{NumeratedMessage, SensoryInformation}
 import common.Constants.{PositionDdataSetKey, AvatarsDdataSetKey}
 import vivarium.ReplicatedSet.LookupResult
+import java.io.PrintWriter
+import java.io.StringWriter
 
 import scala.util.{Failure, Success, Try}
 
@@ -68,7 +70,9 @@ class Avatar extends Actor with ActorLogging {
         startChildFromJar(id, jarName, className)
       } match {
         case Failure(exception) =>
-          sender() ! Avatar.FailedToCreateAvatar(id, exception.getMessage)
+          val sw = new StringWriter
+          exception.printStackTrace(new PrintWriter(sw))
+          sender() ! Avatar.FailedToCreateAvatar(id, sw.toString)
         case Success(value) =>
           avatarIdStorage ! ReplicatedSet.AddAll(Set(id))
           sender() ! Avatar.AvatarCreated(id)
@@ -106,7 +110,7 @@ class Avatar extends Actor with ActorLogging {
     case LookupResult(Some(data: Set[SensoryInformation.Position])) if sender() == cache =>
       self ! SensoryInformation.Sensory(id, data)
 
-    case LookupResult(None) if sender() == avatarIdStorage =>
+    case LookupResult(_) if sender() == avatarIdStorage =>
 
     case LookupResult(None) =>
     // no data in storage
@@ -117,7 +121,7 @@ class Avatar extends Actor with ActorLogging {
 
   def handleBrainMessages(id: String, tunnel: Option[ActorRef],
                           brain: Option[ActorRef], buffer: Set[SensoryInformation.Position]): Receive = {
-    case SensoryInformation.Sensory(_id, sensoryPayload) =>
+    case SensoryInformation.Sensory(_, sensoryPayload) =>
       cache ! ReplicatedSet.RemoveAll(buffer diff sensoryPayload)
       cache ! ReplicatedSet.AddAll(sensoryPayload diff buffer)
       val brainPositions = sensoryPayload.map { case SensoryInformation.Position(name, row, col, angle) =>
