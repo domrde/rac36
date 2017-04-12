@@ -46,8 +46,8 @@ class AvatarClient(avatarIdStorage: ActorRef, shard: ActorRef) extends Actor wit
       log.info("[-] dashboard.AvatarClient: Changing avatar [{}] state [{}]", id, state)
       shard ! Avatar.ChangeState(id, if (state == "Start") BrainMessages.Start else BrainMessages.Stop)
 
-    case LookupResult(Some(data: Set[ActorRef])) =>
-      Future.sequence(data.map(_ ? Avatar.GetState)).onComplete {
+    case LookupResult(Some(data: Set[String])) =>
+      Future.sequence(data.map(id => shard ? Avatar.GetState(id))).onComplete {
 
         case Success(value: Avatar.State) =>
           val statuses = value.map { case Avatar.State(id, tunnel, brain) =>

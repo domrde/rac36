@@ -1,27 +1,23 @@
 package playground
 
-import java.util.UUID
-
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import com.typesafe.config.ConfigFactory
 import pipe.TunnelManager
 import utils.zmqHelpers.ZeroMQHelper
-import vivarium.Avatar.Create
+import vivarium.Avatar.{Create, FromAvatarToRobot}
 
 /**
   * Created by dda on 12.04.17.
   */
 object Car {
-
+  def apply(id: String): Props = Props(classOf[Car], id)
 }
 
-class Car extends Actor with ActorLogging {
+class Car(id: String) extends Actor with ActorLogging {
 
   private val config = ConfigFactory.load()
 
   private val helper = ZeroMQHelper(context.system)
-
-  private val id = UUID.randomUUID().toString
 
   override def receive: Receive = receiveWithConnection {
     val avatar = helper.connectDealerActor(
@@ -53,6 +49,9 @@ class Car extends Actor with ActorLogging {
 
         avatar
       }, discardOld = true)
+
+    case f: FromAvatarToRobot =>
+      context.parent ! f
 
     case other =>
       log.error("Car: unknown message [{}] from [{}]", other, sender())

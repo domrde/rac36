@@ -38,13 +38,17 @@ class CameraStub(initialMap: String) extends Actor with ActorLogging {
   def receiveWithMap(positions: Set[Position]): Receive = {
     case MoveRobot(name, rowInc, colInc, angleInc) =>
       positions.find { _.name == name }.foreach { currentPosition =>
-        val newPositions = (positions - currentPosition) + Position(
+        val newPosition = Position(
           name,
           currentPosition.row + rowInc,
           currentPosition.col + colInc,
           currentPosition.angle + angleInc
         )
-        context.become(receiveWithMap(newPositions))
+        if (!positions.exists { case Position(pname, row, col, _) =>
+          pname == BrainMessages.OBSTACLE_NAME && row == newPosition.row && col == newPosition.col }) {
+          val newPositions = (positions - currentPosition) + newPosition
+          context.become(receiveWithMap(newPositions))
+        }
       }
 
     case GetInfo =>
