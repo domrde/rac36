@@ -10,10 +10,10 @@ import vivarium.Avatar.{Create, FromAvatarToRobot}
   * Created by dda on 12.04.17.
   */
 object Car {
-  def apply(id: String): Props = Props(classOf[Car], id)
+  def apply(id: String, remoteControl: ActorRef): Props = Props(classOf[Car], id, remoteControl)
 }
 
-class Car(id: String) extends Actor with ActorLogging {
+class Car(id: String, remoteControl: ActorRef) extends Actor with ActorLogging {
 
   private val config = ConfigFactory.load()
 
@@ -35,7 +35,7 @@ class Car(id: String) extends Actor with ActorLogging {
 
   def receiveWithConnection(avatar: ActorRef): Receive = {
     case TunnelManager.TunnelCreated(url, port, _) =>
-      log.info("Car [{}] got it's avatar on url {[]}", id, url + ":" + port)
+      log.info("Car [{}] got it's avatar on url {[]}", id, s"$url:$port")
       context.become(receiveWithConnection {
         val avatar = helper.connectDealerActor(
           id = id,
@@ -51,7 +51,7 @@ class Car(id: String) extends Actor with ActorLogging {
       }, discardOld = true)
 
     case f: FromAvatarToRobot =>
-      context.parent ! f
+      remoteControl ! f
 
     case other =>
       log.error("Car: unknown message [{}] from [{}]", other, sender())

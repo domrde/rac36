@@ -8,7 +8,7 @@ import com.dda.brain.BrainMessages.{FromAvatarToRobot, TellToOtherAvatar}
 class ParrotBrain(id: String) extends BrainActor(id) {
 
   override protected def handleSensory(payload: Set[BrainMessages.Position]): Unit = {
-    sender() ! BrainMessages.FromAvatarToRobot("testCommand")
+//    sender() ! BrainMessages.FromAvatarToRobot("testCommand")
   }
 
   override protected def handleAvatarMessage(from: String, message: String): Unit = {

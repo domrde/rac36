@@ -49,7 +49,7 @@ class AvatarClient(avatarIdStorage: ActorRef, shard: ActorRef) extends Actor wit
     case LookupResult(Some(data: Set[String])) =>
       Future.sequence(data.map(id => shard ? Avatar.GetState(id))).onComplete {
 
-        case Success(value: Avatar.State) =>
+        case Success(value: Set[Any]) =>
           val statuses = value.map { case Avatar.State(id, tunnel, brain) =>
             ServerClient.AvatarStatus(id, tunnel.isDefined, brain.map(_.path.name).getOrElse("None"))}.toList.sortBy(_.id)
           connection ! ServerClient.AvatarsStatuses(statuses)

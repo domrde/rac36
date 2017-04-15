@@ -10,7 +10,7 @@ object BrainMessages {
   @SerialVersionUID(101L) case class FromRobotToAvatar(message: String)
   @SerialVersionUID(101L) case class TellToOtherAvatar(to: String, message: String)
   @SerialVersionUID(101L) case class FromOtherAvatar(from: String, message: String)
-  @SerialVersionUID(101L) case class Position(name: String, row: Int, col: Int, angle: Int)
+  @SerialVersionUID(101L) case class Position(name: String, row: Double, col: Double, angle: Double)
   @SerialVersionUID(101L) case class Sensory(sensoryPayload: Set[Position])
 
   sealed trait BrainState

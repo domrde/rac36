@@ -53,17 +53,14 @@ abstract class ZmqActor(validator: Props, stringifier: Props, receiver: ActorRef
 
   override def receive: Receive = {
     case n: NumeratedMessage =>
-      log.info("[-] ZmqActor: NumeratedMessage: [{}]", n)
       stringifiersFan.route(JsonStringifier.Stringify(n, Some(n.id)), self)
 
     case JsonStringifier.StringifyResult(asText, Some(topic: String)) =>
-      log.info("[-] ZmqActor: StringifyResult: [{}]", asText)
       sendToSocket(topic, asText)
 
     case JsonValidator.ValidationResult(result) =>
       result match {
         case n: NumeratedMessage =>
-          log.info("[-] ZmqActor: ValidationResult: [{}], sending it to [{}]", n, receiver)
           receiver ! n
 
         case other =>

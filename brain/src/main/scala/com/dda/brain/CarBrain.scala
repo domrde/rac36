@@ -8,7 +8,7 @@ import com.dda.brain.BrainMessages.{FromAvatarToRobot, Position, TellToOtherAvat
 class CarBrain(id: String) extends BrainActor(id) {
 
   override protected def handleSensory(payload: Set[Position]): Unit = {
-    sender() ! FromAvatarToRobot("forward")
+    sender() ! FromAvatarToRobot("left")
   }
 
   override protected def handleAvatarMessage(from: String, message: String): Unit = {

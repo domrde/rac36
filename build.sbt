@@ -6,11 +6,43 @@ lazy val akkaVersion = "2.4.11"
 lazy val commonSettings = Seq(
   version := "1.0",
   scalaVersion := "2.11.8",
-  organization := "com.dda",
+  organization := "com.dda"
+)
+
+
+// --------------------------------- MINIMAL DEPENDENCIES SUBPROJECTS -----------------------------------------------
+
+
+lazy val common = (project in file("common")).
+  settings(commonSettings: _*).
+  settings(
+    name := "common",
+    libraryDependencies ++=
+      Seq(
+        "com.typesafe.akka" %% "akka-actor" % akkaVersion,
+        "com.typesafe.akka" %% "akka-distributed-data-experimental" % akkaVersion
+      )
+  )
+
+lazy val brain = (project in file("brain")).
+  settings(commonSettings: _*).
+  settings(
+    name := "brain",
+    libraryDependencies ++=
+      Seq(
+        "com.typesafe.akka" %% "akka-actor" % akkaVersion
+      )
+  )
+  .dependsOn(common)
+
+
+// ------------------------------- SHARED ANCESTOR WITH COMMON DEPENDENCIES -----------------------------------------
+
+
+lazy val commonDependencies = Seq(
   libraryDependencies ++= {
     Seq(
       "ch.qos.logback" % "logback-classic" % "1.1.7",
-      "com.typesafe.akka" %% "akka-actor" % akkaVersion,
       "com.typesafe.akka" %% "akka-remote" % akkaVersion,
       "com.typesafe.akka" %% "akka-cluster" % akkaVersion,
       "com.typesafe.akka" %% "akka-cluster-tools" % akkaVersion,
@@ -18,7 +50,6 @@ lazy val commonSettings = Seq(
       "com.typesafe.akka" %% "akka-contrib" % akkaVersion,
       "com.typesafe.akka" %% "akka-cluster-metrics" % akkaVersion,
       "com.typesafe.akka" %% "akka-testkit" % akkaVersion,
-      "com.typesafe.akka" %% "akka-distributed-data-experimental" % akkaVersion,
       "com.typesafe.akka" %% "akka-cluster-sharding" % akkaVersion,
       "org.scalatest" %% "scalatest" % "2.2.6",
       "io.kamon" % "sigar-loader" % "1.6.6-rev002",
@@ -27,22 +58,24 @@ lazy val commonSettings = Seq(
   }
 )
 
-lazy val additionalMultiJvmSettings = Seq(
-  Keys.fork in run := true,
-  compile in MultiJvm <<= (compile in MultiJvm) triggeredBy (compile in Test),
-  parallelExecution in Test := false,
-  executeTests in Test <<= (executeTests in Test, executeTests in MultiJvm) map {
-    case (testResults, multiNodeResults)  =>
-      val overall =
-        if (testResults.overall.id < multiNodeResults.overall.id)
-          multiNodeResults.overall
-        else
-          testResults.overall
-      Tests.Output(overall,
-        testResults.events ++ multiNodeResults.events,
-        testResults.summaries ++ multiNodeResults.summaries)
-  }
-)
+lazy val utils = (project in file("utils")).
+  settings(commonSettings: _*).
+  settings(commonDependencies: _*).
+  settings(
+    name := "utils",
+    libraryDependencies ++= Seq(
+      "org.zeromq" % "jeromq" % "0.3.5",
+
+      // Cannot be fully replaced by upickle because provides a way to match json against multiples reads that not
+      // a part of sealed trait. It's used to parse classes that use this util but not known to the util.
+      "com.typesafe.play" %% "play-json" % "2.5.4"
+    )
+  )
+  .dependsOn(brain)
+
+
+// -------------------------------------- DOCKERIZED SUBPROJECTS ----------------------------------------------------
+
 
 lazy val dockerSettings = Seq(
   dockerfile in docker := {
@@ -77,39 +110,6 @@ lazy val assemblyMergeApplicationConfs = Seq(
       oldStrategy(x)
   }
 )
-
-lazy val common = (project in file("common")).
-  settings(commonSettings: _*).
-  settings(
-    name := "common"
-  )
-
-lazy val brain = (project in file("brain")).
-  settings(
-    version := "1.0",
-    scalaVersion := "2.11.8",
-    organization := "com.dda",
-    name := "brain",
-    libraryDependencies ++=
-      Seq(
-        "com.typesafe.akka" %% "akka-actor" % akkaVersion
-      )
-  ).
-  dependsOn(common)
-
-lazy val utils = (project in file("utils")).
-  settings(commonSettings: _*).
-  settings(
-    name := "utils",
-    libraryDependencies ++= Seq(
-      "org.zeromq" % "jeromq" % "0.3.5",
-
-      // Cannot be fully replaced by upickle because provides a way to match json against multiples reads that not
-      // a part of sealed trait. It's used to parse classes that use this util but not known to the util.
-      "com.typesafe.play" %% "play-json" % "2.5.4"
-    )
-  ).
-  dependsOn(brain)
 
 lazy val vivarium = (project in file("vivarium")).
   settings(commonSettings: _*).
@@ -152,12 +152,40 @@ lazy val dashboard = (project in file("dashboard")).
   .dependsOn(pipe)
   .enablePlugins(DockerPlugin)
 
+
+// --------------------------------------------- V-REP PLAYGROUND ---------------------------------------------------
+
+
 lazy val playground = (project in file("playground")).
   settings(commonSettings: _*).
   settings(
-    name := "playground"
+    name := "playground",
+    libraryDependencies ++= Seq(
+      "com.github.troxid" %% "vrepapiscala" % "0.3.6"
+    )
   )
   .dependsOn(dashboard)
+
+
+// ----------------------------------- MULTIJVM TESTS SUBPROJECTS ---------------------------------------------------
+
+
+lazy val additionalMultiJvmSettings = Seq(
+  Keys.fork in run := true,
+  compile in MultiJvm <<= (compile in MultiJvm) triggeredBy (compile in Test),
+  parallelExecution in Test := false,
+  executeTests in Test <<= (executeTests in Test, executeTests in MultiJvm) map {
+    case (testResults, multiNodeResults)  =>
+      val overall =
+        if (testResults.overall.id < multiNodeResults.overall.id)
+          multiNodeResults.overall
+        else
+          testResults.overall
+      Tests.Output(overall,
+        testResults.events ++ multiNodeResults.events,
+        testResults.summaries ++ multiNodeResults.summaries)
+  }
+)
 
 lazy val test = (project in file("test")).
   settings(commonSettings: _*).
@@ -171,6 +199,10 @@ lazy val test = (project in file("test")).
     )
   )
   .dependsOn(dashboard)
+
+
+// ------------------------------------------------ ROOT ------------------------------------------------------------
+
 
 lazy val root = (project in file(".")).
   settings(commonSettings: _*).

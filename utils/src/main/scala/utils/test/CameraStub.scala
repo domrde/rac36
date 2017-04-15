@@ -40,12 +40,12 @@ class CameraStub(initialMap: String) extends Actor with ActorLogging {
       positions.find { _.name == name }.foreach { currentPosition =>
         val newPosition = Position(
           name,
-          currentPosition.row + rowInc,
-          currentPosition.col + colInc,
+          currentPosition.y + rowInc,
+          currentPosition.x + colInc,
           currentPosition.angle + angleInc
         )
         if (!positions.exists { case Position(pname, row, col, _) =>
-          pname == BrainMessages.OBSTACLE_NAME && row == newPosition.row && col == newPosition.col }) {
+          pname == BrainMessages.OBSTACLE_NAME && row == newPosition.y && col == newPosition.x }) {
           val newPositions = (positions - currentPosition) + newPosition
           context.become(receiveWithMap(newPositions))
         }
