@@ -24,9 +24,9 @@ class VRepRemoteControl extends Actor with ActorLogging {
 
   api.simulation.start()
 
-  system.scheduler.schedule(2.millis, 1000.millis) {
+  system.scheduler.schedule(5.millis, 10.millis) {
     val payload = robots.map { case (id, robot) =>
-      Position(id, robot.gps.position.y, robot.gps.position.x, robot.gps.orientation.gamma)
+      Position(id, robot.gps.position.y, robot.gps.position.x, robot.gps.orientation.gamma * 180 / Math.PI)
     }.toSet
     context.parent ! Sensory(null, payload)
   }
@@ -64,9 +64,9 @@ class VRepRemoteControl extends Actor with ActorLogging {
       rightMotor.setTargetVelocity(0)
     }
 
-    def leftSensor = frontSensors(1)
+    val leftSensor = frontSensors(1)
 
-    def rightSensor = frontSensors(6)
+    val rightSensor = frontSensors(6)
 
     val gps = api.sensor.position("Pioneer_p3dx_gps" + id).get
   }

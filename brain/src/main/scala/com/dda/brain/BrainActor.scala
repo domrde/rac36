@@ -12,7 +12,7 @@ abstract class BrainActor(id: String) extends Actor with ActorLogging {
 
   override def receive: Receive = stopped
 
-  private lazy val working: Receive = {
+  protected lazy val working: Receive = {
     case Sensory(payload) =>
       handleSensory(payload)
 
@@ -35,7 +35,7 @@ abstract class BrainActor(id: String) extends Actor with ActorLogging {
       log.error("[-] BrainActor: received unknown message [{}] from [{}]", other, sender())
   }
 
-  private lazy val stopped: Receive = {
+  protected lazy val stopped: Receive = {
     case ChangeState(newState) =>
       log.info("[-] BrainActor: changed state to [{}]", newState)
 
