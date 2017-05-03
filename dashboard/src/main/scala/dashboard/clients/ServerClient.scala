@@ -2,10 +2,10 @@ package dashboard.clients
 
 import akka.NotUsed
 import akka.actor.{ActorRef, PoisonPill}
-import akka.http.scaladsl.model.ws.TextMessage.{Streamed, Strict}
 import akka.http.scaladsl.model.ws.{Message, TextMessage}
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.stream.{ActorMaterializer, OverflowStrategy}
+import common.messages.SensoryInformation
 import dashboard.MetricsAggregator.NodeMetrics
 import upickle.default.{read, write}
 
@@ -30,6 +30,9 @@ object ServerClient {
   case class LaunchCommand(role: String, t: String = "Launch") extends MetricsClientMessages with WsIncoming
   case class CollectedMetrics(metrics: List[NodeMetrics], t: String = "CollectedMetrics") extends MetricsClientMessages with WsOutgoing
 
+  sealed trait PositionsClientMessages
+  case class PositionsData(data: Set[SensoryInformation.Position]) extends PositionsClientMessages with WsOutgoing
+
 
   def newServerUser(avatarClient: ActorRef)(implicit materializer: ActorMaterializer, ec: ExecutionContext): Flow[Message, Message, NotUsed] = {
     val incomingMessages: Sink[Message, NotUsed] =
@@ -52,4 +55,5 @@ object ServerClient {
 
     Flow.fromSinkAndSource(incomingMessages, outgoingMessages)
   }
+
 }

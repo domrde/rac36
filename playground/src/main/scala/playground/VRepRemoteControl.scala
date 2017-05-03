@@ -2,6 +2,7 @@ package playground
 
 import akka.actor.{Actor, ActorLogging}
 import com.typesafe.config.ConfigFactory
+import common.Constants
 import common.messages.SensoryInformation.{Position, Sensory}
 import vivarium.Avatar.FromAvatarToRobot
 import vrepapiscala.VRepAPI
@@ -24,9 +25,48 @@ class VRepRemoteControl extends Actor with ActorLogging {
 
   api.simulation.start()
 
+
   system.scheduler.schedule(5.millis, 10.millis) {
-    val payload = robots.map { case (id, robot) =>
-      Position(id, robot.gps.position.y, robot.gps.position.x, robot.gps.orientation.gamma * 180 / Math.PI)
+    val payload = robots.flatMap { case (id, robot) =>
+      val front = robot.frontSensor.read
+      val robotAngle = robot.gps.orientation.gamma * 180 / Math.PI
+      val obstacle =
+        if (front.detectionState) {
+          if (-45 < robotAngle && robotAngle < 0 || 0 < robotAngle && robotAngle < 45) {
+            // forward
+            Some(Position(
+              Constants.OBSTACLE_NAME,
+              robot.gps.position.y + front.detectedPoint.y,
+              robot.gps.position.x + front.detectedPoint.x + 0.15,
+              0.15, 0.15, 0))
+          } else if (-45 < robotAngle && robotAngle < -135) {
+            // right
+            Some(Position(
+              Constants.OBSTACLE_NAME,
+              robot.gps.position.y + front.detectedPoint.y - 0.15,
+              robot.gps.position.x + front.detectedPoint.x,
+              0.15, 0.15, 0))
+          } else if (-135 < robotAngle && robotAngle < -180 || 135 < robotAngle && robotAngle < 180) {
+            // down
+            Some(Position(
+              Constants.OBSTACLE_NAME,
+              robot.gps.position.y + front.detectedPoint.y,
+              robot.gps.position.x + front.detectedPoint.x - 0.15,
+              0.15, 0.15, 0))
+          } else if (45 < robotAngle && robotAngle < 135) {
+            // left
+            Some(Position(
+              Constants.OBSTACLE_NAME,
+              robot.gps.position.y + front.detectedPoint.y + 0.15,
+              robot.gps.position.x + front.detectedPoint.x,
+              0.15, 0.15, 0))
+          } else {
+            None
+          }
+        } else {
+          None
+        }
+      List(Some(Position(id, robot.gps.position.y, robot.gps.position.x, 0.5, 0.5, robotAngle)), obstacle).flatten
     }.toSet
     context.parent ! Sensory(null, payload)
   }
@@ -35,8 +75,8 @@ class VRepRemoteControl extends Actor with ActorLogging {
     private val speed = 2f
     private val leftMotor = api.joint.withVelocityControl("Pioneer_p3dx_leftMotor" + id).get
     private val rightMotor = api.joint.withVelocityControl("Pioneer_p3dx_rightMotor" + id).get
-    private val frontSensors =
-      for (i <- 1 to 8)
+    private val sensors =
+      for (i <- 1 to 16)
         yield api.sensor.proximity("Pioneer_p3dx_ultrasonicSensor" + i + id).get
 
     def moveForward(): Unit = {
@@ -64,9 +104,11 @@ class VRepRemoteControl extends Actor with ActorLogging {
       rightMotor.setTargetVelocity(0)
     }
 
-    val leftSensor = frontSensors(1)
+    val frontSensor = sensors(4)
 
-    val rightSensor = frontSensors(6)
+    val leftSensor = sensors(1)
+
+    val rightSensor = sensors(8)
 
     val gps = api.sensor.position("Pioneer_p3dx_gps" + id).get
   }

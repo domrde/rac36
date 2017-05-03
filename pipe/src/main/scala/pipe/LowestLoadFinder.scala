@@ -24,7 +24,6 @@ class LowestLoadFinder extends Actor with ActorLogging {
 
   override def receive = initial
 
-  //todo: проверить, что паб/саб не перемешиваются и не мешают друг другу
   val initial: Receive = {
     case IncrementClients(url) =>
       mediator ! Publish(PIPE_SUBSCRIPTION, PipeInfo(context.parent, url, 0))

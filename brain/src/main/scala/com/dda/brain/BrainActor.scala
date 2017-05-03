@@ -10,7 +10,7 @@ abstract class BrainActor(id: String) extends Actor with ActorLogging {
 
   log.info("[-] BrainActor started [{}]", this.getClass.getName)
 
-  override def receive: Receive = stopped
+  override def receive: Receive = working
 
   protected lazy val working: Receive = {
     case Sensory(payload) =>
@@ -23,7 +23,7 @@ abstract class BrainActor(id: String) extends Actor with ActorLogging {
       handleRobotMessage(message)
 
     case ChangeState(newState) =>
-      log.info("[-] BrainActor: changed state to [{}]", newState)
+      log.info("[-] BrainActor [{}]: changed state to [{}]", id, newState)
 
       newState match {
         case Stop =>
@@ -32,12 +32,12 @@ abstract class BrainActor(id: String) extends Actor with ActorLogging {
       }
 
     case other =>
-      log.error("[-] BrainActor: received unknown message [{}] from [{}]", other, sender())
+      log.error("[-] BrainActor [{}]: received unknown message [{}] from [{}]", id, other, sender())
   }
 
   protected lazy val stopped: Receive = {
     case ChangeState(newState) =>
-      log.info("[-] BrainActor: changed state to [{}]", newState)
+      log.info("[-] BrainActor [{}]: changed state to [{}]", id, newState)
 
       newState match {
         case Stop =>
@@ -46,7 +46,7 @@ abstract class BrainActor(id: String) extends Actor with ActorLogging {
       }
 
     case other =>
-      log.error("[-] BrainActor: received message while stopped [{}] from [{}]", other, sender())
+      log.error("[-] BrainActor [{}]: received message while stopped [{}] from [{}]", id, other, sender())
   }
 
   protected def handleSensory(payload: Set[Position]): Unit

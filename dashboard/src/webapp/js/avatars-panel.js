@@ -46,9 +46,17 @@ function drawAvatarPanel(panel, info) {
 }
 
 function startAvatar(id) {
-    avatarsWs.send(JSON.stringify({id: id, newState: "Start", $type: "dashboard.clients.ServerClient.ChangeAvatarState"}));
+    avatarsWs.send(JSON.stringify({
+        id: id,
+        newState: "Start",
+        $type: "dashboard.clients.ServerClient.ChangeAvatarState"
+    }));
 }
 
 function stopAvatar(id) {
-    avatarsWs.send(JSON.stringify({id: id, newState: "Stop", $type: "dashboard.clients.ServerClient.ChangeAvatarState"}));
+    avatarsWs.send(JSON.stringify({
+        id: id,
+        newState: "Stop",
+        $type: "dashboard.clients.ServerClient.ChangeAvatarState"
+    }));
 }

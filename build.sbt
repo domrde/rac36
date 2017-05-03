@@ -30,6 +30,7 @@ lazy val brain = (project in file("brain")).
     name := "brain",
     libraryDependencies ++=
       Seq(
+        "com.lihaoyi" %% "upickle" % "0.4.3",
         "com.typesafe.akka" %% "akka-actor" % akkaVersion
       )
   )
@@ -66,7 +67,7 @@ lazy val utils = (project in file("utils")).
     libraryDependencies ++= Seq(
       "org.zeromq" % "jeromq" % "0.3.5",
 
-      // Cannot be fully replaced by upickle because provides a way to match json against multiples reads that not
+      // Cannot be fully replaced by upickle because provides a way to match json against multiple reads that not
       // a part of sealed trait. It's used to parse classes that use this util but not known to the util.
       "com.typesafe.play" %% "play-json" % "2.5.4"
     )
@@ -140,10 +141,6 @@ lazy val dashboard = (project in file("dashboard")).
   settings(
     name := "dashboard",
     libraryDependencies ++= Seq(
-      //      "com.typesafe.akka" %% "akka-http" % "10.0.5",
-      //      "com.typesafe.akka" %% "akka-http-spray-json" % "10.0.5",
-      "com.lihaoyi" %% "upickle" % "0.4.3",
-
       "com.typesafe.akka" %% "akka-http-core" % akkaVersion,
       "com.typesafe.akka" %% "akka-http-experimental" % akkaVersion
     ),
@@ -166,6 +163,17 @@ lazy val playground = (project in file("playground")).
   )
   .dependsOn(dashboard)
 
+// ----------------------------------- EXTERNAL PATHFINDING ROBOT ---------------------------------------------------
+
+lazy val pathfinder = (project in file("pathfinder")).
+  settings(commonSettings: _*).
+  settings(
+    name := "pathfinder",
+    libraryDependencies ++= Seq(
+      "tw.edu.ntu.csie" % "libsvm" % "3.17"
+    )
+  )
+  .dependsOn(dashboard)
 
 // ----------------------------------- MULTIJVM TESTS SUBPROJECTS ---------------------------------------------------
 

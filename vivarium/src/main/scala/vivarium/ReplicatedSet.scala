@@ -8,7 +8,8 @@ import akka.cluster.ddata._
 object ReplicatedSet {
   trait ReplicatedSetMessage
 
-  def apply[T](SetKey: ORSetKey[T]) = Props(classOf[ReplicatedSet[T]], SetKey)
+  def apply[T](SetKey: ORSetKey[T]) = Props(classOf[ReplicatedSet[T]], SetKey, None)
+  def apply[T](SetKey: ORSetKey[T], target: ActorRef) = Props(classOf[ReplicatedSet[T]], SetKey, Some(target))
 
   case class AddAll(values: Set[_ <: AnyRef]) extends ReplicatedSetMessage
   case class RemoveAll(values: Set[_ <: AnyRef]) extends ReplicatedSetMessage
@@ -16,10 +17,11 @@ object ReplicatedSet {
   case class LookupResult(result: Option[Set[_ <: AnyRef]]) extends ReplicatedSetMessage
 }
 
-class ReplicatedSet[ItemType <: AnyRef](SetKey: ORSetKey[ItemType]) extends Actor with ActorLogging {
+class ReplicatedSet[ItemType <: AnyRef](SetKey: ORSetKey[ItemType], targetOpt: Option[ActorRef]) extends Actor with ActorLogging {
   import ReplicatedSet._
 
-  log.info("[-] ReplicatedSet initialised [{}] for parent [{}]", SetKey, context.parent)
+  private val target = targetOpt.getOrElse(context.parent)
+  log.info("[-] ReplicatedSet initialised [{}] for target [{}]", SetKey, target)
 
   private val replicator = DistributedData(context.system).replicator
   replicator ! Subscribe(SetKey, self)
@@ -36,8 +38,8 @@ class ReplicatedSet[ItemType <: AnyRef](SetKey: ORSetKey[ItemType]) extends Acto
 
     case c @ Changed(SetKey) =>
       c.dataValue match {
-        case data: ORSet[ItemType] => context.parent ! LookupResult(Some(data.elements))
-        case _ => context.parent ! LookupResult(None)
+        case data: ORSet[ItemType] => target ! LookupResult(Some(data.elements))
+        case _ =>
       }
 
     case Lookup =>

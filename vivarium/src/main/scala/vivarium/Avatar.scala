@@ -1,19 +1,18 @@
 package vivarium
 
+import java.io.{PrintWriter, StringWriter}
 import java.net.{URL, URLClassLoader}
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
 import akka.cluster.pubsub.DistributedPubSubMediator.SubscribeAck
 import akka.cluster.sharding.ClusterSharding
 import com.dda
-import com.dda.brain.{BrainActor, BrainMessages}
 import com.dda.brain.BrainMessages.BrainState
+import com.dda.brain.{BrainActor, BrainMessages}
 import com.typesafe.config.ConfigFactory
+import common.Constants
+import common.Constants.{AvatarsDdataSetKey, PositionDdataSetKey}
 import common.messages.{NumeratedMessage, SensoryInformation}
-import common.Constants.{PositionDdataSetKey, AvatarsDdataSetKey}
-import vivarium.ReplicatedSet.LookupResult
-import java.io.PrintWriter
-import java.io.StringWriter
 
 import scala.util.{Failure, Success, Try}
 
@@ -25,7 +24,8 @@ import scala.util.{Failure, Success, Try}
 // todo: auto-kill if client disconnected
 // todo: send and load jars through NFS
 // todo: interaction with services
-object Avatar {
+// todo: merge overlapping obstacles into one
+object  Avatar {
 
   trait AvatarMessage extends NumeratedMessage
 
@@ -107,28 +107,30 @@ class Avatar extends Actor with ActorLogging {
     case Avatar.TunnelEndpoint(_id, endpoint) =>
       context.become(receiveWithState(_id, Some(endpoint), brain, buffer))
 
-    case LookupResult(Some(data: Set[SensoryInformation.Position])) if sender() == cache =>
-      self ! SensoryInformation.Sensory(id, data)
+    case ReplicatedSet.LookupResult(Some(data: Set[SensoryInformation.Position])) if sender() == cache =>
+      val brainPositions = data.map { case SensoryInformation.Position(name, y, x, w, h, angle) =>
+        BrainMessages.Position(name, y, x, w, h, angle)
+      }
+      brain.foreach(_ ! dda.brain.BrainMessages.Sensory(brainPositions))
+      context.become(receiveWithState(id, tunnel, brain, data))
 
-    case LookupResult(_) if sender() == avatarIdStorage =>
+    case ReplicatedSet.LookupResult(_) if sender() == avatarIdStorage =>
 
-    case LookupResult(None) =>
+    case ReplicatedSet.LookupResult(None) =>
     // no data in storage
 
-    case p: Avatar.GetState => // for tests
+    case p: Avatar.GetState =>
       sender() ! Avatar.State(id, tunnel, brain)
   }
 
   def handleBrainMessages(id: String, tunnel: Option[ActorRef],
                           brain: Option[ActorRef], buffer: Set[SensoryInformation.Position]): Receive = {
     case SensoryInformation.Sensory(_, sensoryPayload) =>
-      cache ! ReplicatedSet.RemoveAll(buffer diff sensoryPayload)
-      cache ! ReplicatedSet.AddAll(sensoryPayload diff buffer)
-      val brainPositions = sensoryPayload.map { case SensoryInformation.Position(name, row, col, angle) =>
-        BrainMessages.Position(name, row, col, angle)
-      }
-      brain.foreach(_ ! dda.brain.BrainMessages.Sensory(brainPositions))
-      context.become(receiveWithState(id, tunnel, brain, sensoryPayload))
+      // buffer is what currently in replicated cache
+      // we need to save obstacle data, remove old robots data, add new robots data
+      cache ! ReplicatedSet.RemoveAll(buffer.filter(_.name != Constants.OBSTACLE_NAME))
+      cache ! ReplicatedSet.AddAll(sensoryPayload)
+      cache ! ReplicatedSet.Lookup
 
     case BrainMessages.FromAvatarToRobot(message) =>
       tunnel.foreach(_ ! Avatar.FromAvatarToRobot(id, message))
@@ -158,6 +160,6 @@ class Avatar extends Actor with ActorLogging {
     // may be Thread.currentThread().getContextClassLoader() will be better
     val classLoader = URLClassLoader.newInstance(Array(url), this.getClass.getClassLoader)
     val clazz = classLoader.loadClass(className)
-    context.actorOf(Props(clazz.asInstanceOf[Class[BrainActor]], id), "Brain" + className)
+    context.actorOf(Props(clazz.asInstanceOf[Class[BrainActor]], id), className)
   }
 }

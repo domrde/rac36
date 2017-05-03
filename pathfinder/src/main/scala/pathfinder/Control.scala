@@ -1,6 +1,6 @@
-package playground
+package pathfinder
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.actor.{Actor, ActorLogging, Props}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.ws.{Message, TextMessage, WebSocketRequest}
 import akka.stream.ActorMaterializer
@@ -8,7 +8,6 @@ import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.{Done, NotUsed}
 import com.typesafe.config.ConfigFactory
 import common.messages.SensoryInformation
-import common.messages.SensoryInformation.Sensory
 import dashboard.clients.ServerClient.ChangeAvatarState
 import pipe.TunnelManager
 import play.api.libs.json.{JsValue, Json, Reads}
@@ -17,13 +16,11 @@ import utils.zmqHelpers.{JsonStringifier, JsonValidator, ZeroMQHelper}
 import vivarium.Avatar
 import vivarium.Avatar.Create
 
-import scala.collection.JavaConversions._
 import scala.concurrent.Future
 
 /**
-  * Created by dda on 10/4/16.
+  * Created by dda on 02.05.17.
   */
-
 class ValidatorImpl extends JsonValidator {
   private implicit val tunnelCreatedReads = Json.reads[TunnelManager.TunnelCreated]
   private implicit val failedToCreateTunnelReads = Json.reads[TunnelManager.FailedToCreateTunnel]
@@ -34,11 +31,11 @@ class ValidatorImpl extends JsonValidator {
 class StringifierImpl extends JsonStringifier {
   private implicit val createAvatarWrites = Json.writes[Avatar.Create]
   private implicit val sensoryPositionWrites = Json.writes[SensoryInformation.Position]
-  private implicit val sensoryWrites = Json.writes[SensoryInformation.Sensory]
+  private implicit val fromRobotToAvatarWrites = Json.writes[Avatar.FromRobotToAvatar]
   override def toJson(msg: AnyRef): Option[JsValue] = {
     msg match {
       case a: Avatar.Create => Some(createAvatarWrites.writes(a))
-      case a: SensoryInformation.Sensory => Some(sensoryWrites.writes(a))
+      case a: Avatar.FromRobotToAvatar => Some(fromRobotToAvatarWrites.writes(a))
       case _ => None
     }
   }
@@ -50,16 +47,11 @@ class Control extends Actor with ActorLogging {
   private implicit val system = context.system
   private val config = ConfigFactory.load()
 
-  log.info("[-] RobotApp started and connected to [{}]", "tcp://" + config.getString("akka.remote.netty.tcp.hostname") + ":" + 34671)
+  log.info("Pathfinder started")
 
   val helper = ZeroMQHelper(context.system)
 
-  private val vrep = context.actorOf(Props[VRepRemoteControl])
-
-  private val cars: Map[String, ActorRef] = config.getStringList("playground.car-ids").map { id =>
-    id -> context.actorOf(Car(id, vrep)) }.toMap
-
-  private val cameraDealer = helper.connectDealerActor(
+  private val dealer = helper.connectDealerActor(
     id = "camera",
     url = "tcp://" + config.getString("akka.remote.netty.tcp.hostname"),
     port = 34671,
@@ -67,26 +59,25 @@ class Control extends Actor with ActorLogging {
     stringifier = Props[StringifierImpl],
     targetAddress = self)
 
-  cameraDealer ! Create("camera", config.getString("playground.brain-jar"), "com.dda.brain.ParrotBrain")
+  dealer ! Create("pathfinder", config.getString("pathfinder.brain-jar"), "com.dda.brain.PathfinderBrain")
 
   override def receive: Receive = {
-    case Sensory(_, payload) =>
-      val correctPayload = payload.filterNot { case SensoryInformation.Position(name, y, x, width, height, angle) =>
-        y.isNaN || y.isInfinity || x.isNaN || x.isInfinity
-      }
-      cameraDealer ! Sensory("camera", correctPayload)
-
-    case TunnelManager.TunnelCreated(_, _, "camera") =>
-      log.info("Starting brains")
+    case TunnelManager.TunnelCreated(_, _, "pathfinder") =>
       startBrains()
+      log.info("[-] Pathfinder: TunnelCreated")
+
+    case Avatar.FromAvatarToRobot("pathfinder", message) =>
+      log.info("[-] Pathfinder: FromAvatarToRobot")
+      val response = "Response"
+      dealer ! Avatar.FromRobotToAvatar("pathfinder", response)
 
     case other =>
-      log.error("[-] Playground: playground.Control received other: [{}]", other)
+      log.error("[-] Pathfinder: pathfinder.Control received other: [{}]", other)
   }
 
   private def startBrains(): Unit = {
     val messageSource: Source[Message, NotUsed] =
-      Source(("camera" :: cars.keys.toList).map(id => TextMessage(write(ChangeAvatarState(id, "Start")))))
+      Source(List(TextMessage(write(ChangeAvatarState("pathfinder", "Start")))))
 
     val printSink: Sink[Message, Future[Done]] =
       Sink.foreach {

@@ -7,11 +7,10 @@ import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.server.{Directives, Route}
 import akka.stream.ActorMaterializer
 import com.typesafe.config.ConfigFactory
-import common.Constants.AvatarsDdataSetKey
+import common.Constants.{AvatarsDdataSetKey, PositionDdataSetKey}
 import dashboard.MetricsAggregator.{CollectedMetrics, MetricsAggregationMessage}
-import dashboard.clients.{AvatarClient, MetricsClient, ServerClient}
+import dashboard.clients.{AvatarClient, MetricsClient, PositionsClient, ServerClient}
 import vivarium.ReplicatedSet
-import vivarium.ReplicatedSet.LookupResult
 
 /**
   * Created by dda on 9/6/16.
@@ -20,6 +19,7 @@ object Server {
   trait ClientType
   case object AvatarClient extends ClientType
   case object MetricsClient extends ClientType
+  case object PositionsClient extends ClientType
 
   case class Join(clientType: ClientType)
 }
@@ -28,22 +28,20 @@ class Server extends Actor with ActorLogging {
   import Directives._
 
   private implicit val system = context.system
-
   private implicit val materializer = ActorMaterializer()
-
   private implicit val executionContext = context.dispatcher
 
   private val config = ConfigFactory.load()
-
   private val starter = context.actorOf(Props[OpenstackActor], "OpenstackActor")
-
   private val metrics = context.actorOf(Props[MetricsAggregator], "MetricsAggregator")
-
-  private val avatarIdStorage = context.actorOf(ReplicatedSet(AvatarsDdataSetKey))
-
   private val shard = ClusterSharding(system).shardRegion("Avatar")
 
-  val route: Route = staticFilesRoute ~ avatarsRoute ~ statsRoute
+  private val avatarIdsResender = context.actorOf(Props[DdataResender])
+  private val avatarIdStorage = context.actorOf(ReplicatedSet(AvatarsDdataSetKey, avatarIdsResender))
+  private val positionsResender = context.actorOf(Props[DdataResender])
+  private val positionsStorage = context.actorOf(ReplicatedSet(PositionDdataSetKey, positionsResender))
+
+  val route: Route = staticFilesRoute ~ avatarsRoute ~ statsRoute ~ ddataRoute
 
   lazy val staticFilesRoute: Route =
     pathSingleSlash {
@@ -71,11 +69,18 @@ class Server extends Actor with ActorLogging {
       }
     }
 
+  lazy val ddataRoute: Route =
+    path("ddata") {
+      get {
+        handleWebSocketMessages(ServerClient.newServerUser(context.actorOf(PositionsClient(positionsStorage))))
+      }
+    }
+
   Http().bindAndHandle(route, "127.0.0.1", config.getInt("application.httpBindingPort"))
 
-  override def receive: Receive = receiveWithClients(Map.empty.withDefaultValue(List.empty))
+  override def receive: Receive = receiveWithClients(List.empty)
 
-  def receiveWithClients(clients: Map[Server.ClientType, List[ActorRef]]): Receive = {
+  def receiveWithClients(metricsClients: List[ActorRef]): Receive = {
     case m: MetricsAggregationMessage =>
       metrics forward m
 
@@ -83,14 +88,18 @@ class Server extends Actor with ActorLogging {
       starter forward l
 
     case Server.Join(clientType) =>
-      val clientsOfThisType = sender() :: clients(clientType)
-      context.become(receiveWithClients(clients + (clientType -> clientsOfThisType)))
+      clientType match {
+        case Server.AvatarClient =>
+          avatarIdsResender ! DdataResender.AddClient(sender())
+        case Server.PositionsClient =>
+          positionsResender ! DdataResender.AddClient(sender())
+        case Server.MetricsClient =>
+          context.become(receiveWithClients(sender() :: metricsClients))
+        case _ =>
+      }
 
     case c: CollectedMetrics =>
-      clients(Server.MetricsClient).foreach(_ ! c)
-
-    case l: LookupResult =>
-      clients(Server.AvatarClient).foreach(_ ! l)
+      metricsClients.foreach(_ ! c)
 
     case other =>
       log.error("[-] dashboard.Server: other {} from {}", other, sender())

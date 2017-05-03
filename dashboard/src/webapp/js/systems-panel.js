@@ -25,7 +25,7 @@ ws.onmessage = function (evt) {
 
 
 function addrString(address) {
-    return address.protocol + "://" + address.system + "@" + address.host + ":" + address.port;
+    return address.system + "@" + address.host + ":" + address.port;
 }
 
 function drawPanel(panel, info) {
@@ -54,5 +54,8 @@ function drawPanel(panel, info) {
 
 function launchVm(image) {
     document.getElementById(image).disabled = true;
-    ws.send(JSON.stringify({t: "Launch", role: image}));
+    ws.send(JSON.stringify({
+        t: "Launch",
+        role: image
+    }));
 }

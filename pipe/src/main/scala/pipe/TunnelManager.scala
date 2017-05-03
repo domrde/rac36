@@ -13,7 +13,6 @@ import vivarium.Avatar
   * Created by dda on 24.04.16.
   */
 //todo: check balancing really works
-//todo: send error message if robot has not unique identifier
 //todo: use cluster metrics-based selection of lowest loaded TM
 //todo: use pool of ZmqRouter to lower socket load http://doc.akka.io/docs/akka/current/scala/routing.html
 object TunnelManager {
@@ -51,14 +50,14 @@ class TunnelManager extends Actor with ActorLogging {
   private val url = "tcp://" + config.getString("akka.remote.netty.tcp.hostname")
   private val port = config.getInt("pipe.ports.input")
 
-  private val zmqReceiver = context.actorOf(AvatarResender(self), name = "AvatarResender")
+  private val avatarResender = context.actorOf(AvatarResender(self), name = "AvatarResender")
 
   private val worker = ZeroMQHelper(context.system).bindRouterActor(
     url = "tcp://" + config.getString("akka.remote.netty.tcp.hostname"),
     port = port,
     validator = Props[ValidatorImpl],
     stringifier = Props[StringifierImpl],
-    targetAddress = zmqReceiver
+    targetAddress = avatarResender
   )
 
   private val lowestFinder = context.actorOf(Props[LowestLoadFinder], "Sharer")
@@ -73,12 +72,12 @@ class TunnelManager extends Actor with ActorLogging {
 
     case ToTmWithLowestLoad(ctr, returnAddress) =>
       log.info("[-] TunnelManager: I'm with lowest load, requesting avatar")
-      zmqReceiver ! ctr
+      avatarResender ! ctr
       context.become(receiveWithClientsStorage(clients + (ctr.id -> returnAddress)))
 
     case ac @ Avatar.AvatarCreated(id) =>
       clients(id) ! ToReturnAddress(ac, url, port)
-      zmqReceiver ! AvatarResender.WorkWithQueue(id, worker)
+      avatarResender ! AvatarResender.WorkWithQueue(id, worker)
       lowestFinder ! IncrementClients(url)
       context.become(receiveWithClientsStorage(clients - id))
       log.info("[-] TunnelManager: Avatar and tunnel created with id [{}], sending result to original sender [{}]", id, sender())

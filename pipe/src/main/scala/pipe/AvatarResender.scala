@@ -10,6 +10,8 @@ import vivarium.Avatar._
   * Created by dda on 9/21/16.
   */
 // todo: remove dead clients
+//todo: send error message if robot has non-unique identifier
+// todo: check that there is no avatar with such id in ddata storage
 object AvatarResender {
   case class WorkWithQueue(topic: String, zmqActor: ActorRef)
 
