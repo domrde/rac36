@@ -11,9 +11,9 @@ class ParrotBrain(id: String) extends BrainActor(id) {
 
   var sensory: Set[BrainMessages.Position] = Set.empty
 
-  context.system.scheduler.schedule(5.seconds, 5.seconds) {
-    log.info("Payload: {}", sensory)
-  }
+//  context.system.scheduler.schedule(5.seconds, 5.seconds) {
+//    log.info("Payload: {}", sensory)
+//  }
 
   override protected def handleSensory(payload: Set[BrainMessages.Position]): Unit = {
 //    sender() ! BrainMessages.FromAvatarToRobot("testCommand")

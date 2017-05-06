@@ -45,21 +45,12 @@ Array.prototype.extremumBy = function (pluck, extremum) {
 function updateCanvas(positions) {
     if (positions.length > 0) {
 
-        const ranges = positions.reduce(function (accumulator, element) {
-            if (!('minX' in accumulator) || element.x < accumulator['minX']) {
-                accumulator['minX'] = element.x;
-            }
-            if (!('minY' in accumulator) || element.y < accumulator['minY']) {
-                accumulator['minY'] = element.y;
-            }
-            if (!('maxX' in accumulator) || (element.x + element.width) > accumulator['maxX']) {
-                accumulator['maxX'] = (element.x + element.width);
-            }
-            if (!('maxY' in accumulator) || (element.y + element.height) > accumulator['maxY']) {
-                accumulator['maxY'] = (element.y + element.height);
-            }
-            return accumulator;
-        }, {});
+        const ranges = {
+            minX: -6,
+            minY: -6,
+            maxX: 6,
+            maxY: 6
+        };
 
         const xAllign = function () {
             if (ranges.minX < 0) {
@@ -91,12 +82,15 @@ function updateCanvas(positions) {
             } else {
                 ddataContext.fillStyle = "#fbd5ad";
             }
-            ddataContext.fillRect(
+            ddataContext.beginPath();
+            ddataContext.arc(
                 (position.x + xAllign) * xMultiplier,
                 (position.y + yAllign) * yMultiplier,
-                position.width * xMultiplier,
-                position.height * yMultiplier
+                position.radius * xMultiplier,
+                0,
+                2 * Math.PI
             );
+            ddataContext.fill();
         });
     } else {
         ddataContext.fillStyle = "#fff1cc";

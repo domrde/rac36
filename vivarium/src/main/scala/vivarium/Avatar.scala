@@ -107,17 +107,19 @@ class Avatar extends Actor with ActorLogging {
     case Avatar.TunnelEndpoint(_id, endpoint) =>
       context.become(receiveWithState(_id, Some(endpoint), brain, buffer))
 
-    case ReplicatedSet.LookupResult(Some(data: Set[SensoryInformation.Position])) if sender() == cache =>
-      val brainPositions = data.map { case SensoryInformation.Position(name, y, x, w, h, angle) =>
-        BrainMessages.Position(name, y, x, w, h, angle)
+    case l: ReplicatedSet.LookupResult[SensoryInformation.Position] if sender() == cache =>
+      l.result match {
+        case Some(data) =>
+          val brainPositions = data.map { case SensoryInformation.Position(name, y, x, r, angle) =>
+            BrainMessages.Position(name, y, x, r, angle)
+          }
+          brain.foreach(_ ! dda.brain.BrainMessages.Sensory(brainPositions))
+          context.become(receiveWithState(id, tunnel, brain, data))
+
+        case None =>
       }
-      brain.foreach(_ ! dda.brain.BrainMessages.Sensory(brainPositions))
-      context.become(receiveWithState(id, tunnel, brain, data))
 
-    case ReplicatedSet.LookupResult(_) if sender() == avatarIdStorage =>
-
-    case ReplicatedSet.LookupResult(None) =>
-    // no data in storage
+    case ReplicatedSet.LookupResult(_) =>
 
     case p: Avatar.GetState =>
       sender() ! Avatar.State(id, tunnel, brain)
@@ -128,8 +130,20 @@ class Avatar extends Actor with ActorLogging {
     case SensoryInformation.Sensory(_, sensoryPayload) =>
       // buffer is what currently in replicated cache
       // we need to save obstacle data, remove old robots data, add new robots data
+      val positionsNotPresentInBuffer = {
+        def intersects(a: SensoryInformation.Position, b: SensoryInformation.Position): Boolean = {
+          Math.pow(a.y - b.y, 2.0) + Math.pow(a.x - b.x, 2.0) <= Math.pow(a.radius + b.radius, 2.0)
+        }
+
+        val existingObstacles = buffer.filter(_.name == Constants.OBSTACLE_NAME)
+        sensoryPayload.filterNot { newPosition =>
+          newPosition.name == Constants.OBSTACLE_NAME &&
+            existingObstacles.exists(existingPosition => intersects(existingPosition, newPosition))
+        }
+      }
+
       cache ! ReplicatedSet.RemoveAll(buffer.filter(_.name != Constants.OBSTACLE_NAME))
-      cache ! ReplicatedSet.AddAll(sensoryPayload)
+      cache ! ReplicatedSet.AddAll(positionsNotPresentInBuffer)
       cache ! ReplicatedSet.Lookup
 
     case BrainMessages.FromAvatarToRobot(message) =>

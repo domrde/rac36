@@ -71,7 +71,7 @@ class Control extends Actor with ActorLogging {
 
   override def receive: Receive = {
     case Sensory(_, payload) =>
-      val correctPayload = payload.filterNot { case SensoryInformation.Position(name, y, x, width, height, angle) =>
+      val correctPayload = payload.filterNot { case SensoryInformation.Position(name, y, x, radius, angle) =>
         y.isNaN || y.isInfinity || x.isNaN || x.isInfinity
       }
       cameraDealer ! Sensory("camera", correctPayload)

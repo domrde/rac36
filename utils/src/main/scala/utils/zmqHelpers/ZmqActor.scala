@@ -17,7 +17,7 @@ object ZmqActor {
 
 abstract class ZmqActor(validator: Props, stringifier: Props, receiver: ActorRef) extends Actor with ActorLogging {
   private implicit val executionContext = context.dispatcher
-  context.system.scheduler.schedule(0.second, 1.millis, self, ZmqActor.Poll)
+  private val pollingCancellable = context.system.scheduler.schedule(0.second, 1.millis, self, ZmqActor.Poll)
 
   private var readersFan = {
     val routees = Vector.fill(5) {
@@ -84,5 +84,10 @@ abstract class ZmqActor(validator: Props, stringifier: Props, receiver: ActorRef
 
     case ZmqActor.Poll =>
       checkSocketForUpdates()
+  }
+
+  override def postStop(): Unit = {
+    pollingCancellable.cancel()
+    super.postStop()
   }
 }

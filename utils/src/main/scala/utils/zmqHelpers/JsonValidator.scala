@@ -56,7 +56,7 @@ abstract class JsonValidator extends Actor with ActorLogging {
       case _ => false
     } match {
       case Some(Some(x)) => sender() ! x
-      case None => log.error("[-] JsonValidator: Failed to validate json [{}]", json)
+      case _ => log.error("[-] JsonValidator: Failed to validate json [{}]", json)
     }
   }
 }

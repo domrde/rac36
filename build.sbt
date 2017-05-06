@@ -157,8 +157,10 @@ lazy val playground = (project in file("playground")).
   settings(commonSettings: _*).
   settings(
     name := "playground",
+    unmanagedResourceDirectories in Compile += baseDirectory.value / "native_lib",
     libraryDependencies ++= Seq(
-      "com.github.troxid" %% "vrepapiscala" % "0.3.6"
+//      "com.github.troxid" %% "vrepapiscala" % "0.3.6"   cloned to playground
+      "org.apache.commons" % "commons-math3" % "3.6.1"
     )
   )
   .dependsOn(dashboard)

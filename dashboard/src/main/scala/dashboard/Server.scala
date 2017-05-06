@@ -36,11 +36,6 @@ class Server extends Actor with ActorLogging {
   private val metrics = context.actorOf(Props[MetricsAggregator], "MetricsAggregator")
   private val shard = ClusterSharding(system).shardRegion("Avatar")
 
-  private val avatarIdsResender = context.actorOf(Props[DdataResender])
-  private val avatarIdStorage = context.actorOf(ReplicatedSet(AvatarsDdataSetKey, avatarIdsResender))
-  private val positionsResender = context.actorOf(Props[DdataResender])
-  private val positionsStorage = context.actorOf(ReplicatedSet(PositionDdataSetKey, positionsResender))
-
   val route: Route = staticFilesRoute ~ avatarsRoute ~ statsRoute ~ ddataRoute
 
   lazy val staticFilesRoute: Route =
@@ -54,7 +49,7 @@ class Server extends Actor with ActorLogging {
   lazy val avatarsRoute: Route =
     path("avatar") {
       get {
-        handleWebSocketMessages(ServerClient.newServerUser(context.actorOf(AvatarClient(avatarIdStorage, shard))))
+        handleWebSocketMessages(ServerClient.newServerUser(context.actorOf(AvatarClient(shard))))
       } ~ post {
         fileUpload("jar") { case (metadata, byteSource) =>
           complete(HttpResponse())
@@ -72,7 +67,7 @@ class Server extends Actor with ActorLogging {
   lazy val ddataRoute: Route =
     path("ddata") {
       get {
-        handleWebSocketMessages(ServerClient.newServerUser(context.actorOf(PositionsClient(positionsStorage))))
+        handleWebSocketMessages(ServerClient.newServerUser(context.actorOf(PositionsClient())))
       }
     }
 
@@ -87,21 +82,15 @@ class Server extends Actor with ActorLogging {
     case l: ServerClient.LaunchCommand =>
       starter forward l
 
-    case Server.Join(clientType) =>
-      clientType match {
-        case Server.AvatarClient =>
-          avatarIdsResender ! DdataResender.AddClient(sender())
-        case Server.PositionsClient =>
-          positionsResender ! DdataResender.AddClient(sender())
-        case Server.MetricsClient =>
-          context.become(receiveWithClients(sender() :: metricsClients))
-        case _ =>
-      }
+    case Server.Join(Server.MetricsClient) =>
+      context.become(receiveWithClients(sender() :: metricsClients))
+
+    case Server.Join(_) =>
 
     case c: CollectedMetrics =>
       metricsClients.foreach(_ ! c)
 
     case other =>
-      log.error("[-] dashboard.Server: other {} from {}", other, sender())
+      log.error("[-] dashboard.Server: other [{}] from [{}]", other, sender())
   }
 }
