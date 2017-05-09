@@ -28,7 +28,7 @@ object VRepConnection {
     //   /    \
     //  14    11
 
-    private val speed = 2f
+    private val speed = 4f
     private val leftMotor = api.joint.withVelocityControl("Pioneer_p3dx_leftMotor" + id).get
     private val rightMotor = api.joint.withVelocityControl("Pioneer_p3dx_rightMotor" + id).get
     val sensors: List[ProximitySensor] =

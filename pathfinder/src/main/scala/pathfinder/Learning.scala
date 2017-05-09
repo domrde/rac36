@@ -23,12 +23,45 @@ object Learning {
 object InputMapper {
   import Learning._
 
+  case class Group(members: Set[Obstacle]) {
+    def intersects(another: Group): Boolean = {
+      members.exists { a =>
+        another.members.exists { b =>
+          Math.pow(a.y - b.y, 2.0) + Math.pow(a.x - b.x, 2.0) <= 1.5 * Math.pow(a.r + b.r, 2.0)
+        }
+      }
+    }
+
+    def merge(another: Group): Group = {
+      Group(members ++ another.members)
+    }
+  }
+
   def mapObstaclesToExamples(obstacles: List[Obstacle], height: Double, width: Double,
                              s: Point, f: Point): List[Example] = {
-    obstacles.map { point =>
-      val c = if ((f.x - s.x) * (point.y - s.y) < (f.y - s.y) * (point.x - s.x)) 1.0 else -1.0
-      Example(Point(point.y / height, point.x / width), c)
-    }
+    val groups =
+      obstacles.foldLeft(Set.empty[Group]) { case (listOfGroups, obstacle) =>
+        val newGroup = Group(Set(obstacle))
+        val possibleNeighbour = listOfGroups.find { group => group.intersects(newGroup) }
+        if (possibleNeighbour.isDefined) {
+          (listOfGroups - possibleNeighbour.get) + possibleNeighbour.get.merge(newGroup)
+        } else {
+          listOfGroups + newGroup
+        }
+      }.foldLeft(Set.empty[Group]) { case (listOfGroups, group) =>
+        val possibleNeighbour = listOfGroups.find { group => group.intersects(group) }
+        if (possibleNeighbour.isDefined) {
+          (listOfGroups - possibleNeighbour.get) + possibleNeighbour.get.merge(group)
+        } else {
+          listOfGroups + group
+        }
+      }
+
+    groups.flatMap { group =>
+      val sum = group.members.map(point => if ((f.x - s.x) * (point.y - s.y) < (f.y - s.y) * (point.x - s.x)) 1.0 else -1.0).sum
+      val c = if (sum > 0) 1.0 else -1.0
+      group.members.map(point => Example(Point(point.y / height, point.x / width), c))
+    }.toList
   }
 }
 
@@ -176,18 +209,18 @@ class Learning {
         }
       }
 
-    def lengthOfPath(path: Path) = {
-      path.path.sliding(2).foldLeft(0.0) { case (accumulator, a :: b :: Nil) => accumulator + distance(a, b) }
-    }
-
-//    Future.sequence(results).map { results =>
-//      val filtered = results.filter(_.isCorrect)
-//      if (filtered.isEmpty) {
-//        None
-//      } else {
-//        Some(filtered.minBy(result => lengthOfPath(result.path)))
-//      }
-//    }
+    //    def lengthOfPath(path: Path) = {
+    //      path.path.sliding(2).foldLeft(0.0) { case (accumulator, a :: b :: Nil) => accumulator + distance(a, b) }
+    //    }
+    //
+    //    Future.sequence(results).map { results =>
+    //      val filtered = results.filter(_.isCorrect)
+    //      if (filtered.isEmpty) {
+    //        None
+    //      } else {
+    //        Some(filtered.minBy(result => lengthOfPath(result.path)))
+    //      }
+    //    }
     Future.find(results)(_.isCorrect)
   }
 
@@ -202,15 +235,15 @@ class Learning {
     val pointOutsideField =
       path.path.exists(point => point.x < 0 || point.y < 0 || point.x > dims.x || point.y > dims.y)
 
-    val isAwayFromStart = distance(path.path.last, start) > 1.5
+    val isAwayFromStart = distance(path.path.last, start) > 1.0
 
-    val isAwayFromFinish = distance(path.path.head, finish) > 1.5
+    val isAwayFromFinish = distance(path.path.head, finish) > 1.0
 
     val errorMessage = (if (pointOfPathInsideObstacle) " [intersects obstacle]" else "") +
       (if (isAwayFromStart) " [not near start]" else "") +
       (if (isAwayFromFinish) " [not near finish]" else "")
 
-    (!(pointOfPathInsideObstacle || isAwayFromStart || isAwayFromFinish), errorMessage)
+    (!(pointOfPathInsideObstacle || isAwayFromStart || isAwayFromFinish || pointOutsideField), errorMessage)
   }
 
 }
