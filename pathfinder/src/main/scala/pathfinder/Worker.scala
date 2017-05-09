@@ -24,7 +24,7 @@ object Worker {
       case Some(curPos) =>
         val distance = Globals.distance(Point(curPos.y, curPos.x), Point(request.to.y, request.to.x))
         if (distance < Globals.STEP_OF_PATH) {
-          Future(Some(RunResults(Path(List(Point(curPos.y, curPos.x))), null, null, null)))
+          Future(Some(RunResults(Path(List(Point(curPos.y, curPos.x))), 0.0, isCorrect = true, "Manual one point path")))
         } else {
           val obstacles = (request.sensory - curPos).map { case Position(_, y, x, r, _) =>
             Obstacle(y, x, r)
