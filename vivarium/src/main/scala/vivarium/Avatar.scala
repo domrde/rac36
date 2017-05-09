@@ -144,7 +144,7 @@ class Avatar extends Actor with ActorLogging {
 
       val obstaclesNotPresentInBuffer = {
         def intersects(a: SensoryInformation.Position, b: SensoryInformation.Position): Boolean = {
-          Math.pow(a.y - b.y, 2.0) + Math.pow(a.x - b.x, 2.0) <= Math.pow(a.radius + b.radius, 2.0)
+          Math.pow(a.y - b.y, 2.0) + Math.pow(a.x - b.x, 2.0) <= 0.9 * Math.pow(a.radius + b.radius, 2.0)
         }
 
         obstacles.filterNot { newPosition =>
