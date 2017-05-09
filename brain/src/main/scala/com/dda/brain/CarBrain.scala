@@ -62,11 +62,14 @@ class CarBrain(id: String) extends BrainActor(id) {
         read[PathFound](message)
       } match {
         case Success(value) =>
-          val newPathIsBadAndOldPathIsGood = value.isStraightLine && !path.isStraightLine
-          if (!newPathIsBadAndOldPathIsGood) {
-            log.info("Replacing old path {} with new one {}", path, value)
+          if (path.isStraightLine) {
             path = value
           }
+//          val newPathIsBadAndOldPathIsGood = value.isStraightLine && !path.isStraightLine
+//          if (!newPathIsBadAndOldPathIsGood) {
+//            log.info("Replacing old path {} with new one {}", path, value)
+//            path = value
+//          }
 
         case Failure(exception) =>
       }
