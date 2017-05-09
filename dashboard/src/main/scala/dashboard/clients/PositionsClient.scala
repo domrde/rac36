@@ -29,7 +29,7 @@ class PositionsClient extends Actor with ActorLogging{
 
   context.system.scheduler.schedule(updatePeriod, updatePeriod, positionsStorage, Lookup)
 
-  if (config.getBoolean("application.-test-data")) {
+  if (config.getBoolean("application.test-data")) {
     context.system.scheduler.schedule(0 second, 5 second) {
       val data: Set[SensoryInformation.Position] = Set(
         SensoryInformation.Position("obstacle",-1.875912189483643,1.0216152183711529,0.15,0.0),
