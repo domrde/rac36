@@ -64,6 +64,7 @@ class CarBrain(id: String) extends BrainActor(id) {
         case Success(value) =>
           val newPathIsBadAndOldPathIsGood = value.isStraightLine && !path.isStraightLine
           if (!newPathIsBadAndOldPathIsGood) {
+            log.info("Replacing old path {} with new one {}", path, value)
             path = value
           }
 
