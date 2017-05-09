@@ -147,9 +147,8 @@ class Avatar extends Actor with ActorLogging {
           Math.pow(a.y - b.y, 2.0) + Math.pow(a.x - b.x, 2.0) <= Math.pow(a.radius + b.radius, 2.0)
         }
 
-        val existingObstacles = buffer.filter(_.name == Constants.OBSTACLE_NAME)
         obstacles.filterNot { newPosition =>
-            existingObstacles.exists(existingPosition => intersects(existingPosition, newPosition))
+          buffer.exists(existingPosition => intersects(existingPosition, newPosition))
         }
       }
 
