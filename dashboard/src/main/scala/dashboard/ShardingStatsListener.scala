@@ -17,7 +17,7 @@ class ShardingStatsListener extends Actor with ActorLogging {
   private val mediator = DistributedPubSub(context.system).mediator
   private val config = ConfigFactory.load()
   private val avatarAddress =
-    if (config.hasPath("application.avatarAddress")) Some(config.getString("application.avatarAddress")) else None
+    if (config.hasPath("application.avatar-address")) Some(config.getString("application.avatar-address")) else None
 
   context.system.scheduler.schedule(1.seconds, 3.seconds) {
     avatarAddress.foreach(addr => mediator ! Send(addr, ShardRegion.GetShardRegionState, localAffinity = false))

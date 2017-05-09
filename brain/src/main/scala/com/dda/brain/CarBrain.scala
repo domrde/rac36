@@ -14,7 +14,7 @@ class CarBrain(id: String) extends BrainActor(id) {
   import com.dda.brain.BrainMessages._
 
   val target = PathPoint(5.0, 5.0)
-  val pathDelta = 1.0
+  val pathDelta = 0.5
   var previousCommand = ""
   var path: List[PathPoint] = List.empty
 

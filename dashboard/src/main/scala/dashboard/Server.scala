@@ -71,7 +71,7 @@ class Server extends Actor with ActorLogging {
       }
     }
 
-  Http().bindAndHandle(route, "127.0.0.1", config.getInt("application.httpBindingPort"))
+  Http().bindAndHandle(route, config.getString("application.http-binding-address"), config.getInt("application.http-binding-port"))
 
   override def receive: Receive = receiveWithClients(List.empty)
 

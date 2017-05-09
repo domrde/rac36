@@ -19,8 +19,8 @@ class OpenstackActor extends Actor with ActorLogging {
   mediator ! Put(self)
 
   val config = ConfigFactory.load()
-  val knownImages = Map("Pipe" -> config.getString("application.pipeImage"),
-    "Avatar" -> config.getString("application.avatarImage"))
+  val knownImages = Map("Pipe" -> config.getString("application.pipe-image"),
+    "Avatar" -> config.getString("application.avatar-image"))
 
   override def receive: Receive = pendingStarts(Set.empty)
 

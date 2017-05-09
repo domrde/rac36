@@ -26,7 +26,7 @@ class AvatarClient(shard: ActorRef) extends Actor with ActorLogging {
   private implicit val timeout: Timeout = 5.seconds
   private implicit val executionContext = context.dispatcher
   private val config = ConfigFactory.load()
-  private val updatePeriod = FiniteDuration(config.getDuration("application.updatePeriod").getSeconds, SECONDS)
+  private val updatePeriod = FiniteDuration(config.getDuration("application.update-period").getSeconds, SECONDS)
 
   private val avatarsStorage = context.actorOf(ReplicatedSet(AvatarsDdataSetKey))
 
@@ -37,7 +37,7 @@ class AvatarClient(shard: ActorRef) extends Actor with ActorLogging {
       context.become(connected(connection))
       context.parent ! Server.Join(Server.AvatarClient)
 
-      if (config.getBoolean("application.testData")) {
+      if (config.getBoolean("application.test-data")) {
         context.system.scheduler.schedule(updatePeriod, updatePeriod) {
           val statuses = (0 to 10).map { _ =>
             val name = Random.shuffle(List("Red", "Green", "Blue", "Banana", "Apple")).mkString("")

@@ -49,7 +49,7 @@ class MetricsAggregator extends Actor with ActorLogging {
 
   private val config = ConfigFactory.load()
 
-  private val listeners = if (config.getBoolean("application.testData")) {
+  private val listeners = if (config.getBoolean("application.test-data")) {
     Set(context.actorOf(Props[TestMetrics], "TestMetrics"))
   } else {
     Set(
@@ -59,7 +59,7 @@ class MetricsAggregator extends Actor with ActorLogging {
     )
   }
 
-  val updatePeriod = FiniteDuration(config.getDuration("application.updatePeriod").getSeconds, SECONDS)
+  val updatePeriod = FiniteDuration(config.getDuration("application.update-period").getSeconds, SECONDS)
   context.system.scheduler.schedule(1.second, updatePeriod, self, SendMetricsToServer)
 
   override def receive: Receive = receiveWithNodesMetrics(Map.empty)

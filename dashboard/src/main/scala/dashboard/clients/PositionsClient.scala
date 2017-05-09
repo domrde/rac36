@@ -23,13 +23,13 @@ class PositionsClient extends Actor with ActorLogging{
   private implicit val timeout: Timeout = 5.seconds
   private implicit val executionContext = context.dispatcher
   private val config = ConfigFactory.load()
-  private val updatePeriod = FiniteDuration(config.getDuration("application.updatePeriod").getSeconds, SECONDS)
+  private val updatePeriod = FiniteDuration(config.getDuration("application.update-period").getSeconds, SECONDS)
 
   private val positionsStorage = context.actorOf(ReplicatedSet(PositionDdataSetKey))
 
   context.system.scheduler.schedule(updatePeriod, updatePeriod, positionsStorage, Lookup)
 
-  if (config.getBoolean("application.testData")) {
+  if (config.getBoolean("application.-test-data")) {
     context.system.scheduler.schedule(0 second, 5 second) {
       val data: Set[SensoryInformation.Position] = Set(
         SensoryInformation.Position("obstacle",-1.875912189483643,1.0216152183711529,0.15,0.0),

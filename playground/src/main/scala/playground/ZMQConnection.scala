@@ -37,13 +37,13 @@ class ZMQConnection(id: String) extends Actor with ActorLogging {
   override def receive: Receive = receiveWithConnection {
     val avatar = helper.connectDealerActor(
       id = id,
-      url = "tcp://192.168.31.102",
-      port = 34671,
+      url = "tcp://" + config.getString("playground.zmq-ip"),
+      port = config.getInt("playground.zmq-port"),
       validator = Props[ValidatorImpl],
       stringifier = Props[StringifierImpl],
       targetAddress = self)
 
-    avatar ! Create(id, config.getString("playground.brain-jar"), config.getString("playground.car-class"))
+    avatar ! Create(id, config.getString("playground.brain-jar"), config.getString("playground.brain-class"))
 
     avatar
   }

@@ -28,8 +28,8 @@ class Pathfinding extends Actor with ActorLogging {
 
   private val dealer = helper.connectDealerActor(
     id = id,
-    url = "tcp://192.168.31.102",
-    port = 34671,
+    url = "tcp://" + config.getString("pathfinder.zmq-ip"),
+    port = config.getInt("pathfinder.zmq-port"),
     validator = Props[ValidatorImpl],
     stringifier = Props[StringifierImpl],
     targetAddress = self)
@@ -55,6 +55,6 @@ class Pathfinding extends Actor with ActorLogging {
       log.error("[-] Pathfinding: received other: [{}] from [{}]", other, sender())
   }
 
-  dealer ! Create(id, config.getString("pathfinder.brain-jar"), "com.dda.brain.PathfinderBrain")
+  dealer ! Create(id, config.getString("pathfinder.brain-jar"), "pathfinder.brain-class")
 
 }
