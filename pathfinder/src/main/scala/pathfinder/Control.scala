@@ -42,56 +42,16 @@ class StringifierImpl extends JsonStringifier {
 }
 
 class Control extends Actor with ActorLogging {
-  private implicit val executionContext = context.dispatcher
-  private implicit val materializer = ActorMaterializer()
-  private implicit val system = context.system
-  private val config = ConfigFactory.load()
-
   log.info("Pathfinder started")
 
   val helper = ZeroMQHelper(context.system)
 
-  private val dealer = helper.connectDealerActor(
-    id = "camera",
-    url = "tcp://" + config.getString("akka.remote.netty.tcp.hostname"),
-    port = 34671,
-    validator = Props[ValidatorImpl],
-    stringifier = Props[StringifierImpl],
-    targetAddress = self)
-
-  dealer ! Create("pathfinder", config.getString("pathfinder.brain-jar"), "com.dda.brain.PathfinderBrain")
+  context.actorOf(Pathfinding(), "Pathfinding")
 
   override def receive: Receive = {
-    case TunnelManager.TunnelCreated(_, _, "pathfinder") =>
-      startBrains()
-      log.info("[-] Pathfinder: TunnelCreated")
-
-    case Avatar.FromAvatarToRobot("pathfinder", message) =>
-      log.info("[-] Pathfinder: FromAvatarToRobot")
-      val response = "Response"
-      dealer ! Avatar.FromRobotToAvatar("pathfinder", response)
-
     case other =>
-      log.error("[-] Pathfinder: pathfinder.Control received other: [{}]", other)
+      log.error("[-] Pathfinder: pathfinder.Control received other: [{}] from [{}]", other, sender())
   }
 
-  private def startBrains(): Unit = {
-    val messageSource: Source[Message, NotUsed] =
-      Source(List(TextMessage(write(ChangeAvatarState("pathfinder", "Start")))))
-
-    val printSink: Sink[Message, Future[Done]] =
-      Sink.foreach {
-        case message: TextMessage.Strict =>
-          println(message.text)
-      }
-
-    val wsFlow = Http().webSocketClientFlow(WebSocketRequest("ws://localhost:8888/avatar"))
-    messageSource
-      .viaMat(wsFlow)(Keep.right)
-      .toMat(printSink)(Keep.both)
-      .run()
-
-    log.info("Brains started")
-  }
-
+  // Start brains removed because brains are in working state initially.
 }

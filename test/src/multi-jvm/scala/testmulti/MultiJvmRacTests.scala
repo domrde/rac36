@@ -136,7 +136,7 @@ abstract class MultiJvmRacTests extends MultiNodeSpec(MultiNodeRacTestsConfig) w
     awaitCond({
       val probe = TestProbe()
       avatarIdsSet.tell(Lookup, probe.ref)
-      val result = probe.expectMsgType[LookupResult]
+      val result = probe.expectMsgType[LookupResult[SensoryInformation.Position]]
       result.result.contains(Set(idOfAvatarToCreate))
     }, 10.seconds)
   }
@@ -155,7 +155,7 @@ abstract class MultiJvmRacTests extends MultiNodeSpec(MultiNodeRacTestsConfig) w
     awaitCond({
       val probe = TestProbe()
       replicatedSet.tell(Lookup, probe.ref)
-      val result = probe.expectMsgType[LookupResult]
+      val result = probe.expectMsgType[LookupResult[SensoryInformation.Position]]
       result.result.contains(sensory)
     }, 10.seconds)
   }
@@ -258,7 +258,7 @@ class SampleMultiJvmRacSpecNode1 extends MultiJvmRacTests {
         awaitCond(p = {
           val probe = TestProbe()
           replicatedSet.tell(Lookup, probe.ref)
-          val result = probe.expectMsgType[LookupResult]
+          val result = probe.expectMsgType[LookupResult[SensoryInformation.Position]]
           result.result.contains(data)
         }, max = 10.seconds)
 

@@ -8,16 +8,26 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
-object InputMapper {
-  def mapObstaclesToExamples(obstacles: List[Polygon], height: Double, width: Double,
-                             s: Point, f: Point): List[Example] = {
+object Learning {
+  final case class Example(p: Point, c: Double)
+  final case class Point(y: Double, x: Double)
+  final case class Obstacle(y: Double, x: Double, r: Double) {
+    def isInside(point: Point): Boolean = {
+      Math.pow(y - point.y, 2.0) + Math.pow(x - point.x, 2.0) <= Math.pow(r, 2.0)
+    }
+  }
+  final case class Path(path: List[Point])
+  case class RunResults(path: Path, timeMs: Double, isCorrect: Boolean, message: String)
+}
 
-    obstacles.flatMap { obstacle =>
-      val centroid = obstacle.centroid
-      val c = if ((f.x - s.x) * (centroid.y - s.y) < (f.y - s.y) * (centroid.x - s.x)) 1.0 else -1.0
-      obstacle.extractPointsByEdges()
-        .map { case Point(y, x) => Example(Point(y / height, x / width), c) }
-        .flatMap { a => List(a, a, a) }
+object InputMapper {
+  import Learning._
+
+  def mapObstaclesToExamples(obstacles: List[Obstacle], height: Double, width: Double,
+                             s: Point, f: Point): List[Example] = {
+    obstacles.map { point =>
+      val c = if ((f.x - s.x) * (point.y - s.y) < (f.y - s.y) * (point.x - s.x)) 1.0 else -1.0
+      Example(Point(point.y / height, point.x / width), c)
     }
   }
 }
@@ -41,6 +51,7 @@ object KernelType {
 }
 
 class Learning {
+  import Learning._
   import KernelType._
   import SvmType._
 
@@ -109,7 +120,7 @@ class Learning {
     def buildPath(accumulator: List[Point], limit: Int): List[Point] =
       if (limit < 0 || distance(to, accumulator.head) < d) accumulator else {
         val curPoint = accumulator.head
-        val curAngle = Math.atan2(to.y - curPoint.y, to.x - curPoint.x) / Math.PI * 180
+        val curAngle = Math.atan2(to.y - curPoint.y, to.x - curPoint.x) * 180.0 / Math.PI
         val vals = (curAngle - angleDelta to curAngle + angleDelta by 0.5).map { angle =>
           val y = Math.sin(Math.toRadians(angle)) * d
           val x = Math.sqrt(Math.pow(d, 2.0) - Math.pow(y, 2.0))
@@ -126,9 +137,7 @@ class Learning {
 
   val defaultParameters = SvmParameters(SvmType.EPSILON_SVR, KernelType.RBF, eps = 0.5, gamma = 30, cost = 100)
 
-  case class RunResults(path: Path, timeMs: Double, isCorrect: Boolean, message: String)
-
-  def runClassificationSVM(obstacles: List[Polygon], dims: Point, start: Point, finish: Point): Future[Option[RunResults]] = {
+  def runClassificationSVM(obstacles: List[Obstacle], dims: Point, start: Point, finish: Point): Future[Option[RunResults]] = {
     @tailrec
     def findElementOfSignChange(elements: List[(Point, Double)], initialSign: Boolean): Point =
       elements match {
@@ -142,13 +151,12 @@ class Learning {
     runSVM(SvmType.C_SVC, obstacles, dims, start, finish, 90.0, vals => findElementOfSignChange(vals, vals.head._2 < 0))
   }
 
-  def runRegressionSVM(obstacles: List[Polygon], dims: Point, start: Point, finish: Point): Future[Option[RunResults]] = {
+  def runRegressionSVM(obstacles: List[Obstacle], dims: Point, start: Point, finish: Point): Future[Option[RunResults]] = {
     runSVM(SvmType.EPSILON_SVR, obstacles, dims, start, finish, 100.0, vals => vals.minBy(pair => Math.abs(pair._2))._1)
   }
 
-  private def runSVM(svmType: SvmType, obstacles: List[Polygon], dims: Point,
+  private def runSVM(svmType: SvmType, obstacles: List[Obstacle], dims: Point,
                      start: Point, finish: Point, angle: Double, finder: TargetPointFinder): Future[Option[RunResults]] = {
-    println("Running SVM")
     val field = InputMapper.mapObstaclesToExamples(obstacles, dims.y, dims.x, start, finish)
     val d = Globals.STEP_OF_PATH
 
@@ -171,7 +179,7 @@ class Learning {
     Future.find(results)(_.isCorrect)
   }
 
-  def checkPathCorrect(obstacles: List[Polygon], dims: Point, start: Point, finish: Point, path: Path): (Boolean, String) = {
+  def checkPathCorrect(obstacles: List[Obstacle], dims: Point, start: Point, finish: Point, path: Path): (Boolean, String) = {
     val pointOfPathInsideObstacle =
       path.path.exists { point =>
         obstacles.exists { obstacle =>
@@ -182,9 +190,9 @@ class Learning {
     val pointOutsideField =
       path.path.exists(point => point.x < 0 || point.y < 0 || point.x > dims.x || point.y > dims.y)
 
-    val isAwayFromStart = distance(path.path.last, start) > 5
+    val isAwayFromStart = distance(path.path.last, start) > 1.5
 
-    val isAwayFromFinish = distance(path.path.head, finish) > 5
+    val isAwayFromFinish = distance(path.path.head, finish) > 1.5
 
     val errorMessage = (if (pointOfPathInsideObstacle) " [intersects obstacle]" else "") +
       (if (isAwayFromStart) " [not near start]" else "") +
@@ -193,33 +201,4 @@ class Learning {
     (!(pointOfPathInsideObstacle || isAwayFromStart || isAwayFromFinish), errorMessage)
   }
 
-}
-
-object Test extends App {
-  val dims = Point(150, 150)
-  val start = Point(135, 15)
-  val finish = Point(15, 125)
-  val pivots = Pivots.getPivotPoints(start, finish).map(point => Polygon(List(point)))
-  val noise =
-    (10.0 to dims.y by Globals.STEP_OF_NOISE_GRID).flatMap { y =>
-      (10.0 to dims.x by Globals.STEP_OF_NOISE_GRID).map { x =>
-        Point(y, x)
-      }
-    }.map(point => Polygon(List(point))).toList
-
-  val obstacles = List(
-    Polygon(List(Point(25, 25), Point(25, 75), Point(75, 75), Point(75, 25))),
-    Polygon(List(Point(300, 150), Point(300, 250), Point(400, 250), Point(400, 150))),
-    Polygon(List(Point(25, 300), Point(25, 400), Point(95, 400), Point(95, 300))),
-    Polygon(List(Point(130, 320), Point(130, 380), Point(310, 380), Point(310, 320))),
-    Polygon(List(Point(500, 340), Point(500, 400), Point(590, 400), Point(590, 340))),
-    Polygon(List(Point(300, 500), Point(300, 575), Point(375, 575), Point(375, 500)))
-  ) ::: pivots ::: noise
-
-  Await.result(new Learning().runRegressionSVM(obstacles, dims, start, finish), 1.minute) match {
-    case Some(x) =>
-      println(x)
-
-    case None =>
-  }
 }

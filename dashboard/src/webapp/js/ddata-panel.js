@@ -46,10 +46,10 @@ function updateCanvas(positions) {
     if (positions.length > 0) {
 
         const ranges = {
-            minX: -6,
-            minY: -6,
-            maxX: 6,
-            maxY: 6
+            minX: -1,
+            minY: -1,
+            maxX: 11,
+            maxY: 11
         };
 
         const xAllign = function () {
@@ -85,7 +85,7 @@ function updateCanvas(positions) {
             ddataContext.beginPath();
             ddataContext.arc(
                 (position.x + xAllign) * xMultiplier,
-                (position.y + yAllign) * yMultiplier,
+                ddataCanvas.height - (position.y + yAllign) * yMultiplier,
                 position.radius * xMultiplier,
                 0,
                 2 * Math.PI

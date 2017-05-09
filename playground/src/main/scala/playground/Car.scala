@@ -1,59 +1,56 @@
 package playground
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import com.typesafe.config.ConfigFactory
-import pipe.TunnelManager
-import utils.zmqHelpers.ZeroMQHelper
-import vivarium.Avatar.{Create, FromAvatarToRobot}
+import common.messages.SensoryInformation
+import common.messages.SensoryInformation.Sensory
+import vivarium.Avatar.{FromAvatarToRobot, FromRobotToAvatar}
+import vrepapiscala.VRepAPI
+
+import scala.concurrent.duration._
+import scala.util.Random
 
 /**
   * Created by dda on 12.04.17.
   */
 object Car {
-  def apply(id: String, remoteControl: ActorRef): Props = Props(classOf[Car], id, remoteControl)
+  def apply(id: String, api: VRepAPI): Props = Props(classOf[Car], id, api)
 }
 
-class Car(id: String, remoteControl: ActorRef) extends Actor with ActorLogging {
+class Car(id: String, api: VRepAPI) extends Actor with ActorLogging {
+  case object StartVrep
 
-  private val config = ConfigFactory.load()
+  private implicit val executionContext = context.dispatcher
+  private implicit val system = context.system
 
-  private val helper = ZeroMQHelper(context.system)
+  context.system.scheduler.scheduleOnce((Random.nextInt(10) * 150).millis, self, StartVrep)
 
-  override def receive: Receive = receiveWithConnection {
-    val avatar = helper.connectDealerActor(
-      id = id,
-      url = "tcp://" + config.getString("akka.remote.netty.tcp.hostname"),
-      port = 34671,
-      validator = Props[ValidatorImpl],
-      stringifier = Props[StringifierImpl],
-      targetAddress = self)
+  private val avatar = context.actorOf(Props(classOf[ZMQConnection], id), "ZMQConnection" + id.substring(1))
 
-    avatar ! Create(id, config.getString("playground.brain-jar"), config.getString("playground.car-class"))
+  override def receive: Receive = {
+    case StartVrep =>
+      val vrep = context.actorOf(Props(classOf[VRepConnection], id, api), "VRepConnection" + id.substring(1))
+      log.info("Car {} initialized", id)
+      context.become(receiveWithActorStarted(vrep))
 
-    avatar
+    case other =>
+      log.error("Car: unknown message [{}] from [{}]", other, sender())
   }
 
-  def receiveWithConnection(avatar: ActorRef): Receive = {
-    case TunnelManager.TunnelCreated(url, port, _) =>
-      log.info("Car [{}] got it's avatar on url {[]}", id, s"$url:$port")
-      context.become(receiveWithConnection {
-        val avatar = helper.connectDealerActor(
-          id = id,
-          url = url,
-          port = port,
-          validator = Props[ValidatorImpl],
-          stringifier = Props[StringifierImpl],
-          targetAddress = self)
+  def receiveWithActorStarted(robot: ActorRef): Receive = {
+    case Sensory(_, payload) =>
+      val correctPayload = payload.filterNot { case SensoryInformation.Position(_, y, x, _, _) =>
+        y.isNaN || y.isInfinity || x.isNaN || x.isInfinity
+      }
+      avatar forward Sensory(id, correctPayload)
 
-        avatar ! Create(id, config.getString("playground.brain-jar"), config.getString("playground.car-class"))
+    case a: FromAvatarToRobot =>
+      robot ! a
 
-        avatar
-      }, discardOld = true)
-
-    case f: FromAvatarToRobot =>
-      remoteControl ! f
+    case a: FromRobotToAvatar =>
+      avatar ! a
 
     case other =>
       log.error("Car: unknown message [{}] from [{}]", other, sender())
   }
 }
+

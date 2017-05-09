@@ -70,14 +70,15 @@ class Sensors private[vrepapiscala](remote: remoteApi, id: Int) {
   }
 
   private def checkTypeObject(handle: Int, objTypes: ObjectType*): Boolean = {
-    val allResult = for (typ <- objTypes) yield {
-      val handlesArr = new IntWA(256)
-      remote.simxGetObjectGroupData(
-        id, typ.rawCode, 0, handlesArr, new IntWA(256),
-        new FloatWA(256), new StringWA(0), OpMode.OneShotWait.rawCode)
-      val handles = handlesArr.getArray.toVector
-      handles.contains(handle)
-    }
-    allResult.reduce(_ || _)
+//    val allResult = for (typ <- objTypes) yield {
+//      val handlesArr = new IntWA(256)
+//      remote.simxGetObjectGroupData(
+//        id, typ.rawCode, 0, handlesArr, new IntWA(256),
+//        new FloatWA(256), new StringWA(0), OpMode.OneShotWait.rawCode)
+//      val handles = handlesArr.getArray.toVector
+//      handles.contains(handle)
+//    }
+//    allResult.reduce(_ || _)
+    true
   }
 }

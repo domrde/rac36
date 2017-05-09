@@ -51,11 +51,8 @@ class Avatar extends Actor with ActorLogging {
   log.info("[-] AVATAR CREATED {}", self)
 
   private val config = ConfigFactory.load()
-
-  private val cache = context.actorOf(ReplicatedSet(PositionDdataSetKey))
-
+  private val positionStorage = context.actorOf(ReplicatedSet(PositionDdataSetKey))
   private val avatarIdStorage = context.actorOf(ReplicatedSet(AvatarsDdataSetKey))
-
   private val shard = ClusterSharding(context.system).shardRegion("Avatar")
 
   override def receive: Receive = notInitialized
@@ -63,7 +60,7 @@ class Avatar extends Actor with ActorLogging {
   val notInitialized: Receive = {
     case Avatar.Init(id) =>
       avatarIdStorage ! ReplicatedSet.AddAll(Set(id))
-      context.become(receiveWithState(id, None, None, Set.empty))
+      context.become(receiveWithState(id, None, None, Set.empty, Set(id)))
 
     case Avatar.Create(id, jarName, className) =>
       Try {
@@ -76,23 +73,23 @@ class Avatar extends Actor with ActorLogging {
         case Success(value) =>
           avatarIdStorage ! ReplicatedSet.AddAll(Set(id))
           sender() ! Avatar.AvatarCreated(id)
-          context.become(receiveWithState(id, None, Some(value), Set.empty))
+          context.become(receiveWithState(id, None, Some(value), Set.empty, Set(id)))
       }
 
     case other =>
       log.error("[-] Avatar: not initialized, unknown message [{}] from [{}]", other, sender())
   }
 
-  def receiveWithState(id: String, tunnel: Option[ActorRef],
-                       brain: Option[ActorRef], buffer: Set[SensoryInformation.Position]): Receive =
-    handleAvatarMessages(id, tunnel, brain, buffer) orElse
-      handleBrainMessages(id, tunnel, brain, buffer) orElse {
+  def receiveWithState(id: String, tunnel: Option[ActorRef], brain: Option[ActorRef],
+                       buffer: Set[SensoryInformation.Position], aliveAvatars: Set[String]): Receive =
+    handleAvatarMessages(id, tunnel, brain, buffer, aliveAvatars) orElse
+      handleBrainMessages(id, tunnel, brain, buffer, aliveAvatars) orElse {
       case s: SubscribeAck =>
       case other => log.error("[-] Avatar: unknown message [{}] from [{}]", other, sender())
     }
 
-  def handleAvatarMessages(id: String, tunnel: Option[ActorRef],
-                           brain: Option[ActorRef], buffer: Set[SensoryInformation.Position]): Receive = {
+  def handleAvatarMessages(id: String, tunnel: Option[ActorRef], brain: Option[ActorRef],
+                           buffer: Set[SensoryInformation.Position], aliveAvatars: Set[String]): Receive = {
     case Avatar.Create(_id, jarName, className) if brain.isEmpty =>
       Try {
         startChildFromJar(_id, jarName, className)
@@ -100,21 +97,29 @@ class Avatar extends Actor with ActorLogging {
         case Failure(exception) =>
           sender() ! Avatar.FailedToCreateAvatar(_id, exception.getMessage)
         case Success(value) =>
-          context.become(receiveWithState(_id, tunnel, Some(value), buffer))
+          context.become(receiveWithState(_id, tunnel, Some(value), buffer, aliveAvatars))
           sender() ! Avatar.AvatarCreated(_id)
       }
 
     case Avatar.TunnelEndpoint(_id, endpoint) =>
-      context.become(receiveWithState(_id, Some(endpoint), brain, buffer))
+      context.become(receiveWithState(_id, Some(endpoint), brain, buffer, aliveAvatars))
 
-    case l: ReplicatedSet.LookupResult[SensoryInformation.Position] if sender() == cache =>
+    case l: ReplicatedSet.LookupResult[SensoryInformation.Position] if sender() == positionStorage =>
       l.result match {
         case Some(data) =>
           val brainPositions = data.map { case SensoryInformation.Position(name, y, x, r, angle) =>
             BrainMessages.Position(name, y, x, r, angle)
           }
           brain.foreach(_ ! dda.brain.BrainMessages.Sensory(brainPositions))
-          context.become(receiveWithState(id, tunnel, brain, data))
+          context.become(receiveWithState(id, tunnel, brain, data, aliveAvatars))
+
+        case None =>
+      }
+
+    case l: ReplicatedSet.LookupResult[String] if sender() == avatarIdStorage =>
+      l.result match {
+        case Some(data) =>
+          context.become(receiveWithState(id, tunnel, brain, buffer, data))
 
         case None =>
       }
@@ -125,8 +130,8 @@ class Avatar extends Actor with ActorLogging {
       sender() ! Avatar.State(id, tunnel, brain)
   }
 
-  def handleBrainMessages(id: String, tunnel: Option[ActorRef],
-                          brain: Option[ActorRef], buffer: Set[SensoryInformation.Position]): Receive = {
+  def handleBrainMessages(id: String, tunnel: Option[ActorRef], brain: Option[ActorRef],
+                          buffer: Set[SensoryInformation.Position], aliveAvatars: Set[String]): Receive = {
     case SensoryInformation.Sensory(_, sensoryPayload) =>
       // buffer is what currently in replicated cache
       // we need to save obstacle data, remove old robots data, add new robots data
@@ -142,9 +147,10 @@ class Avatar extends Actor with ActorLogging {
         }
       }
 
-      cache ! ReplicatedSet.RemoveAll(buffer.filter(_.name != Constants.OBSTACLE_NAME))
-      cache ! ReplicatedSet.AddAll(positionsNotPresentInBuffer)
-      cache ! ReplicatedSet.Lookup
+      positionStorage ! ReplicatedSet.RemoveAll(buffer.filter(_.name == id))
+      //        positionStorage ! ReplicatedSet.RemoveAll(buffer.filter(_.name != Constants.OBSTACLE_NAME))
+      positionStorage ! ReplicatedSet.AddAll(positionsNotPresentInBuffer)
+      positionStorage ! ReplicatedSet.Lookup
 
     case BrainMessages.FromAvatarToRobot(message) =>
       tunnel.foreach(_ ! Avatar.FromAvatarToRobot(id, message))
@@ -153,7 +159,7 @@ class Avatar extends Actor with ActorLogging {
       brain.foreach(_ ! BrainMessages.FromRobotToAvatar(message))
 
     case BrainMessages.TellToOtherAvatar(to, message) =>
-      shard ! Avatar.TellToAvatar(to, id, message)
+      if (aliveAvatars.contains(to)) shard ! Avatar.TellToAvatar(to, id, message)
 
     case Avatar.TellToAvatar(_, from, message) =>
       brain.foreach(_ ! BrainMessages.FromOtherAvatar(from, message))
@@ -164,9 +170,9 @@ class Avatar extends Actor with ActorLogging {
 
     case Terminated(a) =>
       if (brain.isDefined && brain.get == a)
-        context.become(receiveWithState(id, tunnel, None, buffer))
+        context.become(receiveWithState(id, tunnel, None, buffer, aliveAvatars))
       else if (tunnel.isDefined && tunnel.get == a)
-        context.become(receiveWithState(id, None, brain, buffer))
+        context.become(receiveWithState(id, None, brain, buffer, aliveAvatars))
   }
 
   private def startChildFromJar(id: String, jarName: String, className: String) = {

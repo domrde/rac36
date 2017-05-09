@@ -1,6 +1,8 @@
 package pathfinder
 
 object Pivots {
+  import Learning._
+
   // neutral zone margin and distance between pivot obstacles equals to robot size
   private val robotSize = Globals.ROBOT_SIZE
   private val l = Math.sqrt(Math.pow(robotSize, 2) + Math.pow(robotSize, 2))

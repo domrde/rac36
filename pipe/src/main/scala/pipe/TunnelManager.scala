@@ -12,6 +12,7 @@ import vivarium.Avatar
 /**
   * Created by dda on 24.04.16.
   */
+//todo: check that tunnel is active only if robot connected to appointed PIPE
 //todo: check balancing really works
 //todo: use cluster metrics-based selection of lowest loaded TM
 //todo: use pool of ZmqRouter to lower socket load http://doc.akka.io/docs/akka/current/scala/routing.html

@@ -66,7 +66,7 @@ object VRepAPI {
   def connect(ip: String, port: Int): Option[VRepAPI] = {
     checkNative()
     remote.simxFinish(-1)
-    val id = remote.simxStart(ip, port, true, true, 5000, 5)
+    val id = remote.simxStart(ip, port, true, false, 5000, 5)
     if (id == remoteApi.simx_return_ok) {
       Some(new VRepAPI(id: Int))
     } else {

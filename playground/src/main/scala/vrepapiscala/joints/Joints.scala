@@ -134,16 +134,9 @@ class Joints private[vrepapiscala](remote: remoteApi, id: Int) {
     * </ul>
     */
   def withVelocityControl(name: String, opMode: OpMode): Try[JointWithVelocityControl] = {
-    val fstValidType = JointType.Prismatic
-    val sndValidType = JointType.Revolute
-    val validMode = JointMode.Force
     getObjectHandle(name) match {
-      case Some(h) => getInformationAboutJoint(h) match {
-        case Some((`fstValidType` | `sndValidType`, `validMode`, limit, range)) =>
-          Success(new JointWithVelocityControl(remote, id, h, limit, range, opMode))
-        case None | Some(_) =>
-          Failure(new MismatchObjectTypeException(name, fstValidType, sndValidType, validMode))
-      }
+      case Some(h) =>
+        Success(new JointWithVelocityControl(remote, id, h, opMode))
       case None =>
         Failure(new ObjectNotFoundException(name))
     }

@@ -29,7 +29,7 @@ class PathfinderBrain(id: String) extends BrainActor(id) {
       read[Request](message)
     } match {
       case Success(value) =>
-        sender() ! FromAvatarToRobot(write(FindPath(from, sensory, value.to)))
+        avatar ! FromAvatarToRobot(write(FindPath(from, sensory, value.to)))
 
       case Failure(exception) =>
     }
@@ -40,7 +40,7 @@ class PathfinderBrain(id: String) extends BrainActor(id) {
       read[PathFound](message)
     } match {
       case Success(value) =>
-        sender() ! TellToOtherAvatar(value.client, write(value))
+        avatar ! TellToOtherAvatar(value.client, message)
 
       case Failure(exception) =>
     }

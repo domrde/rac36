@@ -1,16 +1,18 @@
 package com.dda.brain
 
-import akka.actor.{Actor, ActorLogging}
-import com.dda.brain.BrainMessages._
+import akka.actor.{Actor, ActorLogging, ActorRef}
 
 /**
   * Created by dda on 02.04.17.
   */
 abstract class BrainActor(id: String) extends Actor with ActorLogging {
+  import com.dda.brain.BrainMessages._
 
   log.info("[-] BrainActor started [{}]", this.getClass.getName)
 
   override def receive: Receive = working
+
+  protected val avatar: ActorRef = context.parent
 
   protected lazy val working: Receive = {
     case Sensory(payload) =>
