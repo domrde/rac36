@@ -57,6 +57,7 @@ class ZMQConnection(id: String) extends Actor with ActorLogging {
       avatar ! f
 
     case f: FromAvatarToRobot =>
+      log.info("From avatar to robot")
       context.parent ! f
 
     case f: FromRobotToAvatar =>

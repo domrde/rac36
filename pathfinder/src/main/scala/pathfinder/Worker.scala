@@ -36,6 +36,7 @@ object Worker {
 }
 
 class Worker(request: PathfinderBrain.FindPath) extends Actor with ActorLogging {
+  log.info("Request {}", request)
   private implicit val executionContext = context.dispatcher
   private implicit val system = context.system
 

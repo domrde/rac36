@@ -133,7 +133,6 @@ class Avatar extends Actor with ActorLogging {
   def handleBrainMessages(id: String, tunnel: Option[ActorRef], brain: Option[ActorRef],
                           buffer: Set[SensoryInformation.Position], aliveAvatars: Set[String]): Receive = {
     case SensoryInformation.Sensory(_, sensoryPayload) =>
-      log.info("Sensory {}", sensoryPayload)
       // buffer is what currently in replicated cache
       // we need to save obstacle data, remove old robots data, add new robots data
       val positionsNotPresentInBuffer = {
