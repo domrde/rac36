@@ -137,10 +137,12 @@ class Avatar extends Actor with ActorLogging {
 
       // we can delete info about robot with current id, because we have updated information about it's position
       // but there may be no information about robot at all, because it's position may have not changed
-      val robotToDelete = robots.filter(_.name == id)
-      positionStorage ! ReplicatedSet.RemoveAll(robotToDelete)
+      if (robots.nonEmpty) {
+        val robotToDelete = buffer.filter(_.name == robots.head.name)
+        positionStorage ! ReplicatedSet.RemoveAll(robotToDelete)
+      }
 
-      val positionsNotPresentInBuffer = {
+      val obstaclesNotPresentInBuffer = {
         def intersects(a: SensoryInformation.Position, b: SensoryInformation.Position): Boolean = {
           Math.pow(a.y - b.y, 2.0) + Math.pow(a.x - b.x, 2.0) <= Math.pow(a.radius + b.radius, 2.0)
         }
@@ -153,7 +155,7 @@ class Avatar extends Actor with ActorLogging {
 
       // buffer is what currently in replicated cache
       // we need to add obstacles that not intersect with existing thereby new ones
-      positionStorage ! ReplicatedSet.AddAll(positionsNotPresentInBuffer)
+      positionStorage ! ReplicatedSet.AddAll(obstaclesNotPresentInBuffer ++ robots)
 
       // updating buffer with newest merged info
       positionStorage ! ReplicatedSet.Lookup
