@@ -48,6 +48,7 @@ class CarBrain(id: String) extends BrainActor(id) {
         path = path.copy(path = spanPath(curPos, path.path))
         val newCommand = getCommandToRobot(curPos)
         if (newCommand != previousCommand) {
+          log.info("{} {}", id, newCommand)
           avatar ! FromAvatarToRobot(newCommand)
           previousCommand = newCommand
         }
