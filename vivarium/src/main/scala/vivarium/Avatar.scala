@@ -133,23 +133,29 @@ class Avatar extends Actor with ActorLogging {
   def handleBrainMessages(id: String, tunnel: Option[ActorRef], brain: Option[ActorRef],
                           buffer: Set[SensoryInformation.Position], aliveAvatars: Set[String]): Receive = {
     case SensoryInformation.Sensory(_, sensoryPayload) =>
-      // buffer is what currently in replicated cache
-      // we need to save obstacle data, remove old robots data, add new robots data
+      val (obstacles, robots) = sensoryPayload.partition(_.name == Constants.OBSTACLE_NAME)
+
+      // we can delete info about robot with current id, because we have updated information about it's position
+      // but there may be no information about robot at all, because it's position may have not changed
+      val robotToDelete = robots.filter(_.name == id)
+      positionStorage ! ReplicatedSet.RemoveAll(robotToDelete)
+
       val positionsNotPresentInBuffer = {
         def intersects(a: SensoryInformation.Position, b: SensoryInformation.Position): Boolean = {
           Math.pow(a.y - b.y, 2.0) + Math.pow(a.x - b.x, 2.0) <= Math.pow(a.radius + b.radius, 2.0)
         }
 
         val existingObstacles = buffer.filter(_.name == Constants.OBSTACLE_NAME)
-        sensoryPayload.filterNot { newPosition =>
-          newPosition.name == Constants.OBSTACLE_NAME &&
+        obstacles.filterNot { newPosition =>
             existingObstacles.exists(existingPosition => intersects(existingPosition, newPosition))
         }
       }
 
-      positionStorage ! ReplicatedSet.RemoveAll(buffer.filter(_.name == id))
-      //        positionStorage ! ReplicatedSet.RemoveAll(buffer.filter(_.name != Constants.OBSTACLE_NAME))
+      // buffer is what currently in replicated cache
+      // we need to add obstacles that not intersect with existing thereby new ones
       positionStorage ! ReplicatedSet.AddAll(positionsNotPresentInBuffer)
+
+      // updating buffer with newest merged info
       positionStorage ! ReplicatedSet.Lookup
 
     case BrainMessages.FromAvatarToRobot(message) =>

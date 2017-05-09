@@ -3,8 +3,6 @@ package com.dda.brain
 import com.dda.brain.PathfinderBrain.{PathFound, PathPoint, Request}
 import upickle.default._
 
-import scala.annotation.tailrec
-import scala.collection.immutable.{::, Nil}
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -22,12 +20,9 @@ class CarBrain(id: String) extends BrainActor(id) {
     Math.sqrt(Math.pow(p2.x - p1.x, 2.0) + Math.pow(p2.y - p1.y, 2.0))
   }
 
-  @tailrec
-  private def clipPath(curPos: Position, originalPath: List[PathPoint], modifiable: List [PathPoint]): List[PathPoint] = {
-    modifiable match {
-      case Nil => originalPath
-      case head :: tail => if (distance(curPos, head) < pathDelta) tail else clipPath(curPos, originalPath, tail)
-    }
+  // find point nearest to robot and leave it and following points
+  private def spanPath(curPos: Position, path: List[PathPoint]): List[PathPoint] = {
+    path.span(point => distance(curPos, point) > pathDelta)._2
   }
 
   private def getCommandToRobot(curPos: Position): String = {
@@ -54,7 +49,7 @@ class CarBrain(id: String) extends BrainActor(id) {
     payload.find { case Position(_id, _, _, _, _) => id == _id }.foreach { curPos =>
       if (distance(curPos, target) > pathDelta) {
         avatar ! TellToOtherAvatar("pathfinder", write(Request(target)))
-        path = clipPath(curPos, path, path)
+        path = spanPath(curPos, path)
         val newCommand = getCommandToRobot(curPos)
         if (newCommand != previousCommand) {
           avatar ! FromAvatarToRobot(newCommand)
