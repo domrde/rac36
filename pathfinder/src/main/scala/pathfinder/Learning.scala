@@ -176,7 +176,19 @@ class Learning {
         }
       }
 
-    Future.find(results)(_.isCorrect)
+    def lengthOfPath(path: Path) = {
+      path.path.sliding(2).foldLeft(0.0) { case (accumulator, a :: b :: Nil) => accumulator + distance(a, b) }
+    }
+
+    Future.sequence(results).map { results =>
+      val filtered = results.filter(_.isCorrect)
+      if (filtered.isEmpty) {
+        None
+      } else {
+        Some(filtered.minBy(result => lengthOfPath(result.path)))
+      }
+    }
+//    Future.find(results)(_.isCorrect)
   }
 
   def checkPathCorrect(obstacles: List[Obstacle], dims: Point, start: Point, finish: Point, path: Path): (Boolean, String) = {
