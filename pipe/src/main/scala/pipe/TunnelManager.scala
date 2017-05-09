@@ -54,7 +54,7 @@ class TunnelManager extends Actor with ActorLogging {
   private val avatarResender = context.actorOf(AvatarResender(self), name = "AvatarResender")
 
   private val worker = ZeroMQHelper(context.system).bindRouterActor(
-    url = "tcp://" + config.getString("akka.remote.netty.tcp.hostname"),
+    url = "tcp://192.168.31.102",
     port = port,
     validator = Props[ValidatorImpl],
     stringifier = Props[StringifierImpl],

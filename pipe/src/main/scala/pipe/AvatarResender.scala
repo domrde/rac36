@@ -36,6 +36,7 @@ class AvatarResender(tunnelManager: ActorRef) extends Actor with ActorLogging {
       shard ! n
 
     case n: NumeratedMessage if clients.contains(n.id) =>
+      log.info("NumeratedMessage {}", n)
       shard ! n
 
     // This happens when robot sends first messages to router, since router knows only about resender,

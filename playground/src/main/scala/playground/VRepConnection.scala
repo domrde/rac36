@@ -28,7 +28,7 @@ object VRepConnection {
     //   /    \
     //  14    11
 
-    private val speed = 5f
+    private val speed = 2f
     private val leftMotor = api.joint.withVelocityControl("Pioneer_p3dx_leftMotor" + id).get
     private val rightMotor = api.joint.withVelocityControl("Pioneer_p3dx_rightMotor" + id).get
     val sensors: List[ProximitySensor] =
@@ -146,7 +146,6 @@ class SensoryPoller(id: String, robot: VRepConnection.PioneerP3dx) extends Actor
 
   override def receive: Receive = {
     case PollSensors =>
-      time {
         Try {
           val obstacles = robot.sensors.par.flatMap { sensor =>
             val read = sensor.read
@@ -159,7 +158,6 @@ class SensoryPoller(id: String, robot: VRepConnection.PioneerP3dx) extends Actor
           }.toList
           context.parent ! VRepConnection.RobotSensors(obstacles)
         }
-      }
 
     case other =>
       log.error("SensoryPoller: unknown message [{}] from [{}]", other, sender())
@@ -181,13 +179,11 @@ class PositionPoller(id: String, robot: VRepConnection.PioneerP3dx) extends Acto
 
   override def receive: Receive = {
     case PollPosition =>
-      time {
         Try {
           val updatedPosition = robot.gps.position
           val updatedAngle = robot.gps.orientation.gamma * 180.0 / Math.PI
           context.parent ! VRepConnection.RobotPosition(Position(id, updatedPosition.y, updatedPosition.x, 0.5, updatedAngle))
         }
-      }
 
     case other =>
       log.error("PositionPoller: unknown message [{}] from [{}]", other, sender())
