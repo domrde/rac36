@@ -12,7 +12,7 @@ object PathfinderBrain {
   case class PathPoint(y: Double, x: Double)
   case class Request(to: PathPoint)
   case class FindPath(client: String, sensory: Set[Position], to: PathPoint)
-  case class PathFound(client: String, path: List[PathPoint])
+  case class PathFound(client: String, path: List[PathPoint], isStraightLine: Boolean)
 }
 
 class PathfinderBrain(id: String) extends BrainActor(id) {

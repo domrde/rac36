@@ -14,7 +14,7 @@ class CarBrain(id: String) extends BrainActor(id) {
   val target = PathPoint(5.0, 5.0)
   val pathDelta = 0.5
   var previousCommand = ""
-  var path: List[PathPoint] = List.empty
+  var path: PathFound = PathFound(id, List.empty, isStraightLine = true)
 
   def distance(p1: Position, p2: PathPoint): Double = {
     Math.sqrt(Math.pow(p2.x - p1.x, 2.0) + Math.pow(p2.y - p1.y, 2.0))
@@ -28,19 +28,13 @@ class CarBrain(id: String) extends BrainActor(id) {
   }
 
   private def getCommandToRobot(curPos: Position): String = {
-    if (path.nonEmpty) {
-      val nextStep = path.head
-      val dist = distance(curPos, nextStep)
-      if (dist < pathDelta) {
-        path = path.tail
-        getCommandToRobot(curPos)
+    if (path.path.nonEmpty) {
+      val nextStep = path.path.head
+      val angleToPoint = Math.atan2(nextStep.y - curPos.y, nextStep.x - curPos.x) * 180.0 / Math.PI
+      if (Math.abs(curPos.angle - angleToPoint) > 30) {
+        "rotate=" + Math.ceil(angleToPoint)
       } else {
-        val angleToPoint = Math.atan2(nextStep.y - curPos.y, nextStep.x - curPos.x) * 180.0 / Math.PI
-        if (Math.abs(curPos.angle - angleToPoint) > 30) {
-          "rotate=" + Math.ceil(angleToPoint)
-        } else {
-          "forward"
-        }
+        "forward"
       }
     } else {
       "stop"
@@ -51,9 +45,7 @@ class CarBrain(id: String) extends BrainActor(id) {
     payload.find { case Position(_id, _, _, _, _) => id == _id }.foreach { curPos =>
       if (distance(curPos, target) > pathDelta) {
         avatar ! TellToOtherAvatar("pathfinder", write(Request(target)))
-        log.info("Path {}", path)
-        path = spanPath(curPos, path)
-        log.info("Spanned path {}", path)
+        path = path.copy(path = spanPath(curPos, path.path))
         val newCommand = getCommandToRobot(curPos)
         if (newCommand != previousCommand) {
           avatar ! FromAvatarToRobot(newCommand)
@@ -69,7 +61,10 @@ class CarBrain(id: String) extends BrainActor(id) {
         read[PathFound](message)
       } match {
         case Success(value) =>
-          path = value.path
+          val newPathIsBadAndOldPathIsGood = value.isStraightLine && !path.isStraightLine
+          if (!newPathIsBadAndOldPathIsGood) {
+            path = value
+          }
 
         case Failure(exception) =>
       }

@@ -5,7 +5,7 @@ import akka.pattern.pipe
 import com.dda.brain.BrainMessages.Position
 import com.dda.brain.PathfinderBrain
 import com.dda.brain.PathfinderBrain.PathPoint
-import pathfinder.Learning.{Obstacle, Point, RunResults}
+import pathfinder.Learning.{Obstacle, Path, Point, RunResults}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -22,12 +22,17 @@ object Worker {
 
     currentClientPosition match {
       case Some(curPos) =>
-        val obstacles = (request.sensory - curPos).map { case Position(_, y, x, r, _) =>
-          Obstacle(y, x, r)
-        }.toList
-        val start = Point(curPos.y, curPos.x)
-        val finish = Point(request.to.y, request.to.x)
-        new Learning().runRegressionSVM(obstacles, dims, start, finish)
+        val distance = Globals.distance(Point(curPos.y, curPos.x), Point(request.to.y, request.to.x))
+        if (distance < Globals.STEP_OF_PATH) {
+          Future(Some(RunResults(Path(List(Point(curPos.y, curPos.x))), null, null, null)))
+        } else {
+          val obstacles = (request.sensory - curPos).map { case Position(_, y, x, r, _) =>
+            Obstacle(y, x, r)
+          }.toList
+          val start = Point(curPos.y, curPos.x)
+          val finish = Point(request.to.y, request.to.x)
+          new Learning().runRegressionSVM(obstacles, dims, start, finish)
+        }
 
       case None =>
         Future(None)
@@ -46,7 +51,7 @@ class Worker(request: PathfinderBrain.FindPath) extends Actor with ActorLogging 
     case Some(results: RunResults) =>
       log.info("Successful pathfinding, sending result to {}", context.parent)
       val points = results.path.path.map { case Point(y, x) => PathPoint(y, x) }.reverse
-      context.parent ! PathfinderBrain.PathFound(request.client, points)
+      context.parent ! PathfinderBrain.PathFound(request.client, points, isStraightLine = false)
       context.stop(self)
 
     case None =>
@@ -60,11 +65,11 @@ class Worker(request: PathfinderBrain.FindPath) extends Actor with ActorLogging 
           val distance = Globals.distance(Point(cur.y, cur.x), Point(request.to.y, request.to.x))
 
           if (distance < Globals.STEP_OF_PATH) {
-            context.parent ! PathfinderBrain.PathFound(request.client, List(PathPoint(cur.y, cur.x)))
+            context.parent ! PathfinderBrain.PathFound(request.client, List(PathPoint(cur.y, cur.x)), isStraightLine = true)
           } else {
             val part = Globals.STEP_OF_PATH / distance + 0.05
             val steps = (0.0 to 1.0 by part).map(pointInBetween).toList
-            context.parent ! PathfinderBrain.PathFound(request.client, steps)
+            context.parent ! PathfinderBrain.PathFound(request.client, steps, isStraightLine = true)
           }
 
         case None =>
