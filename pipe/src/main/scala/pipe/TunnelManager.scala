@@ -12,6 +12,7 @@ import vivarium.Avatar
 /**
   * Created by dda on 24.04.16.
   */
+//todo: robot reconnection
 //todo: check that tunnel is active only if robot connected to appointed PIPE
 //todo: check balancing really works
 //todo: use cluster metrics-based selection of lowest loaded TM

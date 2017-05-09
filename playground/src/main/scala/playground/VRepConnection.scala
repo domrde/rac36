@@ -44,16 +44,6 @@ object VRepConnection {
       rightMotor.setTargetVelocity(-speed)
     }
 
-    def rotateLeft(): Unit = {
-      leftMotor.setTargetVelocity(-1f)
-      rightMotor.setTargetVelocity(1f)
-    }
-
-    def rotateRight(): Unit = {
-      leftMotor.setTargetVelocity(1f)
-      rightMotor.setTargetVelocity(-1f)
-    }
-
     def rotate(angle: Double): Unit = {
       val curAngle = gps.orientation.gamma * 180.0 / Math.PI
       val diff = angle - curAngle
@@ -63,8 +53,8 @@ object VRepConnection {
     }
 
     def stop(): Unit = {
-      leftMotor.setTargetVelocity(0)
-      rightMotor.setTargetVelocity(0)
+      leftMotor.setTargetVelocity(0.01f)
+      rightMotor.setTargetVelocity(0.01f)
     }
 
     val gps: PositionSensor = api.sensor.position("Pioneer_p3dx_gps" + id).get
@@ -114,6 +104,8 @@ class VRepConnection(id: String, api: VRepAPI) extends Actor with ActorLogging {
     case other =>
       log.error("VRepConnection: unknown message [{}] from [{}]", other, sender())
   }
+
+  robot.stop()
 }
 
 class SensoryPoller(id: String, robot: VRepConnection.PioneerP3dx) extends Actor with ActorLogging {

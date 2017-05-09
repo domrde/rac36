@@ -39,9 +39,11 @@ class Car(id: String, api: VRepAPI) extends Actor with ActorLogging {
   def receiveWithActorStarted(robot: ActorRef): Receive = {
     case Sensory(_, payload) =>
       val correctPayload = payload.filterNot { case SensoryInformation.Position(_, y, x, _, _) =>
-        y.isNaN || y.isInfinity || x.isNaN || x.isInfinity
+        y.isNaN || x.isNaN || x < 0.01 || y < 0.01 || x > 11.0 || y > 11.0
       }
-      avatar forward Sensory(id, correctPayload)
+      if (correctPayload.nonEmpty) {
+        avatar forward Sensory(id, correctPayload)
+      }
 
     case a: FromAvatarToRobot =>
       robot ! a

@@ -22,7 +22,9 @@ class CarBrain(id: String) extends BrainActor(id) {
 
   // find point nearest to robot and leave it and following points
   private def spanPath(curPos: Position, path: List[PathPoint]): List[PathPoint] = {
-    path.span(point => distance(curPos, point) > pathDelta)._2
+    val (behind, forward) = path.span(point => distance(curPos, point) > pathDelta)
+    if (forward.isEmpty) behind
+    else forward
   }
 
   private def getCommandToRobot(curPos: Position): String = {
@@ -49,7 +51,9 @@ class CarBrain(id: String) extends BrainActor(id) {
     payload.find { case Position(_id, _, _, _, _) => id == _id }.foreach { curPos =>
       if (distance(curPos, target) > pathDelta) {
         avatar ! TellToOtherAvatar("pathfinder", write(Request(target)))
+        log.info("Path {}", path)
         path = spanPath(curPos, path)
+        log.info("Spanned path {}", path)
         val newCommand = getCommandToRobot(curPos)
         if (newCommand != previousCommand) {
           avatar ! FromAvatarToRobot(newCommand)
@@ -65,7 +69,7 @@ class CarBrain(id: String) extends BrainActor(id) {
         read[PathFound](message)
       } match {
         case Success(value) =>
-          path = value.path.tail
+          path = value.path
 
         case Failure(exception) =>
       }
