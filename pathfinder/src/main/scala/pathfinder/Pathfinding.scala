@@ -55,6 +55,6 @@ class Pathfinding extends Actor with ActorLogging {
       log.error("[-] Pathfinding: received other: [{}] from [{}]", other, sender())
   }
 
-  dealer ! Create(id, config.getString("pathfinder.brain-jar"), "pathfinder.brain-class")
+  dealer ! Create(id, config.getString("pathfinder.brain-jar"), config.getString("pathfinder.brain-class"))
 
 }
