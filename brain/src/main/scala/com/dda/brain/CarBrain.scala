@@ -3,7 +3,8 @@ package com.dda.brain
 import com.dda.brain.PathfinderBrain.{PathFound, PathPoint, Request}
 import upickle.default._
 
-import scala.concurrent.duration._
+import scala.annotation.tailrec
+import scala.collection.immutable.{::, Nil}
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -12,55 +13,53 @@ import scala.util.{Failure, Success, Try}
 class CarBrain(id: String) extends BrainActor(id) {
   import com.dda.brain.BrainMessages._
 
-  private implicit val executionContext = context.dispatcher
-  private implicit val system = context.system
-
-  context.system.scheduler.schedule(0.millis, 25.second) {
-    avatar ! TellToOtherAvatar("pathfinder", write(Request(target)))
-  }
-
-  val target = PathPoint(5.0, 5.0)
   val pathDelta = 1.0
   var previousCommand = ""
-  var path: PathFound = PathFound(id, List.empty, isStraightLine = true)
+  var path: List[PathPoint] = List.empty
 
-  def distance(p1: Position, p2: PathPoint): Double = {
-    Math.sqrt(Math.pow(p2.x - p1.x, 2.0) + Math.pow(p2.y - p1.y, 2.0))
-  }
-
-  // find point nearest to robot and leave it and following points
-  private def spanPath(curPos: Position, path: List[PathPoint]): List[PathPoint] = {
-    val (behind, forward) = path.span(point => distance(curPos, point) > pathDelta)
-    if (forward.isEmpty) behind
-    else forward
+  @tailrec
+  private def clipPath(curPos: Position, originalPath: List[PathPoint], modifiable: List[PathPoint]): List[PathPoint] = {
+    modifiable match {
+      case Nil => originalPath
+      case head :: tail => if (distance(curPos, head) < pathDelta) tail else clipPath(curPos, originalPath, tail)
+    }
   }
 
   private def getCommandToRobot(curPos: Position): String = {
-    if (path.path.nonEmpty) {
-      val nextStep = path.path.head
-      val angleToPoint = Math.atan2(nextStep.y - curPos.y, nextStep.x - curPos.x) * 180.0 / Math.PI
-      if (Math.abs(curPos.angle - angleToPoint) > 30) {
-        "rotate=" + Math.ceil(angleToPoint)
+    if (path.nonEmpty) {
+      val nextStep = path.head
+      val dist = distance(curPos, nextStep)
+      if (dist < pathDelta) {
+        path = path.tail
+        getCommandToRobot(curPos)
       } else {
-        "forward"
+        val angleToPoint = Math.atan2(nextStep.y - curPos.y, nextStep.x - curPos.x) * 180.0 / Math.PI
+        if (Math.abs(curPos.angle - angleToPoint) > 30) {
+          "rotate=" + angleToPoint
+        } else {
+          "forward"
+        }
       }
     } else {
+      log.info("Path is empty")
       "stop"
     }
   }
 
   override protected def handleSensory(payload: Set[Position]): Unit = {
     payload.find { case Position(_id, _, _, _, _) => id == _id }.foreach { curPos =>
-      if (distance(curPos, target) > pathDelta) {
-        path = path.copy(path = spanPath(curPos, path.path))
-        val newCommand = getCommandToRobot(curPos)
-        if (newCommand != previousCommand) {
-          log.info("{} {}", id, newCommand)
-          avatar ! FromAvatarToRobot(newCommand)
-          previousCommand = newCommand
-        }
+      avatar ! TellToOtherAvatar("pathfinder", write(Request(PathPoint(5.0, 5.0))))
+      path = clipPath(curPos, path, path)
+      val newCommand = getCommandToRobot(curPos)
+      if (newCommand != previousCommand) {
+        avatar ! FromAvatarToRobot(newCommand)
+        previousCommand = newCommand
       }
     }
+  }
+
+  def distance(p1: Position, p2: PathPoint): Double = {
+    Math.sqrt(Math.pow(p2.x - p1.x, 2.0) + Math.pow(p2.y - p1.y, 2.0))
   }
 
   override protected def handleAvatarMessage(from: String, message: String): Unit = {
@@ -69,11 +68,7 @@ class CarBrain(id: String) extends BrainActor(id) {
         read[PathFound](message)
       } match {
         case Success(value) =>
-          val newPathIsBadAndOldPathIsGood = value.isStraightLine && !path.isStraightLine
-          if (!newPathIsBadAndOldPathIsGood) {
-            log.info("Replacing old path {} with new one {}", path, value)
-            path = value
-          }
+          path = value.path.tail
 
         case Failure(exception) =>
       }
