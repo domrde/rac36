@@ -3,6 +3,7 @@ package com.dda.brain
 import com.dda.brain.PathfinderBrain.{PathFound, PathPoint, Request}
 import upickle.default._
 
+import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -10,6 +11,13 @@ import scala.util.{Failure, Success, Try}
   */
 class CarBrain(id: String) extends BrainActor(id) {
   import com.dda.brain.BrainMessages._
+
+  private implicit val executionContext = context.dispatcher
+  private implicit val system = context.system
+
+  context.system.scheduler.schedule(0.millis, 2000.millis) {
+    avatar ! TellToOtherAvatar("pathfinder", write(Request(target)))
+  }
 
   val target = PathPoint(5.0, 5.0)
   val pathDelta = 1.0
@@ -44,7 +52,6 @@ class CarBrain(id: String) extends BrainActor(id) {
   override protected def handleSensory(payload: Set[Position]): Unit = {
     payload.find { case Position(_id, _, _, _, _) => id == _id }.foreach { curPos =>
       if (distance(curPos, target) > pathDelta) {
-        avatar ! TellToOtherAvatar("pathfinder", write(Request(target)))
         path = path.copy(path = spanPath(curPos, path.path))
         val newCommand = getCommandToRobot(curPos)
         if (newCommand != previousCommand) {
