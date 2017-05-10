@@ -17,7 +17,7 @@ object Learning {
       val b = l2.x - l1.x
       val c = (l1.x - l2.x) * l1.y + l1.x * (l2.y - l1.y)
       val value = Math.abs(b * x + a * y + c) / Math.sqrt(b * b + a * a)
-      value <= 1.5 * r
+      value <= 2 * r
     }
   }
   final case class Path(path: List[Point])
@@ -177,7 +177,7 @@ class Learning {
         buildPath(targetPoint :: accumulator, limit - 1)
       }
 
-    Path(buildPath(List(from), 50))
+    Path(buildPath(List(from), 50).reverse)
   }
 
   val defaultParameters = SvmParameters(SvmType.EPSILON_SVR, KernelType.RBF, eps = 0.5, gamma = 30, cost = 100)
