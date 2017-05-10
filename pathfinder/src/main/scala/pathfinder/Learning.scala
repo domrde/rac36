@@ -7,6 +7,7 @@ import scala.annotation.tailrec
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
+import scala.util.Random
 
 object Learning {
   final case class Example(p: Point, c: Double)
@@ -17,7 +18,7 @@ object Learning {
       val b = l2.x - l1.x
       val c = (l1.x - l2.x) * l1.y + l1.x * (l2.y - l1.y)
       val value = Math.abs(b * x + a * y + c) / Math.sqrt(b * b + a * a)
-      value <= r
+      value <= (r + 0.5) // plus robot size
     }
   }
   final case class Path(path: List[Point])
@@ -51,6 +52,12 @@ object InputMapper {
 
   def mapObstaclesToExamples(obstacles: List[Obstacle], height: Double, width: Double,
                              s: Point, f: Point): List[Example] = {
+    val widthRange = 0.01 * width
+    val heightRange = 0.01 * height
+    def randomDoubleInRange(rangeMin: Double, rangeMax: Double) = {
+      rangeMin + (rangeMax - rangeMin) * Random.nextDouble()
+    }
+
     val groups =
       obstacles.sortBy(_.y).foldLeft(Set.empty[Group]) { case (listOfGroups, obstacle) =>
         val newGroup = Group(List(obstacle))
@@ -65,7 +72,13 @@ object InputMapper {
     groups.flatMap { group =>
       val sum = group.members.map(point => if ((f.x - s.x) * (point.y - s.y) < (f.y - s.y) * (point.x - s.x)) 1.0 else -1.0).sum
       val c = if (sum > 0) 1.0 else -1.0
-      group.members.map(point => Example(Point(point.y / height, point.x / width), c))
+      group.members.flatMap { point =>
+        val y = point.y / height
+        val x = point.x / width
+        (0 to 5).map(_ => Example(Point(
+          y + randomDoubleInRange(y - heightRange, y + heightRange),
+          x  + randomDoubleInRange(x - widthRange, x + widthRange)), c))
+      }
     }.toList
   }
 }

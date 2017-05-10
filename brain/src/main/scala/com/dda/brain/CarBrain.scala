@@ -28,49 +28,19 @@ class CarBrain(id: String) extends BrainActor(id) {
     Math.sqrt(Math.pow(p2.x - p1.x, 2.0) + Math.pow(p2.y - p1.y, 2.0))
   }
 
-//  // find point nearest to robot and leave it and following points
-//  private def spanPath(curPos: Position, path: List[PathPoint]): List[PathPoint] = {
-//    if (path.nonEmpty) {
-//      val closestPointIdx =
-//        path.zipWithIndex.minBy { case (point, _) => distance(curPos, point) }._2
-//      path.drop(closestPointIdx)
-//    } else {
-//      List.empty
-//    }
-//  }
-
-//  private def getCommandToRobot(curPos: Position, path: List[PathPoint]): String = {
-//    if (path.nonEmpty) {
-//      val nextStep = path.head
-//      val angleToPoint = Math.atan2(nextStep.y - curPos.y, nextStep.x - curPos.x) * 180.0 / Math.PI
-//      if (Math.abs(curPos.angle - angleToPoint) > 30) {
-//        "rotate=" + Math.ceil(angleToPoint)
-//      } else {
-//        "forward"
-//      }
-//    } else {
-//      "stop"
-//    }
-//  }
-
   override protected def handleSensory(payload: Set[Position]): Unit = {
     payload.find { case Position(_id, _, _, _, _) => id == _id }.foreach { curPos =>
       val newCommand =
-        if (distance(curPos, target) > pathDelta) {
-//          path = path.copy(path = spanPath(curPos, path.path))
-          if (path.path.nonEmpty) {
-            if (distance(curPos, path.path.head) < pathDelta) {
-              path = path.copy(path = path.path.tail)
-            }
-            val nextStep = path.path.head
-            val angleToPoint = Math.atan2(nextStep.y - curPos.y, nextStep.x - curPos.x) * 180.0 / Math.PI
-            if (Math.abs(curPos.angle - angleToPoint) > 30) {
-              "rotate=" + Math.ceil(angleToPoint)
-            } else {
-              "forward"
-            }
+        if (distance(curPos, target) > pathDelta && path.path.nonEmpty) {
+          if (distance(curPos, path.path.head) < pathDelta) {
+            path = path.copy(path = path.path.tail)
+          }
+          val nextStep = path.path.head
+          val angleToPoint = Math.atan2(nextStep.y - curPos.y, nextStep.x - curPos.x) * 180.0 / Math.PI
+          if (Math.abs(curPos.angle - angleToPoint) > 30) {
+            "rotate=" + Math.ceil(angleToPoint)
           } else {
-            "stop"
+            "forward"
           }
         } else {
           "stop"
