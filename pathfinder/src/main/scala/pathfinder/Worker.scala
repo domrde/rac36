@@ -83,6 +83,7 @@ class Worker(request: PathfinderBrain.FindPath) extends Actor with ActorLogging 
       log.error("[-] Worker: received other: [{}] from [{}]", other, sender())
   }
 
+  log.info("Request: {}", request)
   self ! request
 }
 

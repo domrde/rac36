@@ -30,14 +30,18 @@ class CarBrain(id: String) extends BrainActor(id) {
 
   // find point nearest to robot and leave it and following points
   private def spanPath(curPos: Position, path: List[PathPoint]): List[PathPoint] = {
-    val closestPointIdx =
-      path.zipWithIndex.minBy { case (point, _) => distance(curPos, point) }._2
-    path.drop(closestPointIdx)
+    if (path.nonEmpty) {
+      val closestPointIdx =
+        path.zipWithIndex.minBy { case (point, _) => distance(curPos, point) }._2
+      path.drop(closestPointIdx)
+    } else {
+      List.empty
+    }
   }
 
-  private def getCommandToRobot(curPos: Position): String = {
-    if (path.path.nonEmpty) {
-      val nextStep = path.path.head
+  private def getCommandToRobot(curPos: Position, path: List[PathPoint]): String = {
+    if (path.nonEmpty) {
+      val nextStep = path.head
       val angleToPoint = Math.atan2(nextStep.y - curPos.y, nextStep.x - curPos.x) * 180.0 / Math.PI
       if (Math.abs(curPos.angle - angleToPoint) > 30) {
         "rotate=" + Math.ceil(angleToPoint)
@@ -51,14 +55,18 @@ class CarBrain(id: String) extends BrainActor(id) {
 
   override protected def handleSensory(payload: Set[Position]): Unit = {
     payload.find { case Position(_id, _, _, _, _) => id == _id }.foreach { curPos =>
-      if (distance(curPos, target) > pathDelta) {
-        path = path.copy(path = spanPath(curPos, path.path))
-        val newCommand = getCommandToRobot(curPos)
-        if (newCommand != previousCommand) {
-          log.info("{} {}, {} != {}", id, newCommand, path.path.headOption, curPos)
-          avatar ! FromAvatarToRobot(newCommand)
-          previousCommand = newCommand
+      val newCommand =
+        if (distance(curPos, target) > pathDelta) {
+          path = path.copy(path = spanPath(curPos, path.path))
+          getCommandToRobot(curPos, path.path)
+        } else {
+          "stop"
         }
+
+      if (newCommand != previousCommand) {
+        log.info("{} {}, {} != {}", id, newCommand, path.path.headOption, curPos)
+        avatar ! FromAvatarToRobot(newCommand)
+        previousCommand = newCommand
       }
     }
   }
