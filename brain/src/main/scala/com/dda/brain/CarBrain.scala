@@ -20,7 +20,7 @@ class CarBrain(id: String) extends BrainActor(id) {
   }
 
   val target = PathPoint(5.0, 5.0)
-  val pathDelta = 1.0
+  val pathDelta = 0.25
   var previousCommand = ""
   var path: PathFound = PathFound(id, List.empty, isStraightLine = true)
 
