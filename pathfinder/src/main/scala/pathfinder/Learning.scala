@@ -17,7 +17,7 @@ object Learning {
       val b = l2.x - l1.x
       val c = (l1.x - l2.x) * l1.y + l1.x * (l2.y - l1.y)
       val value = Math.abs(b * x + a * y + c) / Math.sqrt(b * b + a * a)
-      value <= r
+      value <= 1.5 * r
     }
   }
   final case class Path(path: List[Point])
