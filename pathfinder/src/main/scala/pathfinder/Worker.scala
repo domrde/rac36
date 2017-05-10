@@ -51,7 +51,7 @@ class Worker(request: PathfinderBrain.FindPath) extends Actor with ActorLogging 
       doCalculation(r) pipeTo self
 
     case Some(results: RunResults) =>
-      val points = results.path.path.map { case Point(y, x) => PathPoint(y, x) }.reverse.tail
+      val points = results.path.path.map { case Point(y, x) => PathPoint(y, x) }.reverse
       log.info("Successful pathfinding: {}", points)
       context.parent ! PathfinderBrain.PathFound(request.client, points, isStraightLine = false)
       context.stop(self)
