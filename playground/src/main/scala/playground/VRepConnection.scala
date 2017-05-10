@@ -29,7 +29,7 @@ object VRepConnection {
     //   /    \
     //  14    11
 
-    private val speed = 4f
+    private val speed = 3f
     private val leftMotor = api.joint.withVelocityControl("Pioneer_p3dx_leftMotor" + id).get
     private val rightMotor = api.joint.withVelocityControl("Pioneer_p3dx_rightMotor" + id).get
     val sensors: List[ProximitySensor] =
@@ -95,14 +95,19 @@ class VRepConnection(id: String, api: VRepAPI) extends Actor with ActorLogging {
       context.parent ! Sensory(id, obstacles.toSet)
 
     case FromAvatarToRobot(_id, "forward") if _id == id =>
+      context.become(receiveWithCurrentPosition(None))
+      log.info("Forward")
       robot.moveForward()
 
     case FromAvatarToRobot(_id, "stop") if _id == id =>
+      context.become(receiveWithCurrentPosition(None))
+      log.info("Stop")
       robot.stop()
 
     case FromAvatarToRobot(_id, command) if _id == id =>
       Try {
         val rotateRegExp(angle) = command
+        log.info(command)
         robot.rotate(angle.toDouble)
         context.become(receiveWithCurrentPosition(Some(angle.toDouble)))
       }

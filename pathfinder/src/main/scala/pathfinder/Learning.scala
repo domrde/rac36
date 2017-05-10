@@ -205,7 +205,7 @@ class Learning {
     val field = InputMapper.mapObstaclesToExamples(obstacles, dims.y, dims.x, start, finish)
 
     val results =
-      List(1.0, 0.5, 0.2, 0.1).flatMap { d =>
+      List(0.5, 1.0, 0.2, 0.1).flatMap { d =>
         List(0.25, 0.5, 0.75).flatMap { robotSize =>
           List(0.0001, 0.001, 0.01, 0.1, 0.5, 1.0, 1.5).flatMap { eps =>
             List(0.1, 0.5, 1, 5, 10, 20, 30, 40, 75, 100, 120).flatMap { gamma =>
