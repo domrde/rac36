@@ -12,8 +12,12 @@ object Learning {
   final case class Example(p: Point, c: Double)
   final case class Point(y: Double, x: Double)
   final case class Obstacle(y: Double, x: Double, r: Double) {
-    def isInside(point: Point): Boolean = {
-      Math.pow(y - point.y, 2.0) + Math.pow(x - point.x, 2.0) <= Math.pow(r, 2.0)
+    def intersects(l1: Point, l2: Point): Boolean = {
+      val a = l1.y - l2.y
+      val b = l2.x - l1.x
+      val c = (l1.x - l2.x) * l1.y + l1.x * (l2.y - l1.y)
+      val value = Math.abs(b * x + a * y + c) / Math.sqrt(b * b + a * a)
+      value <= r
     }
   }
   final case class Path(path: List[Point])
@@ -242,11 +246,11 @@ class Learning {
 
   def checkPathCorrect(obstacles: List[Obstacle], dims: Point, start: Point, finish: Point, path: Path): (Boolean, String) = {
     val pointOfPathInsideObstacle = false
-//      path.path.exists { point =>
-//        obstacles.exists { obstacle =>
-//          obstacle.isInside(point)
-//        }
-//      }
+      path.path.sliding(2).exists { case a :: b :: Nil =>
+        obstacles.exists { obstacle =>
+          obstacle.intersects(a, b)
+        }
+      }
 
     val pointOutsideField =
       path.path.exists(point => point.x < 0 || point.y < 0 || point.x > dims.x || point.y > dims.y)
