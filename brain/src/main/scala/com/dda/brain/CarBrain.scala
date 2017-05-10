@@ -30,9 +30,9 @@ class CarBrain(id: String) extends BrainActor(id) {
 
   // find point nearest to robot and leave it and following points
   private def spanPath(curPos: Position, path: List[PathPoint]): List[PathPoint] = {
-    val (behind, forward) = path.span(point => distance(curPos, point) > pathDelta)
-    if (forward.isEmpty) behind
-    else forward
+    val closestPointIdx =
+      path.zipWithIndex.minBy { case (point, _) => distance(curPos, point) }._2
+    path.drop(closestPointIdx)
   }
 
   private def getCommandToRobot(curPos: Position): String = {
