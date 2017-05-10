@@ -42,7 +42,8 @@ class Car(id: String, api: VRepAPI) extends Actor with ActorLogging {
         y.isNaN || x.isNaN || x < 0.01 || y < 0.01 || x > 11.0 || y > 11.0
       }
       if (correctPayload.nonEmpty) {
-        avatar forward Sensory(id, correctPayload)
+        val s = Sensory(id, correctPayload)
+        avatar ! s
       }
 
     case a: FromAvatarToRobot =>

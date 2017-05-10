@@ -69,7 +69,7 @@ class VRepConnection(id: String, api: VRepAPI) extends Actor with ActorLogging {
   private val config = ConfigFactory.load()
 
   private val robot = new PioneerP3dx(api, id)
-  if (config.getBoolean("full-knowledge")) {
+  if (config.getBoolean("playground.full-knowledge")) {
     context.actorOf(Props(classOf[FullKnowledgePoller], id, api), "FullKnowledgePoller" + id.substring(1))
   } else {
     context.actorOf(Props(classOf[SensoryPoller], id, robot), "SensoryPoller" + id.substring(1))
@@ -129,7 +129,7 @@ class FullKnowledgePoller(id: String, api: VRepAPI) extends Actor with ActorLogg
       else None
     }
     .map { case Vec3(x, y, _) =>
-      Position(Constants.OBSTACLE_NAME, y, x, 0.3, 0)
+      Position(Constants.OBSTACLE_NAME, y, x, 0.15, 0)
     }.toList
 
   context.system.scheduler.schedule((Random.nextInt(500) + 100).millis, (Random.nextInt(10) + 2000).millis, self, PollSensors)
@@ -158,7 +158,7 @@ class SensoryPoller(id: String, robot: VRepConnection.PioneerP3dx) extends Actor
           val read = sensor.read
           if (read.detectionState && zeroVelocity(read.detectedObject.velocity)) {
             val p = read.detectedObject.position
-            Some(Position(Constants.OBSTACLE_NAME, p.y, p.x, 0.3, 0))
+            Some(Position(Constants.OBSTACLE_NAME, p.y, p.x, 0.15, 0))
           } else {
             None
           }

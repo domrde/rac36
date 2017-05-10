@@ -3,11 +3,9 @@ package pathfinder
 object Pivots {
   import Learning._
 
-  // neutral zone margin and distance between pivot obstacles equals to robot size
-  private val robotSize = Globals.ROBOT_SIZE
-  private val l = Math.sqrt(Math.pow(robotSize, 2) + Math.pow(robotSize, 2))
+  def getPivotPoints(start: Point, finish: Point, robotSize: Double): List[Point] = {
+    val l = Math.sqrt(Math.pow(robotSize, 2) + Math.pow(robotSize, 2))
 
-  def getPivotPoints(start: Point, finish: Point): List[Point] = {
     def solve(a: Double, b: Double, c: Double): (Double, Double) = {
       val d = Math.pow(b, 2.0) - 4 * a * c
       ((-b + Math.sqrt(d)) / 2.0 / a, (-b - Math.sqrt(d)) / 2.0 / a)
