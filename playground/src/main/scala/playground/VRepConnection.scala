@@ -33,7 +33,9 @@ object VRepConnection {
     private val leftMotor = api.joint.withVelocityControl("Pioneer_p3dx_leftMotor" + id).get
     private val rightMotor = api.joint.withVelocityControl("Pioneer_p3dx_rightMotor" + id).get
     val sensors: List[ProximitySensor] =
-      List(1, 3, 4, 6, 8, 11, 14).map(i => api.sensor.proximity("Pioneer_p3dx_ultrasonicSensor" + i + id).get)
+//      List(1, 3, 4, 6, 8, 11, 14)
+      List(2, 3, 4, 5, 6, 7)
+        .map(i => api.sensor.proximity("Pioneer_p3dx_ultrasonicSensor" + i + id).get)
 
     def moveForward(): Unit = {
       leftMotor.setTargetVelocity(speed)
@@ -71,9 +73,8 @@ class VRepConnection(id: String, api: VRepAPI) extends Actor with ActorLogging {
   private val robot = new PioneerP3dx(api, id)
   if (config.getBoolean("playground.full-knowledge")) {
     context.actorOf(Props(classOf[FullKnowledgePoller], id, api), "FullKnowledgePoller" + id.substring(1))
-  } else {
-    context.actorOf(Props(classOf[SensoryPoller], id, robot), "SensoryPoller" + id.substring(1))
   }
+  context.actorOf(Props(classOf[SensoryPoller], id, robot), "SensoryPoller" + id.substring(1))
   context.actorOf(Props(classOf[PositionPoller], id, robot), "PositionPoller" + id.substring(1))
 
   override def receive: Receive = receiveWithCurrentPosition(None)
