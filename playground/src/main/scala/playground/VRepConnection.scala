@@ -123,24 +123,23 @@ class FullKnowledgePoller(id: String, api: VRepAPI) extends Actor with ActorLogg
   private implicit val executionContext = context.dispatcher
   private implicit val system = context.system
 
-  val positions = (0 to 104).map(i => "ConcretBlock" + i)
-    .flatMap { name =>
-      val block = api.joint.concreteBlock(name)
-      if (block.isSuccess) Some(block.get)
-      else None
-    }
-    .flatMap { block =>
-      if (0 < block.handle && block.handle < 1000) Some(block.absolutePosition)
-      else None
-    }
-    .map { case Vec3(x, y, _) =>
-      Position(Constants.OBSTACLE_NAME, y, x, 0.15, 0)
-    }.toList
-
   context.system.scheduler.schedule((Random.nextInt(500) + 100).millis, (Random.nextInt(10) + 2000).millis, self, PollSensors)
 
   override def receive: Receive = {
     case PollSensors =>
+      val positions = (0 to 104).map(i => "ConcretBlock" + i)
+        .flatMap { name =>
+          val block = api.joint.concreteBlock(name)
+          if (block.isSuccess) Some(block.get)
+          else None
+        }
+        .flatMap { block =>
+          if (0 < block.handle && block.handle < 1000) Some(block.absolutePosition)
+          else None
+        }
+        .map { case Vec3(x, y, _) =>
+          Position(Constants.OBSTACLE_NAME, y, x, 0.15, 0)
+        }.toList
       context.parent ! VRepConnection.RobotSensors(positions)
   }
 }

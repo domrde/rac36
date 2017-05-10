@@ -5,8 +5,7 @@ import pathfinder.Globals._
 
 import scala.annotation.tailrec
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.concurrent.Future
 import scala.util.Random
 
 object Learning {
@@ -18,7 +17,7 @@ object Learning {
       val b = l2.x - l1.x
       val c = (l1.x - l2.x) * l1.y + l1.x * (l2.y - l1.y)
       val value = Math.abs(b * x + a * y + c) / Math.sqrt(b * b + a * a)
-      value <= (r + 0.5) // plus robot size
+      value <= 2 * (r + 0.5) // plus robot size
     }
   }
   final case class Path(path: List[Point])
@@ -102,8 +101,8 @@ object KernelType {
 }
 
 class Learning {
-  import Learning._
   import KernelType._
+  import Learning._
   import SvmType._
 
   svm.svm_set_print_string_function(new svm_print_interface {
