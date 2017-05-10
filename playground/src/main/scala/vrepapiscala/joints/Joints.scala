@@ -1,7 +1,7 @@
 package vrepapiscala.joints
 
 import coppelia._
-import vrepapiscala.common.{MismatchObjectTypeException, ObjectNotFoundException}
+import vrepapiscala.common.{ConcreteBlock, MismatchObjectTypeException, ObjectNotFoundException}
 import vrepapiscala.{ObjectType, OpMode}
 
 import scala.util.{Failure, Success, Try}
@@ -10,6 +10,15 @@ import scala.util.{Failure, Success, Try}
   * Created by trox on 02.02.16.
   */
 class Joints private[vrepapiscala](remote: remoteApi, id: Int) {
+
+  def concreteBlock(name: String): Try[ConcreteBlock] = {
+    getObjectHandle(name) match {
+      case Some(h) =>
+        Success(new ConcreteBlock(remote, id, h, OpMode.OneShotWait))
+      case None =>
+        Failure(new ObjectNotFoundException(name))
+    }
+  }
 
   /**
     * Retrieves the joint with next parameters:

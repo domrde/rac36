@@ -43,7 +43,6 @@ class AvatarResender(tunnelManager: ActorRef) extends Actor with ActorLogging {
     // Further communication will match under clients.contains branch.
     case c: AvatarMessage =>
       tunnelManager ! c
-      log.info("[-] AvatarResender: AvatarMessage [{}] from [{}]", c, sender())
 
     case other =>
       log.error("[-] AvatarResender: Not a numerated message or id unknown: [{}] from [{}]", other, sender())

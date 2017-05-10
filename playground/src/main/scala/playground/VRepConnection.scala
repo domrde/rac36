@@ -1,6 +1,7 @@
 package playground
 
 import akka.actor.{Actor, ActorLogging, Props}
+import com.typesafe.config.ConfigFactory
 import common.Constants
 import common.messages.SensoryInformation.{Position, Sensory}
 import playground.VRepConnection.{PollPosition, PollSensors}
@@ -65,9 +66,14 @@ class VRepConnection(id: String, api: VRepAPI) extends Actor with ActorLogging {
   import VRepConnection._
   private implicit val executionContext = context.dispatcher
   private implicit val system = context.system
+  private val config = ConfigFactory.load()
 
   private val robot = new PioneerP3dx(api, id)
-  context.actorOf(Props(classOf[SensoryPoller], id, robot), "SensoryPoller" + id.substring(1))
+  if (config.getBoolean("full-knowledge")) {
+    context.actorOf(Props(classOf[FullKnowledgePoller], id, api), "FullKnowledgePoller" + id.substring(1))
+  } else {
+    context.actorOf(Props(classOf[SensoryPoller], id, robot), "SensoryPoller" + id.substring(1))
+  }
   context.actorOf(Props(classOf[PositionPoller], id, robot), "PositionPoller" + id.substring(1))
 
   override def receive: Receive = receiveWithCurrentPosition(None)
@@ -108,6 +114,32 @@ class VRepConnection(id: String, api: VRepAPI) extends Actor with ActorLogging {
   robot.stop()
 }
 
+class FullKnowledgePoller(id: String, api: VRepAPI) extends Actor with ActorLogging {
+  private implicit val executionContext = context.dispatcher
+  private implicit val system = context.system
+
+  val positions = (0 to 104).map(i => "ConcretBlock" + i)
+    .flatMap { name =>
+      val block = api.joint.concreteBlock(name)
+      if (block.isSuccess) Some(block.get)
+      else None
+    }
+    .flatMap { block =>
+      if (0 < block.handle && block.handle < 1000) Some(block.absolutePosition)
+      else None
+    }
+    .map { case Vec3(x, y, _) =>
+      Position(Constants.OBSTACLE_NAME, y, x, 0.3, 0)
+    }.toList
+
+  context.system.scheduler.schedule((Random.nextInt(500) + 100).millis, (Random.nextInt(10) + 2000).millis, self, PollSensors)
+
+  override def receive: Receive = {
+    case PollSensors =>
+      context.parent ! VRepConnection.RobotSensors(positions)
+  }
+}
+
 class SensoryPoller(id: String, robot: VRepConnection.PioneerP3dx) extends Actor with ActorLogging {
   private implicit val executionContext = context.dispatcher
   private implicit val system = context.system
@@ -121,18 +153,18 @@ class SensoryPoller(id: String, robot: VRepConnection.PioneerP3dx) extends Actor
 
   override def receive: Receive = {
     case PollSensors =>
-        Try {
-          val obstacles = robot.sensors.par.flatMap { sensor =>
-            val read = sensor.read
-            if (read.detectionState && zeroVelocity(read.detectedObject.velocity)) {
-              val p = read.detectedObject.position
-              Some(Position(Constants.OBSTACLE_NAME, p.y, p.x, 0.3, 0))
-            } else {
-              None
-            }
-          }.toList
-          context.parent ! VRepConnection.RobotSensors(obstacles)
-        }
+      Try {
+        val obstacles = robot.sensors.par.flatMap { sensor =>
+          val read = sensor.read
+          if (read.detectionState && zeroVelocity(read.detectedObject.velocity)) {
+            val p = read.detectedObject.position
+            Some(Position(Constants.OBSTACLE_NAME, p.y, p.x, 0.3, 0))
+          } else {
+            None
+          }
+        }.toList
+        context.parent ! VRepConnection.RobotSensors(obstacles)
+      }
 
     case other =>
       log.error("SensoryPoller: unknown message [{}] from [{}]", other, sender())
@@ -147,11 +179,11 @@ class PositionPoller(id: String, robot: VRepConnection.PioneerP3dx) extends Acto
 
   override def receive: Receive = {
     case PollPosition =>
-        Try {
-          val updatedPosition = robot.gps.position
-          val updatedAngle = robot.gps.orientation.gamma * 180.0 / Math.PI
-          context.parent ! VRepConnection.RobotPosition(Position(id, updatedPosition.y, updatedPosition.x, 0.5, updatedAngle))
-        }
+      Try {
+        val updatedPosition = robot.gps.position
+        val updatedAngle = robot.gps.orientation.gamma * 180.0 / Math.PI
+        context.parent ! VRepConnection.RobotPosition(Position(id, updatedPosition.y, updatedPosition.x, 0.5, updatedAngle))
+      }
 
     case other =>
       log.error("PositionPoller: unknown message [{}] from [{}]", other, sender())

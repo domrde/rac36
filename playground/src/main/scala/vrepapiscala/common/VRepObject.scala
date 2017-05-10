@@ -32,3 +32,5 @@ abstract class VRepObject {
     Vec3(ps(0), ps(1), ps(2))
   }
 }
+
+class ConcreteBlock(val remote: remoteApi, val id: Int, val handle: Int, val opMode: OpMode) extends VRepObject
