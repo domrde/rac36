@@ -33,7 +33,7 @@ class CarBrain(id: String) extends BrainActor(id) {
     if (path.nonEmpty) {
       val closestPointIdx =
         path.zipWithIndex.minBy { case (point, _) => distance(curPos, point) }._2
-      path.drop(closestPointIdx)
+      path.drop(closestPointIdx + 1)
     } else {
       List.empty
     }
