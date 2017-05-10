@@ -1,15 +1,14 @@
 package pathfinder
 
-import akka.actor.{Actor, ActorLogging, ActorSystem, Props}
+import akka.actor.{Actor, ActorLogging, Props}
 import akka.pattern.pipe
 import com.dda.brain.BrainMessages.Position
 import com.dda.brain.PathfinderBrain
 import com.dda.brain.PathfinderBrain.PathPoint
 import pathfinder.Learning.{Obstacle, Path, Point, RunResults}
-import akka.testkit.TestProbe
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.concurrent.duration._
+
 
 /**
   * Created by dda on 07.05.17.
@@ -52,7 +51,7 @@ class Worker(request: PathfinderBrain.FindPath) extends Actor with ActorLogging 
       doCalculation(r) pipeTo self
 
     case Some(results: RunResults) =>
-      val points = results.path.path.map { case Point(y, x) => PathPoint(y, x) }.reverse
+      val points = results.path.path.map { case Point(y, x) => PathPoint(y, x) }.reverse.tail
       log.info("Successful pathfinding: {}", points)
       context.parent ! PathfinderBrain.PathFound(request.client, points, isStraightLine = false)
       context.stop(self)
@@ -88,6 +87,9 @@ class Worker(request: PathfinderBrain.FindPath) extends Actor with ActorLogging 
 }
 
 //object Test extends App {
+//  import scala.concurrent.duration._
+//  import akka.testkit.TestProbe
+//  import akka.actor.ActorSystem
 //  val fullKnowledge =
 //    PathfinderBrain.FindPath("#1",Set(
 //      Position("obstacle",1.8500,0.14999,0.15,0.0),
