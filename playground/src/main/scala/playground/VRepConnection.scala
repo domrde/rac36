@@ -123,7 +123,7 @@ class FullKnowledgePoller(id: String, api: VRepAPI) extends Actor with ActorLogg
   private implicit val executionContext = context.dispatcher
   private implicit val system = context.system
 
-  context.system.scheduler.schedule((Random.nextInt(500) + 100).millis, (Random.nextInt(10) + 2000).millis, self, PollSensors)
+  context.system.scheduler.schedule((Random.nextInt(500) + 100).millis, (Random.nextInt(10) + 500).millis, self, PollSensors)
 
   override def receive: Receive = {
     case PollSensors =>
