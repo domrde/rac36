@@ -17,7 +17,7 @@ object Learning {
       val b = l2.x - l1.x
       val c = (l1.x - l2.x) * l1.y + l1.x * (l2.y - l1.y)
       val value = Math.abs(b * x + a * y + c) / Math.sqrt(b * b + a * a)
-      value <= 2 * r
+      value <= r
     }
   }
   final case class Path(path: List[Point])
@@ -27,17 +27,17 @@ object Learning {
 object InputMapper {
   import Learning._
 
-  case class Group(members: Set[Obstacle]) {
+  case class Group(members: List[Obstacle]) {
     def intersects(another: Group): Boolean = {
       members.exists { a =>
         another.members.exists { b =>
-          Math.pow(a.y - b.y, 2.0) + Math.pow(a.x - b.x, 2.0) <= 1.5 * Math.pow(a.r + b.r, 2.0)
+          Math.pow(a.y - b.y, 2.0) + Math.pow(a.x - b.x, 2.0) <= Math.pow(a.r + b.r + 0.1, 2.0)
         }
       }
     }
 
     def merge(another: Group): Group = {
-      Group(members ++ another.members)
+      Group(members ::: another.members)
     }
   }
 
@@ -52,20 +52,13 @@ object InputMapper {
   def mapObstaclesToExamples(obstacles: List[Obstacle], height: Double, width: Double,
                              s: Point, f: Point): List[Example] = {
     val groups =
-      obstacles.foldLeft(Set.empty[Group]) { case (listOfGroups, obstacle) =>
-        val newGroup = Group(Set(obstacle))
+      obstacles.sortBy(_.y).foldLeft(Set.empty[Group]) { case (listOfGroups, obstacle) =>
+        val newGroup = Group(List(obstacle))
         val possibleNeighbour = listOfGroups.find { group => group.intersects(newGroup) }
         if (possibleNeighbour.isDefined) {
           (listOfGroups - possibleNeighbour.get) + possibleNeighbour.get.merge(newGroup)
         } else {
           listOfGroups + newGroup
-        }
-      }.foldLeft(Set.empty[Group]) { case (listOfGroups, group) =>
-        val possibleNeighbour = listOfGroups.find { groupInList => groupInList.intersects(group) }
-        if (possibleNeighbour.isDefined) {
-          (listOfGroups - possibleNeighbour.get) + possibleNeighbour.get.merge(group)
-        } else {
-          listOfGroups + group
         }
       }
 
@@ -205,11 +198,11 @@ class Learning {
     val field = InputMapper.mapObstaclesToExamples(obstacles, dims.y, dims.x, start, finish)
 
     val results =
-      List(0.5, 0.35, 0.2).flatMap { d =>
+      List(0.5, 0.2).flatMap { d =>
         List(0.25, 0.5, 0.75).flatMap { robotSize =>
-          List(0.0001, 0.001, 0.01, 0.1, 0.5, 1.0, 1.5).flatMap { eps =>
-            List(0.1, 0.5, 1, 5, 10, 20, 30, 40, 75, 100, 120).flatMap { gamma =>
-              List(0.001, 0.01, 0.1, 0.5, 1, 10, 20, 30, 40, 75, 100).map { cost =>
+          List(0.0001, 0.01, 0.1, 0.5, 1.0).flatMap { eps =>
+            List(0.1, 0.5, 1, 5, 10, 20, 40, 100).flatMap { gamma =>
+              List(0.001, 0.01, 0.5, 1, 10, 40, 100).map { cost =>
                 Future {
                   val pivots = InputMapper.mapPivotsToExamples(Pivots.getPivotPoints(start, finish, robotSize), dims.y, dims.x, start, finish)
                   var path: Path = null
@@ -255,9 +248,9 @@ class Learning {
     val pointOutsideField =
       path.path.exists(point => point.x < 0 || point.y < 0 || point.x > dims.x || point.y > dims.y)
 
-    val isAwayFromStart = distance(path.path.last, start) > 1.0
+    val isAwayFromStart = distance(path.path.head, start) > 1.0 && distance(path.path.last, start) > 1.0
 
-    val isAwayFromFinish = distance(path.path.head, finish) > 1.0
+    val isAwayFromFinish = distance(path.path.head, finish) > 1.0 && distance(path.path.last, finish) > 1.0
 
     val errorMessage = (if (pointOfPathInsideObstacle) " [intersects obstacle]" else "") +
       (if (isAwayFromStart) " [not near start]" else "") +
