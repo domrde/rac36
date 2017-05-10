@@ -59,7 +59,7 @@ class CarBrain(id: String) extends BrainActor(id) {
         if (distance(curPos, target) > pathDelta) {
 //          path = path.copy(path = spanPath(curPos, path.path))
           if (path.path.nonEmpty) {
-            if (distance(curPos, path.path.head) > pathDelta) {
+            if (distance(curPos, path.path.head) < pathDelta) {
               path = path.copy(path = path.path.tail)
             }
             val nextStep = path.path.head
