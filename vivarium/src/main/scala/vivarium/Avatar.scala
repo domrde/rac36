@@ -95,10 +95,13 @@ class Avatar extends Actor with ActorLogging {
         startChildFromJar(_id, jarName, className)
       } match {
         case Failure(exception) =>
-          sender() ! Avatar.FailedToCreateAvatar(_id, exception.getMessage)
+          val sw = new StringWriter
+          exception.printStackTrace(new PrintWriter(sw))
+          sender() ! Avatar.FailedToCreateAvatar(_id, sw.toString)
         case Success(value) =>
-          context.become(receiveWithState(_id, tunnel, Some(value), buffer, aliveAvatars))
+          avatarIdStorage ! ReplicatedSet.AddAll(Set(id))
           sender() ! Avatar.AvatarCreated(_id)
+          context.become(receiveWithState(_id, tunnel, Some(value), buffer, aliveAvatars))
       }
 
     case Avatar.TunnelEndpoint(_id, endpoint) =>

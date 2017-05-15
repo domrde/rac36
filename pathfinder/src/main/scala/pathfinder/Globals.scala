@@ -9,7 +9,7 @@ import com.dda.brain.PathfinderBrain.PathPoint
   * Created by dda on 01.05.17.
   */
 object Globals {
-  val ENABLE_NONORTHO_PATCHES = false
+  val ENABLE_NONORTHO_PATCHES = true
 
   val STEP_OF_PATH = 0.5
 
