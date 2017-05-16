@@ -15,7 +15,7 @@ class CarBrain(id: String) extends BrainActor(id) {
   private implicit val executionContext = context.dispatcher
   private implicit val system = context.system
 
-  context.system.scheduler.schedule(10.second, 120.second) {
+  context.system.scheduler.schedule(10.second, 10.second) {
     avatar ! TellToOtherAvatar("pathfinder", write(Request(target)))
   }
 
@@ -38,7 +38,7 @@ class CarBrain(id: String) extends BrainActor(id) {
           if (path.path.nonEmpty) {
             val nextStep = path.path.head
             val angleToPoint = Math.atan2(nextStep.y - curPos.y, nextStep.x - curPos.x) * 180.0 / Math.PI
-            if (Math.abs(curPos.angle - angleToPoint) > 30) {
+            if (Math.abs(curPos.angle - angleToPoint) > 15) {
               "rotate=" + Math.ceil(angleToPoint)
             } else {
               "forward"
@@ -51,7 +51,6 @@ class CarBrain(id: String) extends BrainActor(id) {
         }
 
       if (newCommand != previousCommand) {
-        log.info("{} {}, {} != {}", id, newCommand, path.path.headOption, curPos)
         avatar ! FromAvatarToRobot(newCommand)
         previousCommand = newCommand
       }
@@ -66,7 +65,6 @@ class CarBrain(id: String) extends BrainActor(id) {
         case Success(value) =>
           val newPathIsBadAndOldPathIsGood = value.isStraightLine && !path.isStraightLine
           if (!newPathIsBadAndOldPathIsGood) {
-            log.info("Replacing old path {} with new one {}", path, value)
             path = value
           }
 

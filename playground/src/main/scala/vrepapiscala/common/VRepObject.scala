@@ -16,6 +16,8 @@ abstract class VRepObject {
 
   private[vrepapiscala] val opMode: OpMode
 
+  def getHandle = handle
+
   def absolutePosition: Vec3 = {
     getRelativePosition(id, handle, -1, opMode)
   }

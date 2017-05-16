@@ -28,9 +28,13 @@ object Patcher {
   final case class Polygon(points: List[Point]) {
     val centroid: Point = if (points.size == 1) points.head else {
       val (sumcx, sumcy, suma) = (points :+ points.head).sliding(2)
-        .foldLeft((0.0, 0.0, 0.0)) { case ((cx, cy, a), i :: j :: Nil) =>
-          val m = i.x * j.y - j.x * i.y
-          (cx + (i.x + j.x) * m, cy + (i.y + j.y) * m, a + m)
+        .foldLeft((0.0, 0.0, 0.0)) {
+          case ((cx, cy, a), i :: j :: Nil) =>
+            val m = i.x * j.y - j.x * i.y
+            (cx + (i.x + j.x) * m, cy + (i.y + j.y) * m, a + m)
+
+          case other =>
+            throw new RuntimeException("Illegal list sequence in Patcher: " + other)
         }
 
       val ma = suma * 0.5
@@ -53,12 +57,15 @@ object Patcher {
         var isInside = false
         var isOnEdge = false
 
-        (points.last :: points).sliding(2).foreach { case a :: b :: Nil =>
+        (points.last :: points).sliding(2).foreach {
+          case a :: b :: Nil =>
+            if ((a.y > point.y) != (b.y > point.y) &&
+              (point.x - a.x) < (b.x - a.x) * (point.y - a.y) / (b.y - a.y)) isInside = !isInside
 
-          if ((a.y > point.y) != (b.y > point.y) &&
-            (point.x - a.x) < (b.x - a.x) * (point.y - a.y) / (b.y - a.y)) isInside = !isInside
+            isOnEdge = isOnEdge || distance(a, point) + distance(point, b) - distance(a, b) < PATHFINDING_EPS
 
-          isOnEdge = isOnEdge || distance(a, point) + distance(point, b) - distance(a, b) < PATHFINDING_EPS
+          case other =>
+            throw new RuntimeException("Illegal list sequence in Patcher: " + other)
         }
 
         !isOnEdge && isInside
@@ -66,12 +73,20 @@ object Patcher {
     }
 
     def isIntersectsEdges(another: Polygon): Boolean = {
-      (points.last :: points).sliding(2).exists { case a1 :: a2 :: Nil =>
-        (another.points.last :: another.points).sliding(2).exists { case b1 :: b2 :: Nil =>
-          val ip = findIntersection(a1, a2, b1, b2)
-          Math.abs(distance(a1, ip) + distance(ip, a2) - distance(a1, a2)) <= PATHFINDING_EPS &&
-            Math.abs(distance(b1, ip) + distance(ip, b2) - distance(b1, b2)) <= PATHFINDING_EPS
-        }
+      (points.last :: points).sliding(2).exists {
+        case a1 :: a2 :: Nil =>
+          (another.points.last :: another.points).sliding(2).exists {
+            case b1 :: b2 :: Nil =>
+              val ip = findIntersection(a1, a2, b1, b2)
+              Math.abs(distance(a1, ip) + distance(ip, a2) - distance(a1, a2)) <= PATHFINDING_EPS &&
+                Math.abs(distance(b1, ip) + distance(ip, b2) - distance(b1, b2)) <= PATHFINDING_EPS
+
+            case other =>
+              throw new RuntimeException("Illegal list sequence in Patcher: " + other)
+          }
+
+        case other =>
+          throw new RuntimeException("Illegal list sequence in Patcher: " + other)
       }
     }
 
@@ -105,20 +120,28 @@ object Patcher {
   private def isIntersectsObstacleBoundingBox(a: Point, b: Point)(implicit obstacles: ParArray[Polygon]): Boolean = {
     obstacles.exists { polygon =>
       val points = polygon.getBoundingBoxPoints
-      (points.last :: points).sliding(2).exists { case v1 :: v2 :: Nil =>
-        val ip = findIntersection(a, b, v1, v2)
-        Math.abs(distance(v1, ip) + distance(ip, v2) - distance(v1, v2)) <= PATHFINDING_EPS &&
-          Math.abs(distance(a, ip) + distance(ip, b) - distance(a, b)) <= PATHFINDING_EPS
+      (points.last :: points).sliding(2).exists {
+        case v1 :: v2 :: Nil =>
+          val ip = findIntersection(a, b, v1, v2)
+          Math.abs(distance(v1, ip) + distance(ip, v2) - distance(v1, v2)) <= PATHFINDING_EPS &&
+            Math.abs(distance(a, ip) + distance(ip, b) - distance(a, b)) <= PATHFINDING_EPS
+
+        case other =>
+          throw new RuntimeException("Illegal list sequence in Patcher: " + other)
       }
     }
   }
 
   private def checkCandidate(candidate: Polygon)(implicit obstacles: ParArray[Polygon]): Boolean = {
     val shrinked = candidate.shrink(5)
-    !(shrinked.points.last :: shrinked.points).sliding(2).exists { case a :: b :: Nil =>
-      val isInside = isInsideObstacleBoundingBoxIncludingEdges(a)
-      val isIntersects = isIntersectsObstacleBoundingBox(a, b)
-      isInside || isIntersects
+    !(shrinked.points.last :: shrinked.points).sliding(2).exists {
+      case a :: b :: Nil =>
+        val isInside = isInsideObstacleBoundingBoxIncludingEdges(a)
+        val isIntersects = isIntersectsObstacleBoundingBox(a, b)
+        isInside || isIntersects
+
+      case other =>
+        throw new RuntimeException("Illegal list sequence in Patcher: " + other)
     }
   }
 
@@ -156,12 +179,20 @@ object Patcher {
           .sortBy(_.coordinate)
           .partition(_.isHorizontal)
 
-        orthogonalHorizontalLines.sliding(2).flatMap { case horA :: horB :: Nil =>
-          orthogonalVerticalLines.sliding(2).flatMap { case verA :: verB :: Nil =>
-            val points = Polygon(List(Point(horA.coordinate, verA.coordinate), Point(horA.coordinate, verB.coordinate),
-              Point(horB.coordinate, verB.coordinate), Point(horB.coordinate, verA.coordinate)))
-            if (checkCandidate(points)) Some(MapPatch(-1, points.points, points.centroid)) else None
-          }
+        orthogonalHorizontalLines.sliding(2).flatMap {
+          case horA :: horB :: Nil =>
+            orthogonalVerticalLines.sliding(2).flatMap {
+              case verA :: verB :: Nil =>
+                val points = Polygon(List(Point(horA.coordinate, verA.coordinate), Point(horA.coordinate, verB.coordinate),
+                  Point(horB.coordinate, verB.coordinate), Point(horB.coordinate, verA.coordinate)))
+                if (checkCandidate(points)) Some(MapPatch(-1, points.points, points.centroid)) else None
+
+              case other =>
+                throw new RuntimeException("Illegal list sequence in Patcher: " + other)
+            }
+
+          case other =>
+            throw new RuntimeException("Illegal list sequence in Patcher: " + other)
         }.toList
       }
 
@@ -171,206 +202,210 @@ object Patcher {
 
       def calculateNonOrthogonalPatches(): Future[List[MapPatch]] = Future(obstacles.flatMap { obstacle =>
         val (min, max) = obstacle.getBoundingBox
-        (obstacle.points.last :: obstacle.points).sliding(2).flatMap { case a :: b :: Nil =>
-          if ((a.y != b.y) && (a.x != b.x)) {
-            val verA = OrthogonalLine(min.x, isHorizontal = false)
-            val verB = OrthogonalLine(max.x, isHorizontal = false)
-            val horA = OrthogonalLine(Math.min(a.y, b.y), isHorizontal = true)
-            val horB = OrthogonalLine(Math.max(a.y, b.y), isHorizontal = true)
+        (obstacle.points.last :: obstacle.points).sliding(2).flatMap {
+          case a :: b :: Nil =>
+            if ((a.y != b.y) && (a.x != b.x)) {
+              val verA = OrthogonalLine(min.x, isHorizontal = false)
+              val verB = OrthogonalLine(max.x, isHorizontal = false)
+              val horA = OrthogonalLine(Math.min(a.y, b.y), isHorizontal = true)
+              val horB = OrthogonalLine(Math.max(a.y, b.y), isHorizontal = true)
 
-            val lower = List(a, b).maxBy(_.y)
-            val upper = List(a, b).minBy(_.y)
+              val lower = List(a, b).maxBy(_.y)
+              val upper = List(a, b).minBy(_.y)
 
-            val m = (a.y - b.y) / (a.x - b.x)
+              val m = (a.y - b.y) / (a.x - b.x)
 
-            val candidates: List[Polygon] = {
-              if (m < 0) {
-                if (Math.abs(m) <= 1) {
-                  List(
-                    {
-                      //      B-------C horA
-                      //     X|       |
-                      //    X |       |
-                      //   X  |       |
-                      //  X   |       |
-                      // A----+-------D horB
-                      //
-                      // ^            ^
-                      // verA         verB
+              val candidates: List[Polygon] = {
+                if (m < 0) {
+                  if (Math.abs(m) <= 1) {
+                    List(
+                      {
+                        //      B-------C horA
+                        //     X|       |
+                        //    X |       |
+                        //   X  |       |
+                        //  X   |       |
+                        // A----+-------D horB
+                        //
+                        // ^            ^
+                        // verA         verB
 
-                      val pointA = lower
-                      val pointB = upper
-                      val pointC = Point(horA.coordinate, verB.coordinate)
-                      val pointD = Point(horB.coordinate, verB.coordinate)
-                      if (pointB == pointC) {
-                        Polygon(List(pointA, pointB, pointD))
-                      } else {
-                        Polygon(List(pointA, pointB, pointC, pointD))
+                        val pointA = lower
+                        val pointB = upper
+                        val pointC = Point(horA.coordinate, verB.coordinate)
+                        val pointD = Point(horB.coordinate, verB.coordinate)
+                        if (pointB == pointC) {
+                          Polygon(List(pointA, pointB, pointD))
+                        } else {
+                          Polygon(List(pointA, pointB, pointC, pointD))
+                        }
+                      }, {
+                        // 	    verA        verB
+                        //      v            v
+                        //
+                        // horA D-------+----A
+                        //      |       |   X
+                        //      |       |  X
+                        //      |       | X
+                        //      |       |X
+                        // horB C-------B
+
+                        val pointA = upper
+                        val pointB = lower
+                        val pointC = Point(horB.coordinate, verA.coordinate)
+                        val pointD = Point(horA.coordinate, verA.coordinate)
+                        if (pointB == pointC) {
+                          Polygon(List(pointD, pointB, pointA))
+                        } else {
+                          Polygon(List(pointD, pointC, pointB, pointA))
+                        }
                       }
-                    }, {
-                      // 	    verA        verB
-                      //      v            v
-                      //
-                      // horA D-------+----A
-                      //      |       |   X
-                      //      |       |  X
-                      //      |       | X
-                      //      |       |X
-                      // horB C-------B
+                    )
+                  } else {
+                    List(
+                      {
+                        //      B horA
+                        //     X|
+                        //    X |
+                        //   X  |
+                        //  X   |
+                        // A----C
+                        // |    |
+                        // |    |
+                        // |    |
+                        //  ----  horB
+                        //
+                        // ^    ^
+                        // verA verB
 
-                      val pointA = upper
-                      val pointB = lower
-                      val pointC = Point(horB.coordinate, verA.coordinate)
-                      val pointD = Point(horA.coordinate, verA.coordinate)
-                      if (pointB == pointC) {
-                        Polygon(List(pointD, pointB, pointA))
-                      } else {
-                        Polygon(List(pointD, pointC, pointB, pointA))
+
+                        val pointA = a
+                        val pointB = b
+                        val pointC = Point(pointA.y, pointB.x)
+                        Polygon(List(pointA, pointB, pointC))
+                      }, {
+                        //      verA verB
+                        //      v    v
+                        //
+                        // horA  ----
+                        //      |    |
+                        //      |    |
+                        //      |    |
+                        //      C----A
+                        //      |   X
+                        //      |  X
+                        //      | X
+                        //      |X
+                        // horB B
+
+
+                        val pointA = b
+                        val pointB = a
+                        val pointC = Point(pointA.y, pointB.x)
+                        Polygon(List(pointA, pointB, pointC))
                       }
-                    }
-                  )
+                    )
+                  }
                 } else {
-                  List(
-                    {
-                      //      B horA
-                      //     X|
-                      //    X |
-                      //   X  |
-                      //  X   |
-                      // A----C
-                      // |    |
-                      // |    |
-                      // |    |
-                      //  ----  horB
-                      //
-                      // ^    ^
-                      // verA verB
+                  if (Math.abs(m) < 1) {
+                    List(
+                      {
+                        // verA         verB
+                        // v            v
+                        //
+                        // A----+-------D horA
+                        //  X   |       |
+                        //   X  |       |
+                        //    X |       |
+                        //     X|       |
+                        //      B-------C horB
+                        val pointA = upper
+                        val pointB = lower
+                        val pointC = Point(horB.coordinate, verB.coordinate)
+                        val pointD = Point(horA.coordinate, verB.coordinate)
+                        if (pointB == pointC) {
+                          Polygon(List(pointD, pointB, pointA))
+                        } else {
+                          Polygon(List(pointD, pointC, pointB, pointA))
+                        }
+                      }, {
+                        // horA C-------B
+                        //      |       |X
+                        //      |       | X
+                        //      |       |  X
+                        //      |       |   X
+                        // horB D-------+----A
+                        //
+                        //      ^            ^
+                        //      verA         verB
 
-
-                      val pointA = a
-                      val pointB = b
-                      val pointC = Point(pointA.y, pointB.x)
-                      Polygon(List(pointA, pointB, pointC))
-                    }, {
-                      //      verA verB
-                      //      v    v
-                      //
-                      // horA  ----
-                      //      |    |
-                      //      |    |
-                      //      |    |
-                      //      C----A
-                      //      |   X
-                      //      |  X
-                      //      | X
-                      //      |X
-                      // horB B
-
-
-                      val pointA = b
-                      val pointB = a
-                      val pointC = Point(pointA.y, pointB.x)
-                      Polygon(List(pointA, pointB, pointC))
-                    }
-                  )
-                }
-              } else {
-                if (Math.abs(m) < 1) {
-                  List(
-                    {
-                      // verA         verB
-                      // v            v
-                      //
-                      // A----+-------D horA
-                      //  X   |       |
-                      //   X  |       |
-                      //    X |       |
-                      //     X|       |
-                      //      B-------C horB
-                      val pointA = upper
-                      val pointB = lower
-                      val pointC = Point(horB.coordinate, verB.coordinate)
-                      val pointD = Point(horA.coordinate, verB.coordinate)
-                      if (pointB == pointC) {
-                        Polygon(List(pointD, pointB, pointA))
-                      } else {
-                        Polygon(List(pointD, pointC, pointB, pointA))
+                        val pointA = lower
+                        val pointB = upper
+                        val pointC = Point(horA.coordinate, verA.coordinate)
+                        val pointD = Point(horB.coordinate, verA.coordinate)
+                        if (pointB == pointC) {
+                          Polygon(List(pointD, pointB, pointA))
+                        } else {
+                          Polygon(List(pointD, pointC, pointB, pointA))
+                        }
                       }
-                    }, {
-                      // horA C-------B
-                      //      |       |X
-                      //      |       | X
-                      //      |       |  X
-                      //      |       |   X
-                      // horB D-------+----A
-                      //
-                      //      ^            ^
-                      //      verA         verB
+                    )
+                  } else {
+                    List(
+                      {
+                        // horA A
+                        //      |X
+                        //      | X
+                        //      |  X
+                        //      |   X
+                        //      C----B
+                        //      |    |
+                        //      |    |
+                        //      |    |
+                        // horB  ----
+                        //
+                        //      ^    ^
+                        //      verA verB
 
-                      val pointA = lower
-                      val pointB = upper
-                      val pointC = Point(horA.coordinate, verA.coordinate)
-                      val pointD = Point(horB.coordinate, verA.coordinate)
-                      if (pointB == pointC) {
-                        Polygon(List(pointD, pointB, pointA))
-                      } else {
-                        Polygon(List(pointD, pointC, pointB, pointA))
+
+                        val pointA = b
+                        val pointB = a
+                        val pointC = Point(pointB.y, pointA.x)
+                        Polygon(List(pointA, pointB, pointC))
+                      }, {
+                        // verA verB
+                        // v    v
+                        //
+                        //  ----  horA
+                        // |    |
+                        // |    |
+                        // |    |
+                        // B----C
+                        //  X   |
+                        //   X  |
+                        //    X |
+                        //     X|
+                        //      A horB
+
+                        val pointA = a
+                        val pointB = b
+                        val pointC = Point(pointB.y, pointA.x)
+                        Polygon(List(pointA, pointB, pointC))
                       }
-                    }
-                  )
-                } else {
-                  List(
-                    {
-                      // horA A
-                      //      |X
-                      //      | X
-                      //      |  X
-                      //      |   X
-                      //      C----B
-                      //      |    |
-                      //      |    |
-                      //      |    |
-                      // horB  ----
-                      //
-                      //      ^    ^
-                      //      verA verB
-
-
-                      val pointA = b
-                      val pointB = a
-                      val pointC = Point(pointB.y, pointA.x)
-                      Polygon(List(pointA, pointB, pointC))
-                    }, {
-                      // verA verB
-                      // v    v
-                      //
-                      //  ----  horA
-                      // |    |
-                      // |    |
-                      // |    |
-                      // B----C
-                      //  X   |
-                      //   X  |
-                      //    X |
-                      //     X|
-                      //      A horB
-
-                      val pointA = a
-                      val pointB = b
-                      val pointC = Point(pointB.y, pointA.x)
-                      Polygon(List(pointA, pointB, pointC))
-                    }
-                  )
+                    )
+                  }
                 }
               }
+
+              candidates.find { candidate =>
+                !obstacle.isIntersects(candidate)
+              }
+            } else {
+              None
             }
 
-            candidates.find { candidate =>
-              !obstacle.isIntersects(candidate)
-            }
-          } else {
-            None
-          }
+          case other =>
+            throw new RuntimeException("Illegal list sequence in Patcher: " + other)
         }
       }.map(polygon => MapPatch(-1, polygon.points, polygon.centroid)).toList)
 
@@ -388,21 +423,29 @@ object Patcher {
         }
         .map { nodes =>
           def twoObstaclesHaveSharedPoints(a: MapPatch, b: MapPatch): Boolean = {
-            (a.coordinates.last :: a.coordinates).sliding(2).exists { case a1 :: a2 :: Nil =>
-              (b.coordinates.last :: b.coordinates).sliding(2).exists { case b1 :: b2 :: Nil =>
-                val a1a2 = distance(a1, a2)
-                val b1b2 = distance(b1, b2)
-                val b1a1 = distance(b1, a1)
-                val b1a2 = distance(b1, a2)
-                val a1b2 = distance(a1, b2)
-                val a2b2 = distance(a2, b2)
-                List(
-                  Math.abs(b1a1 + a1b2 - b1b2) <= PATHFINDING_EPS,
-                  Math.abs(b1a2 + a2b2 - b1b2) <= PATHFINDING_EPS,
-                  Math.abs(b1a1 + b1a2 - a1a2) <= PATHFINDING_EPS,
-                  Math.abs(a1b2 + a2b2 - a1a2) <= PATHFINDING_EPS
-                ).count(a => a) > 2
-              }
+            (a.coordinates.last :: a.coordinates).sliding(2).exists {
+              case a1 :: a2 :: Nil =>
+                (b.coordinates.last :: b.coordinates).sliding(2).exists {
+                  case b1 :: b2 :: Nil =>
+                    val a1a2 = distance(a1, a2)
+                    val b1b2 = distance(b1, b2)
+                    val b1a1 = distance(b1, a1)
+                    val b1a2 = distance(b1, a2)
+                    val a1b2 = distance(a1, b2)
+                    val a2b2 = distance(a2, b2)
+                    List(
+                      Math.abs(b1a1 + a1b2 - b1b2) <= PATHFINDING_EPS,
+                      Math.abs(b1a2 + a2b2 - b1b2) <= PATHFINDING_EPS,
+                      Math.abs(b1a1 + b1a2 - a1a2) <= PATHFINDING_EPS,
+                      Math.abs(a1b2 + a2b2 - a1a2) <= PATHFINDING_EPS
+                    ).count(a => a) > 2
+
+                  case other =>
+                    throw new RuntimeException("Illegal list sequence in Patcher: " + other)
+                }
+
+              case other =>
+                throw new RuntimeException("Illegal list sequence in Patcher: " + other)
             }
           }
 

@@ -9,7 +9,7 @@ import com.dda.brain.PathfinderBrain.PathPoint
   * Created by dda on 01.05.17.
   */
 object Globals {
-  val ENABLE_NONORTHO_PATCHES = true
+  val ENABLE_NONORTHO_PATCHES = false
 
   val STEP_OF_PATH = 0.5
 
@@ -24,19 +24,9 @@ object Globals {
 
   def pointInBetween(a: Point, b: Point)(t: Double): Point = Point((1.0 - t) * a.y + t * b.y, (1.0 - t) * a.x + t * b.x)
 
-  final case class Example(y: Double, x: Double, c: Double)
-
-  final case class Point(y: Double, x: Double)
-
-  case class RunResults(path: List[Point], message: String)
-
-  final case class MapPatch(var id: Int, coordinates: List[Point], centroid: Point, var exits: Set[Int] = Set.empty) {
-    def addExit(node: MapPatch): Unit = exits = exits + node.id
-  }
-
-  final case class Obstacle(y: Double, x: Double, r: Double) {
+  final case class Example(y: Double, x: Double, c: Double, r: Double = 0.2){
     def intersects(l1: Point, l2: Point): Boolean = {
-      val rad = (r + 3.0)
+      val rad = r
 
       val l1Inside = Math.pow(y - l1.y, 2.0) + Math.pow(x - l1.x, 2.0) <= Math.pow(rad, 2.0)
       val l2Inside = Math.pow(y - l2.y, 2.0) + Math.pow(x - l2.x, 2.0) <= Math.pow(rad, 2.0)
@@ -50,5 +40,15 @@ object Globals {
       l1Inside || l2Inside || l1l2Intersects
     }
   }
+
+  final case class Point(y: Double, x: Double)
+
+  case class RunResults(path: List[Point], message: String)
+
+  final case class MapPatch(var id: Int, coordinates: List[Point], centroid: Point, var exits: Set[Int] = Set.empty) {
+    def addExit(node: MapPatch): Unit = exits = exits + node.id
+  }
+
+  final case class Obstacle(y: Double, x: Double, r: Double)
 
 }

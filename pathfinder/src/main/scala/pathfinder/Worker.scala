@@ -1,5 +1,6 @@
 package pathfinder
 
+import akka.actor.Status.Failure
 import akka.actor.{Actor, ActorLogging, Props}
 import akka.pattern.pipe
 import com.dda.brain.BrainMessages.Position
@@ -15,6 +16,12 @@ import scala.concurrent.Future
 object Worker {
   def apply(request: PathfinderBrain.FindPath): Props = Props(classOf[Worker], request)
 }
+
+//Не работает или построение маршрутов или езда робота.
+//
+//1) Задать статические маршруты и проверить, что роботы едут по ним правильно.
+//
+//2) С правильно едущими роботами проверить построение маршрутов.
 
 class Worker(request: PathfinderBrain.FindPath) extends Actor with ActorLogging {
   import Globals._
@@ -43,15 +50,28 @@ class Worker(request: PathfinderBrain.FindPath) extends Actor with ActorLogging 
 
   override def receive: Receive = {
     case r: PathfinderBrain.FindPath =>
-      request.sensory.find { case Position(name, _, _, _, _) => name == request.client } match {
-        case Some(cur) =>
-          context.become(receiveWithClientPosition(cur))
-          self ! r
+      val path: List[Point] =
+        if (r.client == "#0") {
+          List(Point(8.25, 1.87), Point(7.52, 2.65), Point(7.93, 3.2), Point(8.2, 3.4), Point(8.3, 4.25),
+          Point(8.4, 4.6), Point(8.1, 5.0), Point(5.0, 5.0))
+        } else if (r.client == "#1") {
+          List(Point(1.0, 2.3), Point(1.0, 2.85), Point(0.9, 3.5), Point(1.0, 4.0), Point(1.5, 4.6), Point(5.0, 5.0))
+        } else {
+          List(Point(1.3, 8.7), Point(8.6, 8.6), Point(5, 5))
+        }
+      val switchedYX = path.map(p => pointToPathPoint(Point(p.x, p.y)))
+      context.parent ! PathfinderBrain.PathFound(request.client, switchedYX, isStraightLine = false)
 
-        case None =>
-          log.info("Current position not found")
-          context.stop(self)
-      }
+    //
+    //      request.sensory.find { case Position(name, _, _, _, _) => name == request.client } match {
+    //        case Some(cur) =>
+    //          context.become(receiveWithClientPosition(cur))
+    //          self ! r
+    //
+    //        case None =>
+    //          log.info("Current position not found")
+    //          context.stop(self)
+    //      }
 
     case other =>
       log.error("[-] Worker: received other: [{}] from [{}]", other, sender())
@@ -70,6 +90,9 @@ class Worker(request: PathfinderBrain.FindPath) extends Actor with ActorLogging 
       log.info("Unsuccessful pathfinding. Straight line.")
       context.parent ! PathfinderBrain.PathFound(request.client, formStraightLine(curPos).map(pointToPathPoint), isStraightLine = true)
       context.stop(self)
+
+    case Failure(cause) =>
+      cause.printStackTrace()
 
     case other =>
       log.error("[-] Worker: received other: [{}] from [{}]", other, sender())

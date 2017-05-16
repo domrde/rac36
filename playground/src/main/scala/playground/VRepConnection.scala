@@ -29,7 +29,7 @@ object VRepConnection {
     //   /    \
     //  14    11
 
-    private val speed = 2f
+    private val speed = 1f
     private val leftMotor = api.joint.withVelocityControl("Pioneer_p3dx_leftMotor" + id).get
     private val rightMotor = api.joint.withVelocityControl("Pioneer_p3dx_rightMotor" + id).get
     val sensors: List[ProximitySensor] =
@@ -49,8 +49,8 @@ object VRepConnection {
       val curAngle = gps.orientation.gamma * 180.0 / Math.PI
       val diff = angle - curAngle
       val sign = diff / Math.abs(diff)
-      leftMotor.setTargetVelocity((sign * -1.0f).toFloat)
-      rightMotor.setTargetVelocity((sign * 1.0f).toFloat)
+      leftMotor.setTargetVelocity((sign * 0.35f).toFloat)
+      rightMotor.setTargetVelocity((sign * -0.35f).toFloat)
     }
 
     def stop(): Unit = {
@@ -60,6 +60,12 @@ object VRepConnection {
 
     val gps: PositionSensor = api.sensor.position("Pioneer_p3dx_gps" + id).get
   }
+
+  sealed trait RobotCommand
+  case object Forward extends RobotCommand
+  case object RotatePositive extends RobotCommand
+  case object RotateNegative extends RobotCommand
+  case object Stop extends RobotCommand
 }
 
 class VRepConnection(id: String, api: VRepAPI) extends Actor with ActorLogging {
@@ -76,40 +82,50 @@ class VRepConnection(id: String, api: VRepAPI) extends Actor with ActorLogging {
   }
   context.actorOf(Props(classOf[PositionPoller], id, robot), "PositionPoller" + id.substring(1))
 
-  override def receive: Receive = receiveWithCurrentPosition(None)
+  override def receive: Receive = receiveWithCurrentPosition(Stop, None)
 
   private val rotateRegExp = "rotate=([\\-\\d\\.]+)".r
 
-  def receiveWithCurrentPosition(targetRotation: Option[Double]): Receive = {
+  def receiveWithCurrentPosition(previousCommand: RobotCommand, targetRotation: Option[Double]): Receive = {
     case RobotPosition(robotPosition) =>
       context.parent ! Sensory(id, Set(robotPosition))
       val updatedAngle = robotPosition.angle
       if (targetRotation.isDefined && Math.abs(updatedAngle - targetRotation.get) < 10) {
         robot.stop()
-        context.become(receiveWithCurrentPosition(None))
+        context.become(receiveWithCurrentPosition(previousCommand, None))
       } else {
-        context.become(receiveWithCurrentPosition(targetRotation))
+        context.become(receiveWithCurrentPosition(previousCommand, targetRotation))
       }
 
     case RobotSensors(obstacles) =>
       context.parent ! Sensory(id, obstacles.toSet)
 
     case FromAvatarToRobot(_id, "forward") if _id == id =>
-      context.become(receiveWithCurrentPosition(None))
-      log.info("Forward")
-      robot.moveForward()
+      if (previousCommand != Forward) {
+        context.become(receiveWithCurrentPosition(Forward, None))
+        log.info("Forward")
+        robot.moveForward()
+      }
 
     case FromAvatarToRobot(_id, "stop") if _id == id =>
-      context.become(receiveWithCurrentPosition(None))
-      log.info("Stop")
-      robot.stop()
+      if (previousCommand != Stop) {
+        context.become(receiveWithCurrentPosition(Stop, None))
+        log.info("Stop")
+        robot.stop()
+      }
 
     case FromAvatarToRobot(_id, command) if _id == id =>
       Try {
-        val rotateRegExp(angle) = command
+        val rotateRegExp(angleString) = command
         log.info(command)
-        robot.rotate(angle.toDouble)
-        context.become(receiveWithCurrentPosition(Some(angle.toDouble)))
+        val angle = angleString.toDouble
+        if (angle > 0 && previousCommand != RotatePositive) {
+          robot.rotate(angle.toDouble)
+          context.become(receiveWithCurrentPosition(RotatePositive, Some(angle.toDouble)))
+        } else if (angle < 0 && previousCommand != RotateNegative) {
+          robot.rotate(angle.toDouble)
+          context.become(receiveWithCurrentPosition(RotateNegative, Some(angle.toDouble)))
+        }
       }
 
     case other =>
@@ -179,17 +195,35 @@ class PositionPoller(id: String, robot: VRepConnection.PioneerP3dx) extends Acto
   private implicit val executionContext = context.dispatcher
   private implicit val system = context.system
 
-  context.system.scheduler.schedule((Random.nextInt(500) + 100).millis, (Random.nextInt(10) + 300).millis, self, PollPosition)
+  context.system.scheduler.schedule((Random.nextInt(500) + 100).millis, (Random.nextInt(10) + 50).millis, self, PollPosition)
 
   override def receive: Receive = {
     case PollPosition =>
       Try {
         val updatedPosition = robot.gps.position
         val updatedAngle = robot.gps.orientation.gamma * 180.0 / Math.PI
-        context.parent ! VRepConnection.RobotPosition(Position(id, updatedPosition.y, updatedPosition.x, 0.5, updatedAngle))
+        val curPos = Position(id, updatedPosition.y, updatedPosition.x, 0.5, updatedAngle)
+        context.parent ! VRepConnection.RobotPosition(curPos)
+        context.become(receiveWithPrevPosition(curPos))
       }
 
     case other =>
       log.error("PositionPoller: unknown message [{}] from [{}]", other, sender())
+  }
+
+  def distance(p1: Position, p2: Position): Double =
+    Math.sqrt(Math.pow(p2.x - p1.x, 2.0) + Math.pow(p2.y - p1.y, 2.0))
+
+  def receiveWithPrevPosition(previousPosition: Position): Receive = {
+    case PollPosition =>
+      Try {
+        val updatedPosition = robot.gps.position
+        val updatedAngle = robot.gps.orientation.gamma * 180.0 / Math.PI
+        val curPos = Position(id, updatedPosition.y, updatedPosition.x, 0.5, updatedAngle)
+        if (distance(curPos, previousPosition) < 2.5) {
+          context.parent ! VRepConnection.RobotPosition(curPos)
+          context.become(receiveWithPrevPosition(curPos))
+        }
+      }
   }
 }

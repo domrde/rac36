@@ -142,16 +142,27 @@ object Learning {
     }
   }
 
-  private def checkPathCorrect(roughPath: List[Point], dims: Point, start: Point,
+  private def checkPathCorrect(roughPath: List[Point], obstacles: List[Example], dims: Point, start: Point,
                                finish: Point, eps: Double)(runResults: RunResults): Boolean = {
     val smoothPath = runResults.path
 
-    val pointOutsideField =
+//    lazy val intersectsExample =
+//      smoothPath.sliding(2).exists {
+//        case a :: b :: Nil =>
+//          obstacles.exists { example =>
+//            example.intersects(a, b)
+//          }
+//
+//        case other =>
+//          throw new RuntimeException("Illegal list sequence in Learning: " + other)
+//      }
+
+    lazy val pointOutsideField =
       smoothPath.exists(point => point.x < 0 || point.y < 0 || point.x > dims.x || point.y > dims.y)
 
-    val isAwayFromStart = distance(smoothPath.head, start) > eps && distance(smoothPath.last, start) > eps
+    lazy val isAwayFromStart = distance(smoothPath.head, start) > eps && distance(smoothPath.last, start) > eps
 
-    val isAwayFromFinish = distance(smoothPath.head, finish) > eps && distance(smoothPath.last, finish) > eps
+    lazy val isAwayFromFinish = distance(smoothPath.head, finish) > eps && distance(smoothPath.last, finish) > eps
 
     val isCorrect = !(pointOutsideField || isAwayFromFinish || isAwayFromStart)
 
@@ -160,36 +171,44 @@ object Learning {
 
   def smoothPath(dims: Point, start: Point, finish: Point, roughPathFuture: FutureO[List[Point]]): FutureO[RunResults] = {
     roughPathFuture.flatMap { roughPath =>
-      val height = dims.y
-      val width = dims.x
-      val minDim = Math.min(width, height)
-      val distanceOfExampleFromRoughPath = minDim * 0.05
-      val stepOfExampleGeneration = minDim * 0.03
+      if (roughPath.length < 3) {
+        FutureO(Future.successful(Some(RunResults(roughPath, "A* path is too short for smoothing"))))
+      } else {
+        val height = dims.y
+        val width = dims.x
+        val minDim = Math.min(width, height)
+        val distanceOfExampleFromRoughPath = minDim * 0.05
+        val stepOfExampleGeneration = minDim * 0.03
 
-      val examples = roughPath.sliding(2).flatMap { case a :: b :: Nil =>
-        val part = stepOfExampleGeneration / distance(a, b) + 0.05
-        (0.25 to 0.75 by part)
-          .map(t => pointInBetween(a, b)(t))
-          .flatMap { p =>
-            (1.0 to 5.0 by 0.5).map(c => InputMapper.getPivotPoints(a, b, p, c * distanceOfExampleFromRoughPath))
-          }
-          .flatMap { case (Point(ay, ax), Point(by, bx)) => List(Example(ay, ax, 1.0), Example(by, bx, -1.0)) }
-      }.toList
+        val examples = roughPath.sliding(2).flatMap {
+          case a :: b :: Nil =>
+            val part = stepOfExampleGeneration / distance(a, b) + 0.05
+            (0.25 to 0.75 by part)
+              .map(t => pointInBetween(a, b)(t))
+              .flatMap { p =>
+                (1.0 to 5.0 by 0.5).map(c => InputMapper.getPivotPoints(a, b, p, c * distanceOfExampleFromRoughPath))
+              }
+              .flatMap { case (Point(ay, ax), Point(by, bx)) => List(Example(ay, ax, 1.0), Example(by, bx, -1.0)) }
 
-      val inRanges = examples.filter { case Example(y, x, _) =>
-        0 < y && y < height && 0 < x && x < width
+          case other =>
+            throw new RuntimeException("Illegal list sequence in Learning: " + other)
+        }.toList
+
+        val inRanges = examples.filter { case Example(y, x, _, _) =>
+          0 < y && y < height && 0 < x && x < width
+        }
+
+        val normalized = inRanges.map { case Example(y, x, c, _) =>
+          Example(y / height, x / width, c)
+        }
+
+        val results = Learning.runSVM(normalized, dims, start, finish)
+
+        val result: Future[Option[RunResults]] =
+          Future.find(results)(checkPathCorrect(roughPath, inRanges, dims, start, finish, distanceOfExampleFromRoughPath / 2.0))
+
+        FutureO(result)
       }
-
-      val normalized = inRanges.map { case Example(y, x, c) =>
-        Example(y / height, x / width, c)
-      }
-
-      val results = Learning.runSVM(normalized, dims, start, finish)
-
-      val result: Future[Option[RunResults]] =
-        Future.find(results)(checkPathCorrect(roughPath, dims, start, finish, distanceOfExampleFromRoughPath / 2.0))
-
-      FutureO(result)
     }
   }
 

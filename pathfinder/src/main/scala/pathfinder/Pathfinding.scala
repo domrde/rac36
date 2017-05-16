@@ -67,7 +67,7 @@ class Pathfinding extends Actor with ActorLogging {
         case Success(value) =>
           context.actorOf(Worker.apply(value))
 
-        case Failure(exception) =>
+        case Failure(_) =>
       }
 
     case pf: PathfinderBrain.PathFound =>

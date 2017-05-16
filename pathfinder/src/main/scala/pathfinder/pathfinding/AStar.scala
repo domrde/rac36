@@ -14,20 +14,16 @@ import scala.concurrent.ExecutionContext.Implicits.global
   */
 object AStar {
 
-  def extractStartAndFinish(start: Point, finish: Point, patches: List[MapPatch]): (Option[MapPatch], Option[MapPatch]) = {
+  def extractStartAndFinish(start: Point, finish: Point, patches: List[MapPatch]): (MapPatch, MapPatch) = {
     val polygons = patches.map(patch => (patch, Polygon(patch.coordinates)))
 
-    val startPoly = polygons.find { case (_, polygon) =>
-      val (min, max) = polygon.getBoundingBox
-      min.y <= start.y && start.y <= max.y &&
-        min.x <= start.x && start.x <= max.x
-    }.map(_._1)
+    val startPoly = polygons.minBy { case (_, polygon) =>
+      Globals.distance(polygon.centroid, start)
+    }._1
 
-    val finishPoly = polygons.find { case (_, polygon) =>
-      val (min, max) = polygon.getBoundingBox
-      min.y <= finish.y && finish.y <= max.y &&
-        min.x <= finish.x && finish.x <= max.x
-    }.map(_._1)
+    val finishPoly = polygons.minBy { case (_, polygon) =>
+      Globals.distance(polygon.centroid, finish)
+    }._1
 
     (startPoly, finishPoly)
   }
@@ -59,14 +55,8 @@ object AStar {
   }
 
   def findPath(start: Point, finish: Point, patches: List[MapPatch]): Option[List[Point]] = {
-    extractStartAndFinish(start, finish, patches) match {
-      case (Some(startPoly), Some(finishPoly)) =>
-        doFindPath(startPoly, finishPoly, patches)
-
-      case _ =>
-        println("A*: Start or finish patches not found")
-        None
-    }
+    val (startPoly, finishPoly) = extractStartAndFinish(start, finish, patches)
+    doFindPath(startPoly, finishPoly, patches)
   }
 
   private def doFindPath(start: MapPatch, finish: MapPatch, patches: List[MapPatch]): Option[List[Point]] = {
