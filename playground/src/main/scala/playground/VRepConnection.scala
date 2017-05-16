@@ -29,7 +29,7 @@ object VRepConnection {
     //   /    \
     //  14    11
 
-    private val speed = 1f
+    private val speed = 2f
     private val leftMotor = api.joint.withVelocityControl("Pioneer_p3dx_leftMotor" + id).get
     private val rightMotor = api.joint.withVelocityControl("Pioneer_p3dx_rightMotor" + id).get
     val sensors: List[ProximitySensor] =
@@ -49,8 +49,8 @@ object VRepConnection {
       val curAngle = gps.orientation.gamma * 180.0 / Math.PI
       val diff = angle - curAngle
       val sign = diff / Math.abs(diff)
-      leftMotor.setTargetVelocity((sign * 0.35f).toFloat)
-      rightMotor.setTargetVelocity((sign * -0.35f).toFloat)
+      leftMotor.setTargetVelocity((sign * -1f).toFloat)
+      rightMotor.setTargetVelocity((sign * 1f).toFloat)
     }
 
     def stop(): Unit = {
@@ -211,16 +211,13 @@ class PositionPoller(id: String, robot: VRepConnection.PioneerP3dx) extends Acto
       log.error("PositionPoller: unknown message [{}] from [{}]", other, sender())
   }
 
-  def distance(p1: Position, p2: Position): Double =
-    Math.sqrt(Math.pow(p2.x - p1.x, 2.0) + Math.pow(p2.y - p1.y, 2.0))
-
   def receiveWithPrevPosition(previousPosition: Position): Receive = {
     case PollPosition =>
       Try {
         val updatedPosition = robot.gps.position
         val updatedAngle = robot.gps.orientation.gamma * 180.0 / Math.PI
         val curPos = Position(id, updatedPosition.y, updatedPosition.x, 0.5, updatedAngle)
-        if (distance(curPos, previousPosition) < 2.5) {
+        if (Math.abs(curPos.x - previousPosition.x) < 0.5 && Math.abs(curPos.y - previousPosition.y) < 0.5) {
           context.parent ! VRepConnection.RobotPosition(curPos)
           context.become(receiveWithPrevPosition(curPos))
         } else {

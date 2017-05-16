@@ -50,17 +50,25 @@ class Worker(request: PathfinderBrain.FindPath) extends Actor with ActorLogging 
 
   override def receive: Receive = {
     case r: PathfinderBrain.FindPath =>
-      val path: List[Point] =
-        if (r.client == "#0") {
-          List(Point(8.25, 1.87), Point(7.52, 2.65), Point(7.93, 3.2), Point(8.2, 3.4), Point(8.3, 4.25),
-          Point(8.4, 4.6), Point(8.1, 5.0), Point(5.0, 5.0))
-        } else if (r.client == "#1") {
-          List(Point(1.0, 2.3), Point(1.0, 2.85), Point(0.9, 3.5), Point(1.0, 4.0), Point(1.5, 4.6), Point(5.0, 5.0))
-        } else {
-          List(Point(1.3, 8.7), Point(8.6, 8.6), Point(5, 5))
-        }
-      val switchedYX = path.map(p => pointToPathPoint(Point(p.x, p.y)))
-      context.parent ! PathfinderBrain.PathFound(request.client, switchedYX, isStraightLine = false)
+      request.sensory.find { case Position(name, _, _, _, _) => name == request.client } match {
+        case Some(cur) =>
+          val path: List[Point] =
+            if (r.client == "#0") {
+              List(Point(8.25, 1.87), Point(7.52, 2.65), Point(7.93, 3.2), Point(8.2, 3.4), Point(8.3, 4.25),
+                Point(8.4, 4.6), Point(8.1, 5.0), Point(5.0, 5.0))
+            } else if (r.client == "#1") {
+              List(Point(1.0, 2.3), Point(1.0, 2.85), Point(0.9, 3.5), Point(1.0, 4.0), Point(1.5, 4.6), Point(5.0, 5.0))
+            } else {
+              List(Point(1.3, 8.7), Point(8.6, 8.6), Point(5, 5))
+            }
+          val switchedYX = path.map(p => pointToPathPoint(Point(p.x, p.y)))
+          val dropIdx = switchedYX.zipWithIndex.minBy(pair => distance(cur, pair._1))._2
+          context.parent ! PathfinderBrain.PathFound(request.client, switchedYX.drop(dropIdx), isStraightLine = false)
+
+        case None =>
+
+      }
+
 
     //
     //      request.sensory.find { case Position(name, _, _, _, _) => name == request.client } match {
