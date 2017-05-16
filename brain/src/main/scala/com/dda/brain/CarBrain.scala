@@ -51,6 +51,7 @@ class CarBrain(id: String) extends BrainActor(id) {
         }
 
       if (newCommand != previousCommand) {
+        log.info("{} {}, {} != {}", id, newCommand, path.path.headOption, curPos)
         avatar ! FromAvatarToRobot(newCommand)
         previousCommand = newCommand
       }

@@ -223,6 +223,8 @@ class PositionPoller(id: String, robot: VRepConnection.PioneerP3dx) extends Acto
         if (distance(curPos, previousPosition) < 2.5) {
           context.parent ! VRepConnection.RobotPosition(curPos)
           context.become(receiveWithPrevPosition(curPos))
+        } else {
+          log.error("Distance between positions is too far away")
         }
       }
   }
