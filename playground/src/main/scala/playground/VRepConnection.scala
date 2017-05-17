@@ -46,11 +46,13 @@ object VRepConnection {
     }
 
     def rotate(angle: Double): Unit = {
-      val curAngle = gps.orientation.gamma * 180.0 / Math.PI
-      val diff = angle - curAngle
-      val sign = diff / Math.abs(diff)
-      leftMotor.setTargetVelocity((sign * -1f).toFloat)
-      rightMotor.setTargetVelocity((sign * 1f).toFloat)
+//      val curAngle = gps.orientation.gamma * 180.0 / Math.PI
+//      val diff = angle - curAngle
+//      val sign = diff / Math.abs(diff)
+//      leftMotor.setTargetVelocity((sign * -0.5f).toFloat)
+//      rightMotor.setTargetVelocity((sign * 0.5f).toFloat)
+      leftMotor.setTargetVelocity(-0.5f)
+      rightMotor.setTargetVelocity(0.5f)
     }
 
     def stop(): Unit = {
@@ -68,11 +70,12 @@ object VRepConnection {
   case object Stop extends RobotCommand
 }
 
-class VRepConnection(id: String, api: VRepAPI) extends Actor with ActorLogging {
+class VRepConnection(id: String) extends Actor with ActorLogging {
   import VRepConnection._
   private implicit val executionContext = context.dispatcher
   private implicit val system = context.system
   private val config = ConfigFactory.load()
+  private val api = VRepAPI.connect("127.0.0.1", 19997).get
 
   private val robot = new PioneerP3dx(api, id)
   if (config.getBoolean("playground.full-knowledge")) {
@@ -90,11 +93,11 @@ class VRepConnection(id: String, api: VRepAPI) extends Actor with ActorLogging {
     case RobotPosition(robotPosition) =>
       context.parent ! Sensory(id, Set(robotPosition))
       val updatedAngle = robotPosition.angle
-      if (targetRotation.isDefined && Math.abs(updatedAngle - targetRotation.get) < 10) {
+      if (targetRotation.isDefined && Math.abs(updatedAngle - targetRotation.get) < 25) {
         robot.stop()
-        context.become(receiveWithCurrentPosition(previousCommand, None))
+        context.become(receiveWithCurrentPosition(Stop, None))
       } else {
-        context.become(receiveWithCurrentPosition(previousCommand, targetRotation))
+        context.become(receiveWithCurrentPosition(Stop, targetRotation))
       }
 
     case RobotSensors(obstacles) =>
@@ -195,7 +198,7 @@ class PositionPoller(id: String, robot: VRepConnection.PioneerP3dx) extends Acto
   private implicit val executionContext = context.dispatcher
   private implicit val system = context.system
 
-  context.system.scheduler.schedule((Random.nextInt(500) + 100).millis, (Random.nextInt(10) + 50).millis, self, PollPosition)
+  context.system.scheduler.schedule((Random.nextInt(500) + 100).millis, (Random.nextInt(10) + 100).millis, self, PollPosition)
 
   override def receive: Receive = {
     case PollPosition =>
@@ -220,8 +223,6 @@ class PositionPoller(id: String, robot: VRepConnection.PioneerP3dx) extends Acto
         if (Math.abs(curPos.x - previousPosition.x) < 0.5 && Math.abs(curPos.y - previousPosition.y) < 0.5) {
           context.parent ! VRepConnection.RobotPosition(curPos)
           context.become(receiveWithPrevPosition(curPos))
-        } else {
-          log.error("Distance between positions is too far away")
         }
       }
   }

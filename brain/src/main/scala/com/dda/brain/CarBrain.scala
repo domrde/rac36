@@ -38,7 +38,7 @@ class CarBrain(id: String) extends BrainActor(id) {
           if (path.path.nonEmpty) {
             val nextStep = path.path.head
             val angleToPoint = Math.atan2(nextStep.y - curPos.y, nextStep.x - curPos.x) * 180.0 / Math.PI
-            if (Math.abs(curPos.angle - angleToPoint) > 15) {
+            if (Math.abs(curPos.angle - angleToPoint) > 30) {
               "rotate=" + Math.ceil(angleToPoint)
             } else {
               "forward"
