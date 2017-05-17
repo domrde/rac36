@@ -18,6 +18,11 @@ object VRepConnection {
   case object PollSensors
   case class RobotPosition(position: Position)
   case class RobotSensors(obstacles: List[Position])
+  case class TargetPoint(y: Double, x: Double)
+
+  def distance(p1: Position, p2: TargetPoint): Double = {
+    Math.sqrt(Math.pow(p2.x - p1.x, 2.0) + Math.pow(p2.y - p1.y, 2.0))
+  }
 
   class PioneerP3dx(api: VRepAPI, id: String) {
     //  3  4   6
@@ -32,8 +37,6 @@ object VRepConnection {
     private val speed = 2f
     private val leftMotor = api.joint.withVelocityControl("Pioneer_p3dx_leftMotor" + id).get
     private val rightMotor = api.joint.withVelocityControl("Pioneer_p3dx_rightMotor" + id).get
-//    val sensors: List[ProximitySensor] =
-//      List(1, 3, 4, 6, 8, 11, 14).map(i => api.sensor.proximity("Pioneer_p3dx_ultrasonicSensor" + i + id).get)
 
     def moveForward(): Unit = {
       leftMotor.setTargetVelocity(speed)
@@ -45,14 +48,24 @@ object VRepConnection {
       rightMotor.setTargetVelocity(-speed)
     }
 
-    def rotate(angle: Double): Unit = {
-//      val curAngle = gps.orientation.gamma * 180.0 / Math.PI
-//      val diff = angle - curAngle
-//      val sign = diff / Math.abs(diff)
-//      leftMotor.setTargetVelocity((sign * -0.5f).toFloat)
-//      rightMotor.setTargetVelocity((sign * 0.5f).toFloat)
-      leftMotor.setTargetVelocity(-0.5f)
-      rightMotor.setTargetVelocity(0.5f)
+    def forwardRight(): Unit = {
+      leftMotor.setTargetVelocity(speed)
+      rightMotor.setTargetVelocity(0.5f * speed)
+    }
+
+    def forwardLeft(): Unit = {
+      leftMotor.setTargetVelocity(0.5f * speed)
+      rightMotor.setTargetVelocity(speed)
+    }
+
+    def right(): Unit = {
+      leftMotor.setTargetVelocity(0.5f * speed)
+      rightMotor.setTargetVelocity(-0.5f * speed)
+    }
+
+    def left(): Unit = {
+      leftMotor.setTargetVelocity(-0.5f * speed)
+      rightMotor.setTargetVelocity(0.5f * speed)
     }
 
     def stop(): Unit = {
@@ -61,21 +74,29 @@ object VRepConnection {
     }
 
     val gps: PositionSensor = api.sensor.position("Pioneer_p3dx_gps" + id).get
+
+    //    val leftSensors: List[ProximitySensor] =
+    //      List(2, 3).map(i => api.sensor.proximity("Pioneer_p3dx_ultrasonicSensor" + i + id).get)
+    //
+    //    val rightSensors: List[ProximitySensor] =
+    //      List(6, 7).map(i => api.sensor.proximity("Pioneer_p3dx_ultrasonicSensor" + i + id).get)
   }
 
   sealed trait RobotCommand
   case object Forward extends RobotCommand
-  case object RotatePositive extends RobotCommand
-  case object RotateNegative extends RobotCommand
+  case object ForwardRight extends RobotCommand
+  case object ForwardLeft extends RobotCommand
+  case object RotateRight extends RobotCommand
+  case object RotateLeft extends RobotCommand
   case object Stop extends RobotCommand
+
 }
 
-class VRepConnection(id: String) extends Actor with ActorLogging {
+class VRepConnection(id: String, api: VRepAPI) extends Actor with ActorLogging {
   import VRepConnection._
   private implicit val executionContext = context.dispatcher
   private implicit val system = context.system
   private val config = ConfigFactory.load()
-  private val api = VRepAPI.connect("127.0.0.1", 19997).get
 
   private val robot = new PioneerP3dx(api, id)
   if (config.getBoolean("playground.full-knowledge")) {
@@ -85,50 +106,70 @@ class VRepConnection(id: String) extends Actor with ActorLogging {
   }
   context.actorOf(Props(classOf[PositionPoller], id, robot), "PositionPoller" + id.substring(1))
 
-  override def receive: Receive = receiveWithCurrentPosition(Stop, None)
+  override def receive: Receive = receiveWithTargetPoint(None, Stop)
 
-  private val rotateRegExp = "rotate=([\\-\\d\\.]+)".r
+  private val rotateRegExp = "move=([\\-\\d\\.]+),([\\-\\d\\.]+)".r
 
-  def receiveWithCurrentPosition(previousCommand: RobotCommand, targetRotation: Option[Double]): Receive = {
+  def receiveWithTargetPoint(targetPoint: Option[TargetPoint], previousCommand: RobotCommand): Receive = {
     case RobotPosition(robotPosition) =>
       context.parent ! Sensory(id, Set(robotPosition))
       val updatedAngle = robotPosition.angle
-      if (targetRotation.isDefined && Math.abs(updatedAngle - targetRotation.get) < 25) {
-        robot.stop()
-        context.become(receiveWithCurrentPosition(Stop, None))
+      if (targetPoint.isDefined) {
+        val nextStep = targetPoint.get
+        val angleToPoint = Math.atan2(nextStep.y - robotPosition.y, nextStep.x - robotPosition.x) * 180.0 / Math.PI
+        val angleDiff = updatedAngle - angleToPoint
+        val angleAbsDiff = Math.abs(angleDiff)
+        if (angleAbsDiff < 10) {
+          if (previousCommand != Forward) {
+            robot.moveForward()
+            context.become(receiveWithTargetPoint(targetPoint, Forward))
+          }
+        } else if (angleAbsDiff < 45) {
+          if (angleDiff < 0) {
+            if (previousCommand != ForwardRight) {
+              robot.forwardRight()
+              context.become(receiveWithTargetPoint(targetPoint, ForwardRight))
+            }
+          } else {
+            if (previousCommand != ForwardLeft) {
+              robot.forwardLeft()
+              context.become(receiveWithTargetPoint(targetPoint, ForwardLeft))
+            }
+          }
+        } else {
+          if (angleDiff < 0) {
+            if (previousCommand != RotateRight) {
+              robot.right()
+              context.become(receiveWithTargetPoint(targetPoint, RotateRight))
+            }
+          } else {
+            if (previousCommand != RotateLeft) {
+              robot.left()
+              context.become(receiveWithTargetPoint(targetPoint, RotateLeft))
+            }
+          }
+        }
       } else {
-        context.become(receiveWithCurrentPosition(Stop, targetRotation))
+        if (previousCommand != Stop) {
+          robot.stop()
+          context.become(receiveWithTargetPoint(targetPoint, Stop))
+        }
       }
 
     case RobotSensors(obstacles) =>
       context.parent ! Sensory(id, obstacles.toSet)
 
-    case FromAvatarToRobot(_id, "forward") if _id == id =>
-      if (previousCommand != Forward) {
-        context.become(receiveWithCurrentPosition(Forward, None))
-        log.info("Forward")
-        robot.moveForward()
-      }
-
     case FromAvatarToRobot(_id, "stop") if _id == id =>
       if (previousCommand != Stop) {
-        context.become(receiveWithCurrentPosition(Stop, None))
-        log.info("Stop")
         robot.stop()
+        context.become(receiveWithTargetPoint(None, Stop))
       }
 
     case FromAvatarToRobot(_id, command) if _id == id =>
       Try {
-        val rotateRegExp(angleString) = command
+        val rotateRegExp(yString, xString) = command
         log.info(command)
-        val angle = angleString.toDouble
-        if (angle > 0 && previousCommand != RotatePositive) {
-          robot.rotate(angle.toDouble)
-          context.become(receiveWithCurrentPosition(RotatePositive, Some(angle.toDouble)))
-        } else if (angle < 0 && previousCommand != RotateNegative) {
-          robot.rotate(angle.toDouble)
-          context.become(receiveWithCurrentPosition(RotateNegative, Some(angle.toDouble)))
-        }
+        context.become(receiveWithTargetPoint(Some(TargetPoint(yString.toDouble, xString.toDouble)), previousCommand))
       }
 
     case other =>
@@ -176,18 +217,18 @@ class SensoryPoller(id: String, robot: VRepConnection.PioneerP3dx) extends Actor
 
   override def receive: Receive = {
     case PollSensors =>
-//      Try {
-//        val obstacles = robot.sensors.par.flatMap { sensor =>
-//          val read = sensor.read
-//          if (read.detectionState && zeroVelocity(read.detectedObject.velocity)) {
-//            val p = read.detectedObject.position
-//            Some(Position(Constants.OBSTACLE_NAME, p.y, p.x, 0.15, 0))
-//          } else {
-//            None
-//          }
-//        }.toList
-//        context.parent ! VRepConnection.RobotSensors(obstacles)
-//      }
+    //      Try {
+    //        val obstacles = robot.sensors.par.flatMap { sensor =>
+    //          val read = sensor.read
+    //          if (read.detectionState && zeroVelocity(read.detectedObject.velocity)) {
+    //            val p = read.detectedObject.position
+    //            Some(Position(Constants.OBSTACLE_NAME, p.y, p.x, 0.15, 0))
+    //          } else {
+    //            None
+    //          }
+    //        }.toList
+    //        context.parent ! VRepConnection.RobotSensors(obstacles)
+    //      }
 
     case other =>
       log.error("SensoryPoller: unknown message [{}] from [{}]", other, sender())

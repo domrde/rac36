@@ -13,10 +13,10 @@ import scala.util.Random
   * Created by dda on 12.04.17.
   */
 object Car {
-  def apply(id: String): Props = Props(classOf[Car], id)
+  def apply(id: String, api: VRepAPI): Props = Props(classOf[Car], id, api)
 }
 
-class Car(id: String) extends Actor with ActorLogging {
+class Car(id: String, api: VRepAPI) extends Actor with ActorLogging {
   case object StartVrep
 
   private implicit val executionContext = context.dispatcher
@@ -28,7 +28,7 @@ class Car(id: String) extends Actor with ActorLogging {
 
   override def receive: Receive = {
     case StartVrep =>
-      val vrep = context.actorOf(Props(classOf[VRepConnection], id), "VRepConnection" + id.substring(1))
+      val vrep = context.actorOf(Props(classOf[VRepConnection], id, api), "VRepConnection" + id.substring(1))
       log.info("Car {} initialized", id)
       context.become(receiveWithActorStarted(vrep))
 

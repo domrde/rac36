@@ -16,7 +16,7 @@ object Boot extends App {
   val config = ConfigFactory.load()
   val api = VRepAPI.connect("127.0.0.1", 19997).get
 
-  config.getStringList("playground.car-ids").map(id => system.actorOf(Car(id), "Car" + id.substring(1)))
+  config.getStringList("playground.car-ids").map(id => system.actorOf(Car(id, api), "Car" + id.substring(1)))
   api.simulation.start()
   system.registerOnTermination(() => api.simulation.stop())
 }
