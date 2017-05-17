@@ -15,10 +15,6 @@ class CarBrain(id: String) extends BrainActor(id) {
   private implicit val executionContext = context.dispatcher
   private implicit val system = context.system
 
-  val cancellation = context.system.scheduler.schedule(10.second, 10.second) {
-    avatar ! TellToOtherAvatar("pathfinder", write(Request(target)))
-  }
-
   val target = PathPoint(5.0, 5.0)
   val pathDelta = 1.0
   var previousCommand = ""
@@ -42,6 +38,7 @@ class CarBrain(id: String) extends BrainActor(id) {
             "stop"
           }
         } else {
+          log.info("Destination reached.")
           cancellation.cancel()
           "stop"
         }
@@ -71,6 +68,10 @@ class CarBrain(id: String) extends BrainActor(id) {
   }
 
   override protected def handleRobotMessage(message: String): Unit = {
+  }
+
+  private val cancellation = context.system.scheduler.schedule(10.second, 10.second) {
+    avatar ! TellToOtherAvatar("pathfinder", write(Request(target)))
   }
 
 }
