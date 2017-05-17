@@ -59,13 +59,13 @@ object VRepConnection {
     }
 
     def right(): Unit = {
-      leftMotor.setTargetVelocity(0.5f * speed)
-      rightMotor.setTargetVelocity(-0.5f * speed)
+      leftMotor.setTargetVelocity(0.5f)
+      rightMotor.setTargetVelocity(-0.5f)
     }
 
     def left(): Unit = {
-      leftMotor.setTargetVelocity(-0.5f * speed)
-      rightMotor.setTargetVelocity(0.5f * speed)
+      leftMotor.setTargetVelocity(-0.5f)
+      rightMotor.setTargetVelocity(0.5f)
     }
 
     def stop(): Unit = {
@@ -84,8 +84,8 @@ object VRepConnection {
 
   sealed trait RobotCommand
   case object Forward extends RobotCommand
-  case object ForwardRight extends RobotCommand
-  case object ForwardLeft extends RobotCommand
+//  case object ForwardRight extends RobotCommand
+//  case object ForwardLeft extends RobotCommand
   case object RotateRight extends RobotCommand
   case object RotateLeft extends RobotCommand
   case object Stop extends RobotCommand
@@ -97,6 +97,8 @@ class VRepConnection(id: String, api: VRepAPI) extends Actor with ActorLogging {
   private implicit val executionContext = context.dispatcher
   private implicit val system = context.system
   private val config = ConfigFactory.load()
+
+  log.info("Starting VRepConnection {}", id)
 
   private val robot = new PioneerP3dx(api, id)
   if (config.getBoolean("playground.full-knowledge")) {
@@ -119,31 +121,36 @@ class VRepConnection(id: String, api: VRepAPI) extends Actor with ActorLogging {
         val angleToPoint = Math.atan2(nextStep.y - robotPosition.y, nextStep.x - robotPosition.x) * 180.0 / Math.PI
         val angleDiff = updatedAngle - angleToPoint
         val angleAbsDiff = Math.abs(angleDiff)
-        if (angleAbsDiff < 10) {
+        if (angleAbsDiff < 30) {
           if (previousCommand != Forward) {
+            log.info("{} -> Angle diff {}, forward", id, angleDiff)
             robot.moveForward()
             context.become(receiveWithTargetPoint(targetPoint, Forward))
           }
-        } else if (angleAbsDiff < 45) {
-          if (angleDiff < 0) {
-            if (previousCommand != ForwardRight) {
-              robot.forwardRight()
-              context.become(receiveWithTargetPoint(targetPoint, ForwardRight))
-            }
-          } else {
-            if (previousCommand != ForwardLeft) {
-              robot.forwardLeft()
-              context.become(receiveWithTargetPoint(targetPoint, ForwardLeft))
-            }
-          }
-        } else {
-          if (angleDiff < 0) {
+        }
+//        else if (angleAbsDiff < 45) {
+//          if (angleDiff < 0) {
+//            if (previousCommand != ForwardRight) {
+//              robot.forwardRight()
+//              context.become(receiveWithTargetPoint(targetPoint, ForwardRight))
+//            }
+//          } else {
+//            if (previousCommand != ForwardLeft) {
+//              robot.forwardLeft()
+//              context.become(receiveWithTargetPoint(targetPoint, ForwardLeft))
+//            }
+//          }
+//        }
+        else {
+          if (angleDiff > 0) {
             if (previousCommand != RotateRight) {
+              log.info("{} -> Angle diff {}, rotating right", id, angleDiff)
               robot.right()
               context.become(receiveWithTargetPoint(targetPoint, RotateRight))
             }
           } else {
             if (previousCommand != RotateLeft) {
+              log.info("{} -> Angle diff {}, rotating right", id, angleDiff)
               robot.left()
               context.become(receiveWithTargetPoint(targetPoint, RotateLeft))
             }
@@ -151,6 +158,7 @@ class VRepConnection(id: String, api: VRepAPI) extends Actor with ActorLogging {
         }
       } else {
         if (previousCommand != Stop) {
+          log.info("{} -> Stop", id)
           robot.stop()
           context.become(receiveWithTargetPoint(targetPoint, Stop))
         }
@@ -175,15 +183,13 @@ class VRepConnection(id: String, api: VRepAPI) extends Actor with ActorLogging {
     case other =>
       log.error("VRepConnection: unknown message [{}] from [{}]", other, sender())
   }
-
-  robot.stop()
 }
 
 class FullKnowledgePoller(id: String, api: VRepAPI) extends Actor with ActorLogging {
   private implicit val executionContext = context.dispatcher
   private implicit val system = context.system
 
-  context.system.scheduler.schedule((Random.nextInt(500) + 100).millis, (Random.nextInt(10) + 500).millis, self, PollSensors)
+  context.system.scheduler.schedule((Random.nextInt(500) + 100).millis, (Random.nextInt(10) + 1500).millis, self, PollSensors)
 
   override def receive: Receive = {
     case PollSensors =>
@@ -239,7 +245,7 @@ class PositionPoller(id: String, robot: VRepConnection.PioneerP3dx) extends Acto
   private implicit val executionContext = context.dispatcher
   private implicit val system = context.system
 
-  context.system.scheduler.schedule((Random.nextInt(500) + 100).millis, (Random.nextInt(10) + 100).millis, self, PollPosition)
+  context.system.scheduler.schedule((Random.nextInt(500) + 100).millis, (Random.nextInt(10) + 300).millis, self, PollPosition)
 
   override def receive: Receive = {
     case PollPosition =>

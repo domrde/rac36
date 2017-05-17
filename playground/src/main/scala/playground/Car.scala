@@ -22,7 +22,7 @@ class Car(id: String, api: VRepAPI) extends Actor with ActorLogging {
   private implicit val executionContext = context.dispatcher
   private implicit val system = context.system
 
-  context.system.scheduler.scheduleOnce((Random.nextInt(10) * 150).millis, self, StartVrep)
+  context.system.scheduler.scheduleOnce((Random.nextInt(20) * 30).millis, self, StartVrep)
 
   private val avatar = context.actorOf(Props(classOf[ZMQConnection], id), "ZMQConnection" + id.substring(1))
 
