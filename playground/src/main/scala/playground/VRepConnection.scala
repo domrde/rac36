@@ -32,8 +32,8 @@ object VRepConnection {
     private val speed = 2f
     private val leftMotor = api.joint.withVelocityControl("Pioneer_p3dx_leftMotor" + id).get
     private val rightMotor = api.joint.withVelocityControl("Pioneer_p3dx_rightMotor" + id).get
-    val sensors: List[ProximitySensor] =
-      List(1, 3, 4, 6, 8, 11, 14).map(i => api.sensor.proximity("Pioneer_p3dx_ultrasonicSensor" + i + id).get)
+//    val sensors: List[ProximitySensor] =
+//      List(1, 3, 4, 6, 8, 11, 14).map(i => api.sensor.proximity("Pioneer_p3dx_ultrasonicSensor" + i + id).get)
 
     def moveForward(): Unit = {
       leftMotor.setTargetVelocity(speed)
@@ -176,18 +176,18 @@ class SensoryPoller(id: String, robot: VRepConnection.PioneerP3dx) extends Actor
 
   override def receive: Receive = {
     case PollSensors =>
-      Try {
-        val obstacles = robot.sensors.par.flatMap { sensor =>
-          val read = sensor.read
-          if (read.detectionState && zeroVelocity(read.detectedObject.velocity)) {
-            val p = read.detectedObject.position
-            Some(Position(Constants.OBSTACLE_NAME, p.y, p.x, 0.15, 0))
-          } else {
-            None
-          }
-        }.toList
-        context.parent ! VRepConnection.RobotSensors(obstacles)
-      }
+//      Try {
+//        val obstacles = robot.sensors.par.flatMap { sensor =>
+//          val read = sensor.read
+//          if (read.detectionState && zeroVelocity(read.detectedObject.velocity)) {
+//            val p = read.detectedObject.position
+//            Some(Position(Constants.OBSTACLE_NAME, p.y, p.x, 0.15, 0))
+//          } else {
+//            None
+//          }
+//        }.toList
+//        context.parent ! VRepConnection.RobotSensors(obstacles)
+//      }
 
     case other =>
       log.error("SensoryPoller: unknown message [{}] from [{}]", other, sender())
