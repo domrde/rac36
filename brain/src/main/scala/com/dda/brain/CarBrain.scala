@@ -15,7 +15,7 @@ class CarBrain(id: String) extends BrainActor(id) {
   private implicit val executionContext = context.dispatcher
   private implicit val system = context.system
 
-  context.system.scheduler.schedule(10.second, 10.second) {
+  val cancellation = context.system.scheduler.schedule(10.second, 10.second) {
     avatar ! TellToOtherAvatar("pathfinder", write(Request(target)))
   }
 
@@ -42,6 +42,7 @@ class CarBrain(id: String) extends BrainActor(id) {
             "stop"
           }
         } else {
+          cancellation.cancel()
           "stop"
         }
 

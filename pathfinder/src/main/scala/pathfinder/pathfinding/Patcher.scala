@@ -465,6 +465,11 @@ object Patcher {
 
   def preparePatches(dims: Point, obstacles: List[Obstacle]): Future[List[MapPatch]] = {
     val polygons: List[Polygon] = InputMapper.mapObstaclesToPolygons(obstacles)
-    mapObstaclesToPatches(dims, polygons)
+    if (polygons.length < 2) {
+      println("There is no polygons for patches to make")
+      Future.successful(List.empty)
+    } else {
+      mapObstaclesToPatches(dims, polygons)
+    }
   }
 }

@@ -48,15 +48,20 @@ object AStar {
 
   def findPath(start: Point, finish: Point, patches: Future[List[MapPatch]]): FutureO[List[Point]] = {
     FutureO(
-      patches.map { patches =>
-        findPath(start, finish, patches)
+      patches.map { patchesInner =>
+        findPath(start, finish, patchesInner)
       }
     )
   }
 
   def findPath(start: Point, finish: Point, patches: List[MapPatch]): Option[List[Point]] = {
-    val (startPoly, finishPoly) = extractStartAndFinish(start, finish, patches)
-    doFindPath(startPoly, finishPoly, patches)
+    if (patches.length < 2) {
+      println("A* got not patches")
+      None
+    } else {
+      val (startPoly, finishPoly) = extractStartAndFinish(start, finish, patches)
+      doFindPath(startPoly, finishPoly, patches)
+    }
   }
 
   private def doFindPath(start: MapPatch, finish: MapPatch, patches: List[MapPatch]): Option[List[Point]] = {

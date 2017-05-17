@@ -172,6 +172,7 @@ object Learning {
   def smoothPath(dims: Point, start: Point, finish: Point, roughPathFuture: FutureO[List[Point]]): FutureO[RunResults] = {
     roughPathFuture.flatMap { roughPath =>
       if (roughPath.length < 3) {
+        println("A* path is too short for smoothing")
         FutureO(Future.successful(Some(RunResults(roughPath, "A* path is too short for smoothing"))))
       } else {
         val height = dims.y
