@@ -62,7 +62,7 @@ class Worker(request: PathfinderBrain.FindPath) extends Actor with ActorLogging 
               List(Point(1.3, 8.7), Point(8.6, 8.6), Point(5, 5))
             }
           val switchedYX = path.map(p => pointToPathPoint(Point(p.x, p.y)))
-          val dropIdx = switchedYX.zipWithIndex.minBy(pair => distance(cur, pair._1))._2
+          val dropIdx = switchedYX.zipWithIndex.minBy(pair => distance(cur, pair._1))._2 + 1
           context.parent ! PathfinderBrain.PathFound(request.client, switchedYX.drop(dropIdx), isStraightLine = false)
 
         case None =>

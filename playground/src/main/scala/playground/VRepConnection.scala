@@ -168,7 +168,7 @@ class VRepConnection(id: String, api: VRepAPI) extends Actor with ActorLogging {
     case FromAvatarToRobot(_id, command) if _id == id =>
       Try {
         val rotateRegExp(yString, xString) = command
-        log.info(command)
+        log.info(id + " -> " + command)
         context.become(receiveWithTargetPoint(Some(TargetPoint(yString.toDouble, xString.toDouble)), previousCommand))
       }
 
