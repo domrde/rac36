@@ -25,6 +25,7 @@ class FullKnowledgeExperimentRunner(api: VRepAPI) extends Actor with ActorLoggin
   case object PollObstaclesPositions
   case object SendAwayPositions
 
+
   context.system.scheduler.schedule(100.millis, 40.millis, self, PollRobotsPositions)
   context.system.scheduler.schedule(200.millis, 2500.millis, self, PollObstaclesPositions)
   context.system.scheduler.schedule(2000.millis, 500.millis, self, SendAwayPositions)
