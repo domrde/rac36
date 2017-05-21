@@ -96,7 +96,7 @@ class FullKnowledgeExperimentRunner(api: VRepAPI) extends Actor with ActorLoggin
 object RobotMover {
 
   class PioneerP3dx(api: VRepAPI, id: String) {
-    private val speed = 1f
+    private val speed = 2f
     private val leftMotor = api.joint.withVelocityControl("Pioneer_p3dx_leftMotor" + id).get
     private val rightMotor = api.joint.withVelocityControl("Pioneer_p3dx_rightMotor" + id).get
 
@@ -148,7 +148,7 @@ class RobotMover(api: VRepAPI, id: String) extends Actor with ActorLogging {
         val angleToPoint = Math.atan2(nextStep.y - robotPosition.y, nextStep.x - robotPosition.x) * 180.0 / Math.PI
         val angleDiff = updatedAngle - angleToPoint
         val angleAbsDiff = Math.abs(angleDiff)
-        if (angleAbsDiff < 15) {
+        if (angleAbsDiff < 10) {
           if (previousCommand != Forward) {
             log.info("{} -> Pos {}. Angle diff {}, forward", id, robotPosition, angleDiff)
             robot.moveForward()
