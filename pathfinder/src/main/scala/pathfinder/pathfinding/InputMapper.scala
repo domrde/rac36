@@ -8,7 +8,7 @@ object InputMapper {
     def intersects(another: Group): Boolean = {
       members.exists { a =>
         another.members.exists { b =>
-          Math.pow(a.y - b.y, 2.0) + Math.pow(a.x - b.x, 2.0) <= Math.pow(a.r + b.r + 0.1, 2.0)
+          Math.pow(a.y - b.y, 2.0) + Math.pow(a.x - b.x, 2.0) <= Math.pow(a.r + b.r + 0.01, 2.0)
         }
       }
     }
@@ -43,35 +43,30 @@ object InputMapper {
 
   // todo: for now it ignores not grouped obstacles
   def mapObstaclesToPolygons(obstacles: List[Obstacle]): List[Polygon] = {
-    if (obstacles.isEmpty) {
-      println("There is no obstacles")
-      List.empty
-    } else {
-      val groups =
-        obstacles.sortBy(_.y).sortBy(_.x).foldLeft(Set.empty[Group]) { case (listOfGroups, obstacle) =>
-          val newGroup = Group(List(obstacle))
-          val possibleNeighbour = listOfGroups.find { group => group.intersects(newGroup) }
-          if (possibleNeighbour.isDefined) {
-            (listOfGroups - possibleNeighbour.get) + possibleNeighbour.get.merge(newGroup)
-          } else {
-            listOfGroups + newGroup
-          }
+    val groups =
+      obstacles.sortBy(_.y).sortBy(_.x).foldLeft(Set.empty[Group]) { case (listOfGroups, obstacle) =>
+        val newGroup = Group(List(obstacle))
+        val possibleNeighbour = listOfGroups.find { group => group.intersects(newGroup) }
+        if (possibleNeighbour.isDefined) {
+          (listOfGroups - possibleNeighbour.get) + possibleNeighbour.get.merge(newGroup)
+        } else {
+          listOfGroups + newGroup
         }
+      }
 
-      groups
-        .filter(group => group.members.length > 1)
-        .map { group =>
-          val maxRadius = group.members.maxBy(_.r).r
-          val dist = maxRadius / distance(group.members.head, group.members.last)
-          val start = pointInBetween(group.members.head, group.members.last)(1.0 + dist)
-          val end = pointInBetween(group.members.head, group.members.last)(0.0 - dist)
+    groups
+      .filter(group => group.members.length > 1)
+      .map { group =>
+        val maxRadius = group.members.maxBy(_.r).r
+        val dist = maxRadius / distance(group.members.head, group.members.last)
+        val start = pointInBetween(group.members.head, group.members.last)(1.0 + dist)
+        val end = pointInBetween(group.members.head, group.members.last)(0.0 - dist)
 
-          val nearStart = getPivotPoints(Point(start.y, start.x), Point(end.y, end.x), Point(start.y, start.x), maxRadius)
-          val nearFinish = getPivotPoints(Point(start.y, start.x), Point(end.y, end.x), Point(end.y, end.x), maxRadius)
-          Polygon(List(nearStart._1, nearStart._2, nearFinish._2, nearFinish._1))
-        }
-        .toList
-    }
+        val nearStart = getPivotPoints(Point(start.y, start.x), Point(end.y, end.x), Point(start.y, start.x), maxRadius)
+        val nearFinish = getPivotPoints(Point(start.y, start.x), Point(end.y, end.x), Point(end.y, end.x), maxRadius)
+        Polygon(List(nearStart._1, nearStart._2, nearFinish._2, nearFinish._1))
+      }
+      .toList
   }
 }
 

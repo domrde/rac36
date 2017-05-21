@@ -57,7 +57,7 @@ object AStar {
   def findPath(start: Point, finish: Point, patches: List[MapPatch]): Option[List[Point]] = {
     if (patches.length < 2) {
       println("A* got not patches")
-      None
+      Some(List(start, finish))
     } else {
       val (startPoly, finishPoly) = extractStartAndFinish(start, finish, patches)
       doFindPath(startPoly, finishPoly, patches)

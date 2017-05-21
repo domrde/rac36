@@ -43,7 +43,11 @@ class ZMQConnection(id: String) extends Actor with ActorLogging {
       stringifier = Props[StringifierImpl],
       targetAddress = self)
 
-    avatar ! Create(id, config.getString("playground.brain-jar"), config.getString("playground.brain-class"))
+    if (id == "camera") {
+      avatar ! Create(id, config.getString("playground.brain-jar"), config.getString("playground.camera-class"))
+    } else {
+      avatar ! Create(id, config.getString("playground.brain-jar"), config.getString("playground.brain-class"))
+    }
 
     avatar
   }

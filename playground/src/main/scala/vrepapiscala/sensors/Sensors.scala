@@ -59,7 +59,7 @@ class Sensors private[vrepapiscala](remote: remoteApi, id: Int) {
   def vision(name: String, width: Int, height: Int): Try[VisionSensor] =
     vision(name, width, height, OpMode.OneShotWait)
 
-  private def getObjectHandle(name: String): Option[Int] = {
+  def getObjectHandle(name: String): Option[Int] = {
     val h = new IntW(-1)
     val res = remote.simxGetObjectHandle(id, name, h, OpMode.OneShotWait.rawCode)
     if (res == remoteApi.simx_return_ok) {

@@ -26,6 +26,8 @@ class CarBrain(id: String) extends BrainActor(id) {
 
   override protected def handleSensory(payload: Set[Position]): Unit = {
     payload.find { case Position(_id, _, _, _, _) => id == _id }.foreach { curPos =>
+      log.info("New sensory {}", curPos)
+
       val newCommand =
         if (distance(curPos, target) > pathDelta) {
           if (path.path.nonEmpty) {

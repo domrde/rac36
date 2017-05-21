@@ -3,13 +3,14 @@ package vrepapiscala
 import java.io.{File, FileNotFoundException}
 import java.util.Locale
 
-import coppelia.remoteApi
+import coppelia.{FloatWA, IntWA, StringWA, remoteApi}
 import cz.adamh.utils.NativeUtils
-import vrepapiscala.common.ReturnCommandException
+import vrepapiscala.common.{EulerAngles, ReturnCommandException, Vec3}
 import vrepapiscala.joints.Joints
 import vrepapiscala.sensors._
 
 import scala.util.{Failure, Success, Try}
+import collection.JavaConverters._
 
 
 /**
@@ -54,6 +55,33 @@ class VRepAPI private(id: Int) extends AutoCloseable {
                 scriptType: ScriptType = ScriptType.ChildScript,
                 opMode: OpMode = OpMode.OneShotWait): ScriptFunction = {
     new ScriptFunction(remote, id, functionName, scriptType, scriptDescription, opMode)
+  }
+
+  def findAllSimpleShapesPositions(): List[Vec3] = {
+    val obstaclesPositionsCode = 3
+    val handlesArr = new IntWA(256)
+    val positionsArray = new FloatWA(1024)
+    remote.simxGetObjectGroupData(
+      id, remoteApi.sim_object_shape_type, obstaclesPositionsCode, handlesArr, new IntWA(0),
+      positionsArray, new StringWA(0), OpMode.OneShotWait.rawCode)
+    val positions = positionsArray.getArray.toList.grouped(3).toList
+    positions.map { case x :: y :: z :: Nil =>
+      Vec3(x, y, z)
+    }
+  }
+
+  def findAllForceSensorsPositions(): List[(Int, Vec3, EulerAngles)] = {
+    val positionsWithAnglesCode = 9
+    val handlesArr = new IntWA(256)
+    val positionsArray = new FloatWA(1024)
+    remote.simxGetObjectGroupData(
+      id, remoteApi.sim_object_forcesensor_type, positionsWithAnglesCode, handlesArr, new IntWA(0),
+      positionsArray, new StringWA(0), OpMode.OneShotWait.rawCode)
+    val positions = positionsArray.getArray.toList.grouped(6).toList
+    val handles = handlesArr.getArray.toList
+    positions.zip(handles).map { case (x :: y :: z :: a :: b :: g :: Nil, handle) =>
+      (handle, Vec3(x, y, z), EulerAngles(a, b, g))
+    }
   }
 
   override def close(): Unit = simulation.stop()
