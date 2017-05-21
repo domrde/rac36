@@ -23,9 +23,11 @@ class FullKnowledgeExperimentRunner(api: VRepAPI) extends Actor with ActorLoggin
 
   case object PollRobotsPositions
   case object PollObstaclesPositions
+  case object SendAwayPositions
 
-  context.system.scheduler.schedule(2100.millis, 40.millis, self, PollRobotsPositions)
-  context.system.scheduler.schedule(2200.millis, 2500.millis, self, PollObstaclesPositions)
+  context.system.scheduler.schedule(100.millis, 40.millis, self, PollRobotsPositions)
+  context.system.scheduler.schedule(200.millis, 2500.millis, self, PollObstaclesPositions)
+  context.system.scheduler.schedule(2000.millis, 500.millis, self, SendAwayPositions)
 
   private val robotIds = config.getStringList("playground.car-ids").toList
 
@@ -47,6 +49,9 @@ class FullKnowledgeExperimentRunner(api: VRepAPI) extends Actor with ActorLoggin
   override def receive: Receive = receiveWithStorage(Set.empty, Set.empty)
 
   def receiveWithStorage(robotsPositions: Set[Position], obstaclesPositions: Set[Position]): Receive = {
+    case SendAwayPositions =>
+      cameraAvatar ! Sensory("camera", robotsPositions ++ obstaclesPositions)
+
     case PollRobotsPositions =>
       val newRobotsPositions =
         api.findAllForceSensorsPositions().map { case (handle, Vec3(x, y, z), EulerAngles(a, b, g)) =>
@@ -55,23 +60,27 @@ class FullKnowledgeExperimentRunner(api: VRepAPI) extends Actor with ActorLoggin
           val angle = Math.round(g * 180.0 / Math.PI)
 
           val position =
-            Position(id, Math.round(x * 10.0) / 10.0, Math.round(y * 10.0) / 10.0, 0.5, angle)
+            Position(id, Math.round(y * 10.0) / 10.0, Math.round(x * 10.0) / 10.0, 0.5, angle)
 
           idToMover(id) ! position
 
           position
         }.toSet
       context.become(receiveWithStorage(newRobotsPositions, obstaclesPositions))
-      cameraAvatar ! Sensory("camera", robotsPositions ++ obstaclesPositions)
 
     case PollObstaclesPositions =>
-      val newObstacleTuples = api.findAllSimpleShapesPositions()
-        .filter(v => v.z > 0.1)
-        .filter(v => robotsPositions.exists(p => distance(v, p) > 0.25))
-        .map(v => (Math.round(v.x * 10.0) / 10.0, Math.round(v.y * 10.0) / 10.0)).toSet
-
       val newObstaclesPositions =
-        newObstacleTuples.map { case (y, x) => Position(Constants.OBSTACLE_NAME, y, x, 0.15, 0.0) }
+        api.findAllSimpleShapesPositions()
+          .filter(v => v.z > 0.1)
+          .filter(v => robotsPositions.exists(p => distance(v, p) > 0.25))
+          .map(v =>
+            Position(
+              Constants.OBSTACLE_NAME,
+              Math.round(v.y.toDouble * 10.0) / 10.0,
+              Math.round(v.x.toDouble * 10.0) / 10.0,
+              0.15,
+              0.0))
+          .toSet
 
       context.become(receiveWithStorage(robotsPositions, newObstaclesPositions))
 

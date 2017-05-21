@@ -26,8 +26,6 @@ class CarBrain(id: String) extends BrainActor(id) {
 
   override protected def handleSensory(payload: Set[Position]): Unit = {
     payload.find { case Position(_id, _, _, _, _) => id == _id }.foreach { curPos =>
-      log.info("New sensory {}", curPos)
-
       val newCommand =
         if (distance(curPos, target) > pathDelta) {
           if (path.path.nonEmpty) {
@@ -76,7 +74,7 @@ class CarBrain(id: String) extends BrainActor(id) {
   override protected def handleRobotMessage(message: String): Unit = {
   }
 
-  private val cancellation = context.system.scheduler.schedule(20.second, 45.second) {
+  private val cancellation = context.system.scheduler.schedule(5.second, 45.second) {
     avatar ! TellToOtherAvatar("pathfinder", write(Request(target)))
   }
 
