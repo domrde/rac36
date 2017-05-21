@@ -14,10 +14,10 @@ object Pathfinder {
     val patches: Future[List[MapPatch]] = Patcher.preparePatches(dims, obstacles)
     val roughPath: FutureO[List[Point]] = AStar.findPath(start, finish, patches)
 
-    roughPath.flatMap { roughPathInner =>
-      FutureO(Future.successful(Some(RunResults(roughPathInner, ""))))
-    }
+//    roughPath.flatMap { roughPathInner =>
+//      FutureO(Future.successful(Some(RunResults(roughPathInner, ""))))
+//    }
 
-//    Learning.smoothPath(dims, start, finish, roughPath)
+    Learning.smoothPath(dims, start, finish, roughPath)
   }
 }

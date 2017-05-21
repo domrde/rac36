@@ -48,15 +48,15 @@ object VRepConnection {
       rightMotor.setTargetVelocity(-speed)
     }
 
-    def forwardRight(): Unit = {
-      leftMotor.setTargetVelocity(speed)
-      rightMotor.setTargetVelocity(0.5f * speed)
-    }
-
-    def forwardLeft(): Unit = {
-      leftMotor.setTargetVelocity(0.5f * speed)
-      rightMotor.setTargetVelocity(speed)
-    }
+//    def forwardRight(): Unit = {
+//      leftMotor.setTargetVelocity(speed)
+//      rightMotor.setTargetVelocity(0.5f * speed)
+//    }
+//
+//    def forwardLeft(): Unit = {
+//      leftMotor.setTargetVelocity(0.5f * speed)
+//      rightMotor.setTargetVelocity(speed)
+//    }
 
     def right(): Unit = {
       leftMotor.setTargetVelocity(0.5f)
@@ -84,8 +84,8 @@ object VRepConnection {
 
   sealed trait RobotCommand
   case object Forward extends RobotCommand
-//  case object ForwardRight extends RobotCommand
-//  case object ForwardLeft extends RobotCommand
+  //  case object ForwardRight extends RobotCommand
+  //  case object ForwardLeft extends RobotCommand
   case object RotateRight extends RobotCommand
   case object RotateLeft extends RobotCommand
   case object Stop extends RobotCommand
@@ -128,19 +128,19 @@ class VRepConnection(id: String, api: VRepAPI) extends Actor with ActorLogging {
             context.become(receiveWithTargetPoint(targetPoint, Forward))
           }
         }
-//        else if (angleAbsDiff < 45) {
-//          if (angleDiff < 0) {
-//            if (previousCommand != ForwardRight) {
-//              robot.forwardRight()
-//              context.become(receiveWithTargetPoint(targetPoint, ForwardRight))
-//            }
-//          } else {
-//            if (previousCommand != ForwardLeft) {
-//              robot.forwardLeft()
-//              context.become(receiveWithTargetPoint(targetPoint, ForwardLeft))
-//            }
-//          }
-//        }
+        //        else if (angleAbsDiff < 45) {
+        //          if (angleDiff < 0) {
+        //            if (previousCommand != ForwardRight) {
+        //              robot.forwardRight()
+        //              context.become(receiveWithTargetPoint(targetPoint, ForwardRight))
+        //            }
+        //          } else {
+        //            if (previousCommand != ForwardLeft) {
+        //              robot.forwardLeft()
+        //              context.become(receiveWithTargetPoint(targetPoint, ForwardLeft))
+        //            }
+        //          }
+        //        }
         else {
           if (angleDiff > 0) {
             if (previousCommand != RotateRight) {
@@ -267,7 +267,9 @@ class PositionPoller(id: String, robot: VRepConnection.PioneerP3dx) extends Acto
         val updatedPosition = robot.gps.position
         val updatedAngle = robot.gps.orientation.gamma * 180.0 / Math.PI
         val curPos = Position(id, updatedPosition.y, updatedPosition.x, 0.5, updatedAngle)
-        if (Math.abs(curPos.x - previousPosition.x) < 0.5 && Math.abs(curPos.y - previousPosition.y) < 0.5) {
+        if (Math.abs(curPos.x - previousPosition.x) < 0.5 &&
+          Math.abs(curPos.y - previousPosition.y) < 0.5 &&
+          Math.abs(curPos.angle - previousPosition.angle) < 30) {
           context.parent ! VRepConnection.RobotPosition(curPos)
           context.become(receiveWithPrevPosition(curPos))
         }

@@ -116,7 +116,7 @@ object Learning {
   private def runSVM(obstacles: List[Example], dims: Point, start: Point, finish: Point): List[Future[RunResults]] = {
 
     val minDim = Math.min(dims.x, dims.y)
-    val stepRanges =  List(minDim * 0.05, minDim * 0.02, minDim * 0.01)
+    val stepRanges =  List(minDim * 0.02, minDim * 0.01)
     val epsilonRanges = List(2e-1, 2e0, 2e1, 2e3, 2e5)
     val costRanges = List(2e-3, 2e0, 2e5, 2e7, 2e9, 2e11, 2e13, 2e15).reverse
     val gammaRanges = List(2e-3, 2e-1, 2e0, 2e1, 2e3, 2e7)
