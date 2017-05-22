@@ -116,10 +116,9 @@ object Learning {
   private def runSVM(obstacles: List[Example], dims: Point, start: Point, finish: Point): List[Future[RunResults]] = {
 
     val minDim = Math.min(dims.x, dims.y)
-    val stepRanges =  List(minDim * 0.02, minDim * 0.01)
-    val epsilonRanges = List(2e-3, 2e-1, 2e1, 2e3)
-    val costRanges = List(2e11, 2e13, 2e15, 2e17).reverse
-    val gammaRanges = List(2e-3, 2e-1, 2e0, 2e1, 2e3)
+    val epsilonRanges = List(2e-1, 2e1, 2e3)
+    val costRanges = List(2e11, 2e13, 2e15).reverse
+    val gammaRanges = List(2e-1, 2e0, 2e1)
 
     val radialModels =
       epsilonRanges.flatMap { eps =>
@@ -133,11 +132,9 @@ object Learning {
         }
       }
 
-    radialModels.flatMap { modelFuture =>
-      stepRanges.map { step =>
-        modelFuture.map { case (model, description) =>
-          RunResults(buildPath(model, step, 90.0, start, finish, dims), s"step=$step " + description)
-        }
+    radialModels.map { modelFuture =>
+      modelFuture.map { case (model, description) =>
+        RunResults(buildPath(model, minDim * 0.01, 90.0, start, finish, dims), s"step=${minDim * 0.01} " + description)
       }
     }
   }
@@ -146,16 +143,16 @@ object Learning {
                                finish: Point, eps: Double)(runResults: RunResults): Boolean = {
     val smoothPath = runResults.path
 
-//    lazy val intersectsExample =
-//      smoothPath.sliding(2).exists {
-//        case a :: b :: Nil =>
-//          obstacles.exists { example =>
-//            example.intersects(a, b)
-//          }
-//
-//        case other =>
-//          throw new RuntimeException("Illegal list sequence in Learning: " + other)
-//      }
+    //    lazy val intersectsExample =
+    //      smoothPath.sliding(2).exists {
+    //        case a :: b :: Nil =>
+    //          obstacles.exists { example =>
+    //            example.intersects(a, b)
+    //          }
+    //
+    //        case other =>
+    //          throw new RuntimeException("Illegal list sequence in Learning: " + other)
+    //      }
 
     lazy val pointOutsideField =
       smoothPath.exists(point => point.x < 0 || point.y < 0 || point.x > dims.x || point.y > dims.y)

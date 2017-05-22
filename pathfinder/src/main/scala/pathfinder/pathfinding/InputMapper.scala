@@ -57,7 +57,7 @@ object InputMapper {
     groups
       .filter(group => group.members.length > 1)
       .map { group =>
-        val maxRadius = group.members.maxBy(_.r).r
+        val maxRadius = group.members.maxBy(_.r).r + 0.2
         val dist = maxRadius / distance(group.members.head, group.members.last)
         val start = pointInBetween(group.members.head, group.members.last)(1.0 + dist)
         val end = pointInBetween(group.members.head, group.members.last)(0.0 - dist)
