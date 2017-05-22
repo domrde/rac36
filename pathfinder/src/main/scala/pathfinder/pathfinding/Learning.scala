@@ -175,7 +175,7 @@ object Learning {
         val height = dims.y
         val width = dims.x
         val minDim = Math.min(width, height)
-        val distanceOfExampleFromRoughPath = minDim * 0.1
+        val distanceOfExampleFromRoughPath = minDim * 0.03
         val stepOfExampleGeneration = minDim * 0.03
 
         val examples = roughPath.sliding(2).flatMap {
