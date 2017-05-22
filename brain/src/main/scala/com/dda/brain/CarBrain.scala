@@ -79,7 +79,7 @@ class CarBrain(id: String) extends BrainActor(id) {
                 value
               }
 
-            path = path.copy(path = skip(path.path, path.path.length / 5))
+            path = path.copy(path = skip(path.path, path.path.length / 3))
           }
 
         case Failure(exception) =>
