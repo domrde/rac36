@@ -12,8 +12,8 @@ import scala.util.{Failure, Success, Try}
 class CarBrain(id: String) extends BrainActor(id) {
   import com.dda.brain.BrainMessages._
 
-  private implicit val executionContext = context.dispatcher
-  private implicit val system = context.system
+  protected implicit val executionContext = context.dispatcher
+  protected implicit val system = context.system
 
   val target = PathPoint(5.0, 5.0)
   val pathDelta = 0.5
@@ -23,6 +23,12 @@ class CarBrain(id: String) extends BrainActor(id) {
 
   def distance(p1: Position, p2: PathPoint): Double = {
     Math.sqrt(Math.pow(p2.x - p1.x, 2.0) + Math.pow(p2.y - p1.y, 2.0))
+  }
+
+  def skip[T](l: List[T], n: Int): List[T] = {
+    require(n > 0)
+    for (step <- Range(start = n - 1, end = l.length, step = n).toList)
+      yield l(step)
   }
 
   override protected def handleSensory(payload: Set[Position]): Unit = {
@@ -72,6 +78,8 @@ class CarBrain(id: String) extends BrainActor(id) {
               } else {
                 value
               }
+
+            path = path.copy(path = skip(path.path, path.path.length / 5))
           }
 
         case Failure(exception) =>
@@ -82,7 +90,7 @@ class CarBrain(id: String) extends BrainActor(id) {
   override protected def handleRobotMessage(message: String): Unit = {
   }
 
-  private val cancellation = context.system.scheduler.schedule(5.second, 45.second) {
+  protected val cancellation = context.system.scheduler.schedule(5.second, 45.second) {
     avatar ! TellToOtherAvatar("pathfinder", write(Request(target)))
   }
 
