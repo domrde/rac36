@@ -1,14 +1,13 @@
-package playground
+package playground.complex
 
 import akka.actor.{Actor, ActorLogging, Props}
 import com.typesafe.config.ConfigFactory
 import common.Constants
 import common.messages.SensoryInformation.{Position, Sensory}
-import playground.VRepConnection.{PollPosition, PollSensors}
 import vivarium.Avatar.FromAvatarToRobot
 import vrepapiscala.VRepAPI
 import vrepapiscala.common.{EulerAngles, Vec3}
-import vrepapiscala.sensors.{PositionSensor, ProximitySensor}
+import vrepapiscala.sensors.PositionSensor
 
 import scala.concurrent.duration._
 import scala.util.{Random, Try}
@@ -186,6 +185,7 @@ class VRepConnection(id: String, api: VRepAPI) extends Actor with ActorLogging {
 }
 
 class FullKnowledgePoller(id: String, api: VRepAPI) extends Actor with ActorLogging {
+  import VRepConnection._
   private implicit val executionContext = context.dispatcher
   private implicit val system = context.system
 
@@ -211,6 +211,7 @@ class FullKnowledgePoller(id: String, api: VRepAPI) extends Actor with ActorLogg
 }
 
 class SensoryPoller(id: String, robot: VRepConnection.PioneerP3dx) extends Actor with ActorLogging {
+  import VRepConnection._
   private implicit val executionContext = context.dispatcher
   private implicit val system = context.system
 
@@ -242,6 +243,7 @@ class SensoryPoller(id: String, robot: VRepConnection.PioneerP3dx) extends Actor
 }
 
 class PositionPoller(id: String, robot: VRepConnection.PioneerP3dx) extends Actor with ActorLogging {
+  import VRepConnection._
   private implicit val executionContext = context.dispatcher
   private implicit val system = context.system
 

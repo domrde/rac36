@@ -2,6 +2,7 @@ package playground
 
 import akka.actor.{ActorSystem, Props}
 import com.typesafe.config.ConfigFactory
+import playground.complex.Car
 import playground.simple.FullKnowledgeExperimentRunner
 import utils.zmqHelpers.ZeroMQHelper
 import vrepapiscala.VRepAPI

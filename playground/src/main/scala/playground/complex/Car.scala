@@ -1,8 +1,9 @@
-package playground
+package playground.complex
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import common.messages.SensoryInformation
 import common.messages.SensoryInformation.Sensory
+import playground.ZMQConnection
 import vivarium.Avatar.{FromAvatarToRobot, FromRobotToAvatar}
 import vrepapiscala.VRepAPI
 
