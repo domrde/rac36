@@ -9,7 +9,7 @@ import scala.concurrent.duration._
   * Created by dda on 21.05.17.
   */
 class Experiment2Car(id: String) extends CarBrain(id) {
-  override val target = PathPoint(5.0, 9.0)
+  override val target = PathPoint(9.0, 5.0)
 
   cancellation.cancel()
 
