@@ -90,7 +90,7 @@ class Experiment2Car(id: String) extends BrainActor(id) {
   override protected def handleRobotMessage(message: String): Unit = {
   }
 
-  protected val cancellation = context.system.scheduler.schedule(5.second, 45.second) {
+  protected val cancellation = context.system.scheduler.scheduleOnce(5.second) {
     avatar ! TellToOtherAvatar("pathfinder", write(Request(target)))
   }
 
