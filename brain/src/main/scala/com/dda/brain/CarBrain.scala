@@ -19,6 +19,7 @@ class CarBrain(id: String) extends BrainActor(id) {
   val pathDelta = 0.5
   var previousCommand = ""
   var path: PathFound = PathFound(id, List.empty, isStraightLine = true)
+  var curPos: Option[Position] = None
 
   def distance(p1: Position, p2: PathPoint): Double = {
     Math.sqrt(Math.pow(p2.x - p1.x, 2.0) + Math.pow(p2.y - p1.y, 2.0))
@@ -63,7 +64,12 @@ class CarBrain(id: String) extends BrainActor(id) {
         case Success(value) =>
           val newPathIsBadAndOldPathIsGood = value.isStraightLine && !path.isStraightLine
           if (!newPathIsBadAndOldPathIsGood) {
-            path = value
+            path =
+              if (curPos.isDefined) {
+                value.copy(path = value.path.drop(value.path.zipWithIndex.minBy(p => distance(curPos.get, p._1))._2))
+              } else {
+                value
+              }
           }
 
         case Failure(exception) =>

@@ -61,7 +61,7 @@ class Worker(request: PathfinderBrain.FindPath) extends Actor with ActorLogging 
       doCalculation(r, curPos).future pipeTo self
 
     case Some(results: RunResults) =>
-      log.info("Successful pathfinding: {} {}", results.path, results.message)
+      log.info("Successful pathfinding: {}", results.message)
       context.parent ! PathfinderBrain.PathFound(request.client, results.path.map(pointToPathPoint), isStraightLine = false)
       context.stop(self)
 
