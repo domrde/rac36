@@ -19,7 +19,7 @@ class CarBrain(id: String) extends BrainActor(id) {
   val pathDelta = 0.5
   var previousCommand = ""
   var path: PathFound = PathFound(id, List.empty, isStraightLine = true)
-  var curPos: Option[Position] = None
+  var curPosGlobal: Option[Position] = None
 
   def distance(p1: Position, p2: PathPoint): Double = {
     Math.sqrt(Math.pow(p2.x - p1.x, 2.0) + Math.pow(p2.y - p1.y, 2.0))
@@ -27,6 +27,7 @@ class CarBrain(id: String) extends BrainActor(id) {
 
   override protected def handleSensory(payload: Set[Position]): Unit = {
     payload.find { case Position(_id, _, _, _, _) => id == _id }.foreach { curPos =>
+      curPosGlobal = Some(curPos)
       val newCommand =
         if (distance(curPos, target) > pathDelta) {
           if (path.path.nonEmpty) {
@@ -65,8 +66,9 @@ class CarBrain(id: String) extends BrainActor(id) {
           val newPathIsBadAndOldPathIsGood = value.isStraightLine && !path.isStraightLine
           if (!newPathIsBadAndOldPathIsGood) {
             path =
-              if (curPos.isDefined) {
-                value.copy(path = value.path.drop(value.path.zipWithIndex.minBy(p => distance(curPos.get, p._1))._2))
+              if (curPosGlobal.isDefined) {
+                val closestPointIdx = value.path.zipWithIndex.minBy(p => distance(curPosGlobal.get, p._1))._2
+                value.copy(path = value.path.drop(closestPointIdx))
               } else {
                 value
               }
