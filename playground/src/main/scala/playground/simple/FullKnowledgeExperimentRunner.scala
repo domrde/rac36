@@ -97,7 +97,7 @@ class FullKnowledgeExperimentRunner(api: VRepAPI) extends Actor with ActorLoggin
 object RobotMover {
 
   class PioneerP3dx(api: VRepAPI, id: String) {
-    private val speed = 1f
+    private val speed = 1.25f
     private val leftMotor = api.joint.withVelocityControl("Pioneer_p3dx_leftMotor" + id).get
     private val rightMotor = api.joint.withVelocityControl("Pioneer_p3dx_rightMotor" + id).get
 
