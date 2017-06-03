@@ -128,7 +128,7 @@ object Learning {
           .map(result => SvmResult(result))
           .filter(checkPathCorrect(roughPath, dims, start, finish, 1.0))
 
-      if (paths.nonEmpty) paths.minBy(pathDistance).path
+      if (paths.nonEmpty) paths.minBy(pathDistance).path :+ finish
       else List.empty
     }
   }

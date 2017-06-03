@@ -46,7 +46,7 @@ object Patcher {
 
     def checkCandidate(polygon: Polygon, obstacles: List[Obstacle]): Boolean = {
       val (min, max) = polygon.getBoundingBox
-      !obstacles.exists(o => min.x <= o.x && o.x <= max.x && min.y <= o.y && o.y <= max.y)
+      !obstacles.exists(o => min.x <= o.x + o.r && o.x - o.r <= max.x && min.y <= o.y + o.r && o.y - o.r <= max.y)
     }
 
     val patches =
