@@ -1,16 +1,20 @@
 package pathfinder.pathfinding
 
+import java.util.concurrent.Executors
+
 import libsvm._
 import libsvm.svm_parameter._
 import pathfinder.FutureO
 import pathfinder.Globals._
+import pathfinder.pathfinding.PathBuilder.buildPath
 
-import scala.annotation.tailrec
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 
 object Learning {
+
+  implicit val executor: ExecutionContext = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(200))
 
   svm.svm_set_print_string_function(new svm_print_interface {
     override def print(s: String): Unit = {
@@ -53,72 +57,28 @@ object Learning {
     svm.svm_train(prob, param)
   }
 
-  private def buildPath(model: svm_model, d: Double, angleDelta: Double, from: Point, to: Point, dims: Point): List[Point] = {
-    val par = Array.fill(2)(new svm_node)
-    par(0) = new svm_node
-    par(1) = new svm_node
-    par(0).index = 1
-    par(1).index = 2
+  private def checkPathCorrect(roughPath: List[Point], dims: Point, start: Point,
+                               finish: Point, eps: Double)(result: SvmResult): Boolean = {
+    val smoothPath = result.path
 
-    def findAngleOfSignChange(curPoint: Point, initialAngle: Double, toAngle: Double, step: Double): Double = {
-      val par = Array.fill(2)(new svm_node)
-      par(0) = new svm_node
-      par(1) = new svm_node
-      par(0).index = 1
-      par(1).index = 2
+    lazy val pointOutsideField =
+      smoothPath.exists(point => point.x < 0 || point.y < 0 || point.x > dims.x || point.y > dims.y)
 
-      val y = Math.sin(Math.toRadians(initialAngle)) * d
-      val x = Math.cos(Math.toRadians(initialAngle)) * d
-      par(0).value = (curPoint.x + x) / dims.x
-      par(1).value = (curPoint.y + y) / dims.y
-      val initialGreaterThanZero = svm.svm_predict(model, par) > 0
+    //    lazy val isAwayFromStart = distance(smoothPath.head, start) > eps && distance(smoothPath.last, start) > eps
 
-      @tailrec
-      def rec(curAngle: Double): Double = {
-        if (Math.abs(curAngle - toAngle) < step) curAngle
-        else {
-          val y = Math.sin(Math.toRadians(curAngle)) * d
-          val x = Math.cos(Math.toRadians(curAngle)) * d
-          par(0).value = (curPoint.x + x) / dims.x
-          par(1).value = (curPoint.y + y) / dims.y
-          val curSignGreaterThanZero = svm.svm_predict(model, par) > 0
-          if (curSignGreaterThanZero == initialGreaterThanZero) {
-            rec(curAngle + step)
-          } else {
-            curAngle
-          }
-        }
-      }
+    //    lazy val isAwayFromFinish = distance(smoothPath.head, finish) > eps && distance(smoothPath.last, finish) > eps
 
-      rec(initialAngle + step)
-    }
+    val isCorrect = !pointOutsideField // || isAwayFromFinish || isAwayFromStart)
 
-    def buildPath(accumulator: List[Point], limit: Int): List[Point] =
-      if (limit < 0 || distance(to, accumulator.head) < d) accumulator else {
-        val curPoint = accumulator.head
-        val curAngle = Math.atan2(to.y - curPoint.y, to.x - curPoint.x) * 180.0 / Math.PI
-
-        val estimateAngleOfSignChange = findAngleOfSignChange(curPoint, curAngle - angleDelta, curAngle + angleDelta, 10)
-        val specificAngleOfSignChange = findAngleOfSignChange(curPoint, estimateAngleOfSignChange - 10, estimateAngleOfSignChange + 10, 1)
-
-        val y = Math.sin(Math.toRadians(specificAngleOfSignChange)) * d
-        val x = Math.cos(Math.toRadians(specificAngleOfSignChange)) * d
-        par(0).value = (curPoint.x + x) / dims.x
-        par(1).value = (curPoint.y + y) / dims.y
-        Point(curPoint.y + y, curPoint.x + x)
-
-        buildPath(Point(curPoint.y + y, curPoint.x + x) :: accumulator, limit - 1)
-      }
-
-    buildPath(List(from), 150).reverse
+    isCorrect
   }
 
   private def runSVM(obstacles: List[Example], dims: Point, start: Point, finish: Point): List[Future[RunResults]] = {
 
-    val minDim = Math.min(dims.x, dims.y)
-    val epsilonRanges = List(2e-1, 2e1, 2e3)
-    val costRanges = List(2e11, 2e13, 2e15).reverse
-    val gammaRanges = List(2e-1, 2e0, 2e1)
+    val pathStep = Math.min(dims.x, dims.y) / 20.0
+    val epsilonRanges = List(2e-1)
+    val costRanges = List(2e11).reverse
+    val gammaRanges = List(1)
 
     val radialModels =
       epsilonRanges.flatMap { eps =>
@@ -134,79 +94,67 @@ object Learning {
 
     radialModels.map { modelFuture =>
       modelFuture.map { case (model, description) =>
-        RunResults(buildPath(model, minDim * 0.01, 90.0, start, finish, dims), s"step=${minDim * 0.01} " + description)
+        RunResults(buildPath(model, pathStep, 90.0, start, finish, dims), s"step=$pathStep " + description)
       }
     }
   }
 
-  private def checkPathCorrect(roughPath: List[Point], obstacles: List[Example], dims: Point, start: Point,
-                               finish: Point, eps: Double)(runResults: RunResults): Boolean = {
-    val smoothPath = runResults.path
-
-    //    lazy val intersectsExample =
-    //      smoothPath.sliding(2).exists {
-    //        case a :: b :: Nil =>
-    //          obstacles.exists { example =>
-    //            example.intersects(a, b)
-    //          }
-    //
-    //        case other =>
-    //          throw new RuntimeException("Illegal list sequence in Learning: " + other)
-    //      }
-
-    lazy val pointOutsideField =
-      smoothPath.exists(point => point.x < 0 || point.y < 0 || point.x > dims.x || point.y > dims.y)
-
-    lazy val isAwayFromStart = distance(smoothPath.head, start) > eps && distance(smoothPath.last, start) > eps
-
-    lazy val isAwayFromFinish = distance(smoothPath.head, finish) > eps && distance(smoothPath.last, finish) > eps
-
-    val isCorrect = !(pointOutsideField || isAwayFromFinish || isAwayFromStart)
-
-    isCorrect
+  private def classify(s: Point, f: Point, target: Point) = {
+    if ((f.x - s.x) * (target.y - s.y) < (f.y - s.y) * (target.x - s.x)) 1.0 else -1.0
   }
 
-  def smoothPath(dims: Point, start: Point, finish: Point, roughPathFuture: FutureO[List[Point]]): FutureO[RunResults] = {
-    roughPathFuture.flatMap { roughPath =>
-      if (roughPath.length < 3) {
-        println("A* path is too short for smoothing")
-        FutureO(Future.successful(Some(RunResults(roughPath, "A* path is too short for smoothing"))))
-      } else {
-        val height = dims.y
-        val width = dims.x
-        val minDim = Math.min(width, height)
-        val distanceOfExampleFromRoughPath = minDim * 0.03
-        val stepOfExampleGeneration = minDim * 0.03
+  private def pathDistance(pesult: SvmResult): Double = {
+    pesult.path.sliding(2).map { case a :: b :: Nil => distance(a, b) }.sum
+  }
 
-        val examples = roughPath.sliding(2).flatMap {
-          case a :: b :: Nil =>
-            val part = stepOfExampleGeneration / distance(a, b) + 0.05
-            (0.25 to 0.75 by part)
-              .map(t => pointInBetween(a, b)(t))
-              .flatMap { p =>
-                (1.0 to 5.0 by 0.5).map(c => InputMapper.getPivotPoints(a, b, p, c * distanceOfExampleFromRoughPath))
-              }
-              .flatMap { case (Point(ay, ax), Point(by, bx)) => List(Example(ay, ax, 1.0), Example(by, bx, -1.0)) }
+  def smoothPath(dims: Point, start: Point, finish: Point, roughPathOpt: Option[List[Point]]): FutureO[SvmResult] = {
+    if (roughPathOpt.isEmpty || roughPathOpt.get.length < 3) {
+      println("A* path is too short for smoothing")
+      FutureO(Future.successful(None))
+    } else {
+      val roughPath = roughPathOpt.get
+      val height = dims.y
+      val width = dims.x
+      val minDim = Math.min(width, height)
+      val distanceOfExampleFromRoughPath = minDim * 0.03
+      val stepOfExampleGeneration = minDim * 0.03
 
-          case other =>
-            throw new RuntimeException("Illegal list sequence in Learning: " + other)
-        }.toList
+      val examples = roughPath.sliding(2).flatMap {
+        case a :: b :: Nil =>
+          val part = stepOfExampleGeneration / distance(a, b) + 0.01
+          (0.25 to 0.75 by part)
+            .map(t => pointInBetween(a, b)(t))
+            .flatMap { p =>
+              (1.0 to 2.0 by 0.3).map(c => getPivotPoints(a, b, p, c * distanceOfExampleFromRoughPath))
+            }
+            .flatMap { case (Point(ay, ax), Point(by, bx)) => List(Point(ay, ax), Point(by, bx)) }
+            .map { p => Example(p.y, p.x, classify(a, b, p), 0.15) }
 
-        val inRanges = examples.filter { case Example(y, x, _, _) =>
-          0 < y && y < height && 0 < x && x < width
-        }
+        case other =>
+          throw new RuntimeException("Illegal list sequence in Learning: " + other)
+      }.toList
 
-        val normalized = inRanges.map { case Example(y, x, c, _) =>
-          Example(y / height, x / width, c)
-        }
+      val inRanges =
+        examples
+          .filterNot { case Example(y, x, _, _) =>
+            roughPath.exists(p => distance(Point(y, x), p) < distanceOfExampleFromRoughPath)
+          }
 
-        val results = Learning.runSVM(normalized, dims, start, finish)
-
-        val result: Future[Option[RunResults]] =
-          Future.find(results)(checkPathCorrect(roughPath, inRanges, dims, start, finish, distanceOfExampleFromRoughPath / 2.0))
-
-        FutureO(result)
+      val normalized = inRanges.map { case Example(y, x, c, r) =>
+        Example(y / height, x / width, c, r)
       }
+
+      val runResults: List[Future[RunResults]] = Learning.runSVM(normalized, dims, start, finish)
+
+      FutureO(Future.sequence(runResults).map { future =>
+        val paths = future
+          .filter(_.paths.nonEmpty)
+          .flatMap(result => result.paths.map(path => SvmResult(path, result.message)))
+          .filter(checkPathCorrect(roughPath, dims, start, finish, 1.0))
+
+        if (paths.nonEmpty) Some(paths.minBy(pathDistance))
+        else None
+      })
     }
   }
 

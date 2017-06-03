@@ -1,39 +1,28 @@
 package pathfinder.pathfinding
 
-import pathfinder.{FutureO, Globals}
 import pathfinder.Globals._
-import pathfinder.pathfinding.Patcher.Polygon
 
 import scala.annotation.tailrec
-import scala.concurrent.Future
 import scala.util.control.Breaks._
-import scala.concurrent.ExecutionContext.Implicits.global
 
 /**
   * Created by dda on 11.05.17.
   */
 object AStar {
 
-  def extractStartAndFinish(start: Point, finish: Point, patches: List[MapPatch]): (MapPatch, MapPatch) = {
-    val polygons = patches.map(patch => (patch, Polygon(patch.coordinates)))
+  def extractStartAndFinish(startPoint: Point, finishPoint: Point, patches: List[MapPatch]): (MapPatch, MapPatch) = {
+    val start = patches.minBy { patch => distance(patch.centroid, startPoint) }
+    val finish = patches.minBy { patch => distance(patch.centroid, finishPoint) }
 
-    val startPoly = polygons.minBy { case (_, polygon) =>
-      Globals.distance(polygon.centroid, start)
-    }._1
-
-    val finishPoly = polygons.minBy { case (_, polygon) =>
-      Globals.distance(polygon.centroid, finish)
-    }._1
-
-    (startPoly, finishPoly)
+    (start, finish)
   }
 
   def heuristicEstimate(a: MapPatch, b: MapPatch): Double = {
-    Globals.distance(a.centroid, b.centroid)
+    distance(a.centroid, b.centroid)
   }
 
-  def distance(a: MapPatch, b: MapPatch): Double = {
-    Globals.distance(a.centroid, b.centroid)
+  def distanceScore(a: MapPatch, b: MapPatch): Double = {
+    distance(a.centroid, b.centroid)
   }
 
   def reconstructPath(mappedPatches: Map[Int, MapPatch], cameFrom: Map[Int, Int], current: Int, startId: Int): List[Point] = {
@@ -44,14 +33,6 @@ object AStar {
     }
 
     reconstructPath(cameFrom, current, List.empty)
-  }
-
-  def findPath(start: Point, finish: Point, patches: Future[List[MapPatch]]): FutureO[List[Point]] = {
-    FutureO(
-      patches.map { patchesInner =>
-        findPath(start, finish, patchesInner)
-      }
-    )
   }
 
   def findPath(start: Point, finish: Point, patches: List[MapPatch]): Option[List[Point]] = {
@@ -112,7 +93,7 @@ object AStar {
           }
 
           // The distance from start to a neighbor
-          val tentativeGScore = gScore(current.id) + distance(current, mappedPatches(neighbour))
+          val tentativeGScore = gScore(current.id) + distanceScore(current, mappedPatches(neighbour))
 
           if (!openSet.contains(neighbour)) {
             openSet = openSet + neighbour
