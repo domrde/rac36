@@ -73,7 +73,7 @@ class FullKnowledgeExperimentRunner(api: VRepAPI) extends Actor with ActorLoggin
       val newObstaclesPositions =
         api.findAllSimpleShapesPositions()
           .filter(v => v.z > 0.1)
-          .filter(v => robotsPositions.exists(p => distance(v, p) > 0.25))
+          .filter(v => !robotsPositions.exists(p => distance(v, p) < 0.5))
           .map(v =>
             Position(
               Constants.OBSTACLE_NAME,

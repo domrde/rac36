@@ -95,7 +95,7 @@ object PathBuilder {
     def buildPath(accumulator: List[PointWithAngle], limit: Int): List[PointWithAngle] = {
       val curPoint = accumulator.head.p
       val curAngle = accumulator.head.angle
-      if (limit < 0 || distance(to, curPoint) < d) {
+      if (limit < 0 || distance(to, curPoint) < 2 * d) {
         accumulator
       } else {
         val estimateAngleOfSignChange =
@@ -119,7 +119,7 @@ object PathBuilder {
         val angle = Math.toDegrees(Math.atan2(first.y - second.y, first.x - second.x))
         val firstWithAngle = PointWithAngle(first, angle)
         val secondWithAngle = PointWithAngle(second, angle)
-        buildPath(List(firstWithAngle, secondWithAngle), 150).reverse.map(_.p)
+        (to :: buildPath(List(firstWithAngle, secondWithAngle), 150).map(_.p)).reverse
       }
     }
   }
