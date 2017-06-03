@@ -9,7 +9,7 @@ import scala.util.{Failure, Random, Success, Try}
   * Created by dda on 28.05.17.
   */
 //object Test extends App {
-object Test extends App {
+object Test {
 
   def randomPoint(dims: Point): Point = {
     Point(
