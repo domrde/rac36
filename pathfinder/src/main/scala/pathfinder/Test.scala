@@ -3,9 +3,7 @@ package pathfinder
 import pathfinder.Globals._
 import pathfinder.pathfinding.Pathfinder
 
-import scala.concurrent.Await
-import scala.concurrent.duration._
-import scala.util.{Random, Success, Try}
+import scala.util.{Failure, Random, Success, Try}
 
 /**
   * Created by dda on 28.05.17.
@@ -57,51 +55,56 @@ object Test extends App {
 //    Point(30.0,  30.0),
 //    Point(25.0,  40.0)
   ).foreach { dims =>
+    val timeOfTest = time {
+      print(s"$dims -> ${dims.y * dims.x} cells. Warming up... ")
 
-    print(s"$dims -> ${dims.y * dims.x} cells. ")
-
-    // Warm-up
-    (1 to 1000).foreach { _ =>
-      val obstacles = (1 to 6).map(_ => randomPoint(dims)).map {case Point(y, x) => Obstacle(y, x, 0.15) }.toList
-
-      val (start, finish) = randomStartPoints(dims, obstacles)
-
-      Try {
-        Pathfinder.findPath(dims, start, finish, obstacles)
-      }
-    }
-
-    // Measurement
-
-    val results: List[Double] =
-      Stream.from(1).flatMap { _ =>
-        val obstacles = (1 to 6).map(_ => randomPoint(dims)).map {case Point(y, x) => Obstacle(y, x, 0.15) }.toList
+      // Warm-up
+      (1 to 1000).foreach { _ =>
+        val obstacles = (1 to 6).map(_ => randomPoint(dims)).map { case Point(y, x) => Obstacle(y, x, 0.15) }.toList
 
         val (start, finish) = randomStartPoints(dims, obstacles)
 
         Try {
-          time {
-            Await.result(Pathfinder.findPath(dims, start, finish, obstacles).future, 1.millis)
-          }
-        } match {
-          case Success((Some(value), time)) =>
-            if (value.path.nonEmpty) {
-              if (time < 80000.0) {
-                Some(time)
+          Pathfinder.findPath(dims, start, finish, obstacles)
+        }
+      }
+
+      print("Done. Calculating... ")
+
+      // Measurement
+
+      val results: List[Double] =
+        Stream.from(1).flatMap { _ =>
+          val obstacles = (1 to 6).map(_ => randomPoint(dims)).map { case Point(y, x) => Obstacle(y, x, 0.15) }.toList
+
+          val (start, finish) = randomStartPoints(dims, obstacles)
+
+          Try {
+            time {
+              Pathfinder.findPath(dims, start, finish, obstacles)
+            }
+          } match {
+            case Failure(exception) =>
+              None
+
+            case Success(value) =>
+              if (value._1.nonEmpty) {
+                if (value._2 < 80000.0) {
+                  Some(value._2)
+                } else {
+                  None
+                }
               } else {
                 None
               }
-            } else {
-              None
-            }
+          }
 
-          case _ =>
-            None
-        }
+        }.take(100).toList
 
-      }.take(100).toList
+      print(s"Average: ${results.sum / results.size}, max ${results.max}, min ${results.min} ")
+    }._2
 
-    println(s"Average: ${results.sum / results.size}, max ${results.max}, min ${results.min}")
+    println(s"in ${timeOfTest / 1e6} s")
   }
 
   sys.exit(0)

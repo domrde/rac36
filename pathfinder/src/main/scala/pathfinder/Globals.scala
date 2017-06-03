@@ -11,7 +11,7 @@ import com.dda.brain.PathfinderBrain.PathPoint
 object Globals {
   val ANGLE_OF_SEARCH = 70.0
 
-  val STEP_OF_PATH = 0.5
+  val STEP_OF_PATH = 0.35
 
   implicit def obstacleToPoint(a: Obstacle): Point = Point(a.y, a.x)
   implicit def pathPointToPoint(a: PathPoint): Point = Point(a.y, a.x)
@@ -50,8 +50,7 @@ object Globals {
 
   final case class Point(y: Double, x: Double)
 
-  case class RunResults(paths: List[List[Point]], message: String)
-  case class SvmResult(path: List[Point], message: String)
+  case class SvmResult(path: List[Point])
 
   final case class MapPatch(var id: Int, coordinates: List[Point], centroid: Point, var exits: Set[Int] = Set.empty) {
     def addExit(node: MapPatch): Unit = exits = exits + node.id

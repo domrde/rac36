@@ -4,11 +4,10 @@ import java.util.concurrent.Executors
 
 import libsvm._
 import libsvm.svm_parameter._
-import pathfinder.FutureO
 import pathfinder.Globals._
 import pathfinder.pathfinding.PathBuilder.buildPath
-
 import scala.concurrent.duration._
+
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 
@@ -64,38 +63,17 @@ object Learning {
     lazy val pointOutsideField =
       smoothPath.exists(point => point.x < 0 || point.y < 0 || point.x > dims.x || point.y > dims.y)
 
-    //    lazy val isAwayFromStart = distance(smoothPath.head, start) > eps && distance(smoothPath.last, start) > eps
-
-    //    lazy val isAwayFromFinish = distance(smoothPath.head, finish) > eps && distance(smoothPath.last, finish) > eps
-
-    val isCorrect = !pointOutsideField // || isAwayFromFinish || isAwayFromStart)
-
-    isCorrect
+    !pointOutsideField
   }
 
-  private def runSVM(obstacles: List[Example], dims: Point, start: Point, finish: Point): List[Future[RunResults]] = {
+  private def runSVM(obstacles: List[Example], dims: Point, start: Point, finish: Point): Future[List[List[Point]]] = {
 
     val pathStep = Math.min(dims.x, dims.y) / 20.0
-    val epsilonRanges = List(2e-1)
-    val costRanges = List(2e11).reverse
-    val gammaRanges = List(1)
 
-    val radialModels =
-      epsilonRanges.flatMap { eps =>
-        costRanges.flatMap { cost =>
-          gammaRanges.map { gamma =>
-            Future {
-              (trainSvmModel(svmType = C_SVC, kernel = RBF, field = obstacles, gamma = gamma, cost = cost, eps = eps),
-                s"eps=$eps cost=$cost gamma=$gamma")
-            }
-          }
-        }
-      }
-
-    radialModels.map { modelFuture =>
-      modelFuture.map { case (model, description) =>
-        RunResults(buildPath(model, pathStep, 90.0, start, finish, dims), s"step=$pathStep " + description)
-      }
+    Future {
+      trainSvmModel(svmType = C_SVC, kernel = RBF, field = obstacles, gamma = 1, cost = 2e11, eps = 2e-1)
+    }.map { model =>
+      buildPath(model, pathStep, ANGLE_OF_SEARCH, start, finish, dims)
     }
   }
 
@@ -103,21 +81,19 @@ object Learning {
     if ((f.x - s.x) * (target.y - s.y) < (f.y - s.y) * (target.x - s.x)) 1.0 else -1.0
   }
 
-  private def pathDistance(pesult: SvmResult): Double = {
-    pesult.path.sliding(2).map { case a :: b :: Nil => distance(a, b) }.sum
+  private def pathDistance(result: SvmResult): Double = {
+    result.path.sliding(2).map { case a :: b :: Nil => distance(a, b) }.sum
   }
 
-  def smoothPath(dims: Point, start: Point, finish: Point, roughPathOpt: Option[List[Point]]): FutureO[SvmResult] = {
-    if (roughPathOpt.isEmpty || roughPathOpt.get.length < 3) {
-      println("A* path is too short for smoothing")
-      FutureO(Future.successful(None))
+  def smoothPath(dims: Point, start: Point, finish: Point, roughPath: List[Point]): List[Point] = {
+    if (roughPath.length < 3) {
+      roughPath
     } else {
-      val roughPath = roughPathOpt.get
       val height = dims.y
       val width = dims.x
       val minDim = Math.min(width, height)
-      val distanceOfExampleFromRoughPath = minDim * 0.03
-      val stepOfExampleGeneration = minDim * 0.03
+      val distanceOfExampleFromRoughPath = minDim * 0.07
+      val stepOfExampleGeneration = minDim * 0.01
 
       val examples = roughPath.sliding(2).flatMap {
         case a :: b :: Nil =>
@@ -144,17 +120,16 @@ object Learning {
         Example(y / height, x / width, c, r)
       }
 
-      val runResults: List[Future[RunResults]] = Learning.runSVM(normalized, dims, start, finish)
+      val pathResult: Future[List[List[Point]]] = Learning.runSVM(normalized, dims, start, finish)
 
-      FutureO(Future.sequence(runResults).map { future =>
-        val paths = future
-          .filter(_.paths.nonEmpty)
-          .flatMap(result => result.paths.map(path => SvmResult(path, result.message)))
+      val paths =
+        Await.result(pathResult, 10.second)
+          .filter(_.nonEmpty)
+          .map(result => SvmResult(result))
           .filter(checkPathCorrect(roughPath, dims, start, finish, 1.0))
 
-        if (paths.nonEmpty) Some(paths.minBy(pathDistance))
-        else None
-      })
+      if (paths.nonEmpty) paths.minBy(pathDistance).path
+      else List.empty
     }
   }
 

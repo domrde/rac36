@@ -24,10 +24,10 @@ class Worker(request: PathfinderBrain.FindPath) extends Actor with ActorLogging 
 
   val dims = Point(10.0, 10.0)
 
-  def doCalculation(request: PathfinderBrain.FindPath, curPos: Position): FutureO[SvmResult] = {
+  def doCalculation(request: PathfinderBrain.FindPath, curPos: Position): List[Point] = {
     val distance = Globals.distance(Point(curPos.y, curPos.x), Point(request.to.y, request.to.x))
     if (distance < Globals.STEP_OF_PATH) {
-      FutureO(Future.successful(Some(SvmResult(List(Point(curPos.y, curPos.x)), "Manual one point path"))))
+      List(Point(curPos.y, curPos.x))
     } else {
       val obstacles = (request.sensory - curPos).map { case Position(_, y, x, r, _) =>
         Obstacle(y, x, r)
@@ -54,16 +54,15 @@ class Worker(request: PathfinderBrain.FindPath) extends Actor with ActorLogging 
 
   def receiveWithClientPosition(curPos: Position): Receive = {
     case r: PathfinderBrain.FindPath =>
-      doCalculation(r, curPos).future pipeTo self
-
-    case Some(results: SvmResult) =>
-      log.info("Successful pathfinding: {}", results.message)
-      context.parent ! PathfinderBrain.PathFound(request.client, results.path.map(pointToPathPoint), isStraightLine = false)
-      context.stop(self)
-
-    case None =>
-      log.info("Unsuccessful pathfinding. ")
-      context.stop(self)
+      val foundPath = doCalculation(r, curPos)
+      if (foundPath.isEmpty) {
+        log.info("Unsuccessful pathfinding.")
+        context.stop(self)
+      } else {
+        log.info("Successful pathfinding.")
+        context.parent ! PathfinderBrain.PathFound(request.client, foundPath.map(pointToPathPoint), isStraightLine = false)
+        context.stop(self)
+      }
 
     case Failure(cause) =>
       cause.printStackTrace()

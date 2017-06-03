@@ -35,17 +35,18 @@ object AStar {
     reconstructPath(cameFrom, current, List.empty)
   }
 
-  def findPath(start: Point, finish: Point, patches: List[MapPatch]): Option[List[Point]] = {
+  def findPath(start: Point, finish: Point, patches: List[MapPatch]): List[Point] = {
     if (patches.length < 2) {
-      println("A* got not patches")
-      Some(List(start, finish))
+      List(start, finish)
     } else {
-      val (startPoly, finishPoly) = extractStartAndFinish(start, finish, patches)
-      doFindPath(startPoly, finishPoly, patches)
+      doFindPath(start, finish, patches)
     }
   }
 
-  private def doFindPath(start: MapPatch, finish: MapPatch, patches: List[MapPatch]): Option[List[Point]] = {
+  def doFindPath(startPoint: Point, finishPoint: Point, patches: List[MapPatch]): List[Point] = {
+
+    val (start, finish) = extractStartAndFinish(startPoint, finishPoint, patches)
+
     val mappedPatches: Map[Int, MapPatch] = patches.map(patch => patch.id -> patch).toMap
 
     // The set of nodes already evaluated.
@@ -77,7 +78,7 @@ object AStar {
       val current = mappedPatches(openSet.minBy(patch => fScore(patch)))
       if (current == finish) {
         // end
-        return Some(reconstructPath(mappedPatches, cameFrom, current.id, start.id))
+        return reconstructPath(mappedPatches, cameFrom, current.id, start.id)
       }
 
       openSet = openSet - current.id
@@ -111,8 +112,7 @@ object AStar {
     }
 
     // Path not found
-    println("A*: path not found")
-    None
+    List.empty
   }
 
 }
