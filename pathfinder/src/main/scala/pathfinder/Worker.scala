@@ -1,14 +1,11 @@
 package pathfinder
 
-import akka.actor.Status.Failure
 import akka.actor.{Actor, ActorLogging, Props}
-import akka.pattern.pipe
 import com.dda.brain.BrainMessages.Position
 import com.dda.brain.PathfinderBrain
-import com.dda.brain.PathfinderBrain.PathPoint
 import pathfinder.pathfinding.Pathfinder
 
-import scala.concurrent.Future
+import scala.util.{Failure, Success, Try}
 
 /**
   * Created by dda on 07.05.17.
@@ -54,18 +51,22 @@ class Worker(request: PathfinderBrain.FindPath) extends Actor with ActorLogging 
 
   def receiveWithClientPosition(curPos: Position): Receive = {
     case r: PathfinderBrain.FindPath =>
-      val foundPath = doCalculation(r, curPos)
-      if (foundPath.isEmpty) {
-        log.info("Unsuccessful pathfinding.")
-        context.stop(self)
-      } else {
-        log.info("Successful pathfinding.")
-        context.parent ! PathfinderBrain.PathFound(request.client, foundPath.map(pointToPathPoint), isStraightLine = false)
-        context.stop(self)
-      }
+      Try {
+        doCalculation(r, curPos)
+      } match {
+        case Success(foundPath) =>
+          if (foundPath.isEmpty) {
+            log.info("Unsuccessful pathfinding.")
+          } else {
+            log.info("Successful pathfinding.")
+            context.parent ! PathfinderBrain.PathFound(request.client, foundPath.map(pointToPathPoint), isStraightLine = false)
+          }
 
-    case Failure(cause) =>
-      cause.printStackTrace()
+        case Failure(exception) =>
+          log.info("Exception during pathfinding.")
+      }
+      context.stop(self)
+
 
     case other =>
       log.error("[-] Worker: received other: [{}] from [{}]", other, sender())

@@ -69,7 +69,7 @@ class Experiment2Car(id: String) extends BrainActor(id) {
         read[PathFound](message)
       } match {
         case Success(value) =>
-          val newPathIsBadAndOldPathIsGood = value.isStraightLine && !path.isStraightLine
+          val newPathIsBadAndOldPathIsGood = (value.isStraightLine || value.path.isEmpty) && !path.isStraightLine
           if (!newPathIsBadAndOldPathIsGood) {
             path =
               if (curPosGlobal.isDefined) {
