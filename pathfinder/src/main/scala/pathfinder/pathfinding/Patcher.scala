@@ -2,17 +2,12 @@ package pathfinder.pathfinding
 
 import pathfinder.Globals._
 
-import scala.collection.parallel.mutable.ParArray
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
-
 /**
   * Created by dda on 19.04.17.
   *
-  * todo: Doesn't work with concave polygons or polygons with intersecting bounding boxes, but no checks performed
-  *
   */
 object Patcher {
+
   final case class Polygon(points: List[Point]) {
     val centroid: Point = if (points.size == 1) points.head else {
       val (sumcx, sumcy, suma) = (points :+ points.head).sliding(2)
@@ -30,9 +25,16 @@ object Patcher {
     }
 
     def getBoundingBox: (Point, Point) = {
-      val xs = points.map(_.x)
-      val ys = points.map(_.y)
-      (Point(ys.min, xs.min), Point(ys.max, xs.max))
+      val head = points.head
+      val (maxX, maxY, minX, minY) =
+        points.foldLeft((head.x, head.y, head.x, head.y)) { case ((maxX, maxY, minX, minY), coordinate) =>
+          val newMaxX = Math.max(coordinate.x, maxX)
+          val newMaxY = Math.max(coordinate.y, maxY)
+          val newMinX = Math.min(coordinate.x, minX)
+          val newMinY = Math.min(coordinate.y, minY)
+          (newMaxX, newMaxY, newMinX, newMinY)
+        }
+      (Point(minY, minX), Point(maxY, maxX))
     }
   }
 
@@ -41,10 +43,10 @@ object Patcher {
     val grisStepY = dims.y / 10.0
     val grisStepX = dims.x / 10.0
     val maxDim = Math.max(grisStepX, grisStepY)
-    val hypotenuse = Math.sqrt(Math.pow(maxDim / 2.0, 2.0) + Math.pow(maxDim / 2.0, 2.0))
 
     def checkCandidate(polygon: Polygon, obstacles: List[Obstacle]): Boolean = {
-      !obstacles.exists(obstacle => distance(obstacle, polygon.centroid) <= hypotenuse)
+      val (min, max) = polygon.getBoundingBox
+      !obstacles.exists(o => min.x <= o.x && o.x <= max.x && min.y <= o.y && o.y <= max.y)
     }
 
     val patches =
