@@ -95,7 +95,7 @@ object Learning {
       val distanceOfExampleFromRoughPath = minDim * 0.07
       val stepOfExampleGeneration = minDim * 0.01
 
-      val examples = roughPath.sliding(2).flatMap {
+      val examples = (start :: (roughPath :+ finish)).sliding(2).flatMap {
         case a :: b :: Nil =>
           val part = stepOfExampleGeneration / distance(a, b) + 0.01
           (0.25 to 0.75 by part)
