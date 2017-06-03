@@ -16,7 +16,7 @@ class Experiment2Car(id: String) extends BrainActor(id) {
   protected implicit val system = context.system
 
   val target = PathPoint(9.0, 5.0)
-  val pathDelta = 1.5
+  val pathDelta = 0.5
   var previousCommand = ""
   var path: PathFound = PathFound(id, List.empty, isStraightLine = true)
   var curPosGlobal: Option[Position] = None
@@ -90,7 +90,7 @@ class Experiment2Car(id: String) extends BrainActor(id) {
   override protected def handleRobotMessage(message: String): Unit = {
   }
 
-  protected val cancellation = context.system.scheduler.scheduleOnce(5.second) {
+  private val cancellation = context.system.scheduler.schedule(1.second, 1.second) {
     avatar ! TellToOtherAvatar("pathfinder", write(Request(target)))
   }
 

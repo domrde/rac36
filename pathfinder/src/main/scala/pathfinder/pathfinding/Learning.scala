@@ -101,7 +101,7 @@ object Learning {
           (0.25 to 0.75 by part)
             .map(t => pointInBetween(a, b)(t))
             .flatMap { p =>
-              (1.0 to 2.0 by 0.3).map(c => getPivotPoints(a, b, p, c * distanceOfExampleFromRoughPath))
+              (1.0 to 2.5 by 0.3).map(c => getPivotPoints(a, b, p, c * distanceOfExampleFromRoughPath))
             }
             .flatMap { case (Point(ay, ax), Point(by, bx)) => List(Point(ay, ax), Point(by, bx)) }
             .map { p => Example(p.y, p.x, classify(a, b, p), 0.15) }
