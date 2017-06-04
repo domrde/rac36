@@ -73,5 +73,5 @@ class Worker(request: PathfinderBrain.FindPath) extends Actor with ActorLogging 
   }
 
   self ! request
-  log.info("Got request from {} {}", request.client, request)
+  log.info("Got request from {}", request.client)
 }

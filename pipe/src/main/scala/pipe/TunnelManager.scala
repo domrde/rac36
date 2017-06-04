@@ -55,7 +55,8 @@ class TunnelManager extends Actor with ActorLogging {
   private val avatarResender = context.actorOf(AvatarResender(self), name = "AvatarResender")
 
   private val worker = ZeroMQHelper(context.system).bindRouterActor(
-    url = "tcp://192.168.1.162",
+//    url = "tcp://192.168.1.162",
+    url = "tcp://localhost",
     port = port,
     validator = Props[ValidatorImpl],
     stringifier = Props[StringifierImpl],
