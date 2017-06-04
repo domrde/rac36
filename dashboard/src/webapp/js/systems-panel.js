@@ -1,11 +1,11 @@
-const ws = new WebSocket("ws://" + window.location.host + "/stats");
+const systemsWs = new WebSocket("ws://" + window.location.host + "/stats");
 let mainPanel = null;
 
-ws.onopen = function (evt) {
+systemsWs.onopen = function (evt) {
     mainPanel = document.getElementById("systemsPanelBody");
 };
 
-ws.onmessage = function (evt) {
+systemsWs.onmessage = function (evt) {
     const parsedData = JSON.parse(evt.data);
     switch (parsedData.$type) {
         case "dashboard.clients.ServerClient.CollectedMetrics":
@@ -54,7 +54,7 @@ function drawPanel(panel, info) {
 
 function launchVm(image) {
     document.getElementById(image).disabled = true;
-    ws.send(JSON.stringify({
+    systemsWs.send(JSON.stringify({
         t: "Launch",
         role: image
     }));

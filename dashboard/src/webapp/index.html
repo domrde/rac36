@@ -14,6 +14,7 @@
     <script src="libs/js/underscore-min.js"></script>
     <script src="js/systems-panel.js"></script>
     <script src="js/avatars-panel.js"></script>
+    <script src="js/avatar-send-message-panel.js"></script>
     <script src="js/ddata-panel.js"></script>
 
 
@@ -32,6 +33,15 @@
         <div class="panel-heading">Ddata state</div>
         <div class="panel-body" id="ddataPanelBody">
             <canvas id="ddataCanvas"></canvas>
+        </div>
+    </div>
+
+    <div class="panel panel-default avatar-panel">
+        <div class="panel-heading">Send message to avatar</div>
+        <div class="panel-body" id="avatarCommunicationPanelBody">
+            <input type="text" size="10" id="avatarCommunicationIdInput">
+            <input type="text" size="100" id="avatarCommunicationInput">
+            <input type="submit" value="Send" id="avatarCommunicationButton">
         </div>
     </div>
 

@@ -34,7 +34,7 @@ class AvatarClient(shard: ActorRef) extends Actor with ActorLogging {
 
   override def receive: Receive = {
     case ServerClient.Connected(connection) =>
-      context.become(connected(connection))
+      context.become(connected(connection, List.empty))
       context.parent ! Server.Join(Server.AvatarClient)
 
       if (config.getBoolean("application.test-data")) {
@@ -48,10 +48,16 @@ class AvatarClient(shard: ActorRef) extends Actor with ActorLogging {
       }
   }
 
-  def connected(connection: ActorRef): Receive = {
+  def connected(connection: ActorRef, activeAvatars: List[String]): Receive = {
     case ServerClient.ChangeAvatarState(id, state) =>
       log.info("[-] dashboard.AvatarClient: Changing avatar [{}] state [{}]", id, state)
-      shard ! Avatar.ChangeState(id, if (state == "Start") BrainMessages.Start else BrainMessages.Stop)
+      if (activeAvatars.contains(id))
+        shard ! Avatar.ChangeState(id, if (state == "Start") BrainMessages.Start else BrainMessages.Stop)
+
+    case ServerClient.MessageToAvatar(id, message) =>
+      log.info("[-] dashboard.AvatarClient: Message to avatar [{}] [{}]", id, message)
+      if (activeAvatars.contains(id))
+        shard ! Avatar.TellToAvatar(id, "AvatarClient", message)
 
     case l: LookupResult[String] =>
       l.result match {
@@ -62,6 +68,7 @@ class AvatarClient(shard: ActorRef) extends Actor with ActorLogging {
               val statuses = value.map { case Avatar.State(id, tunnel, brain) =>
                 ServerClient.AvatarStatus(id, tunnel.isDefined, brain.map(_.path.name).getOrElse("None"))}.toList.sortBy(_.id)
               connection ! ServerClient.AvatarsStatuses(statuses)
+              context.become(connected(connection, statuses.map(_.id)), discardOld = true)
 
             case Failure(_) =>
           }

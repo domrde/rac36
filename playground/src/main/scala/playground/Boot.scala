@@ -3,7 +3,7 @@ package playground
 import akka.actor.{ActorSystem, Props}
 import com.typesafe.config.ConfigFactory
 import playground.complex.Car
-import playground.simple.FullKnowledgeExperimentRunner
+import playground.simple.{DirectMovementExperimentRunner, FullKnowledgeExperimentRunner}
 import utils.zmqHelpers.ZeroMQHelper
 import vrepapiscala.VRepAPI
 
@@ -18,10 +18,14 @@ object Boot extends App {
   val config = ConfigFactory.load()
   val api = VRepAPI.connect("127.0.0.1", 19997).get
 
-  if (config.getBoolean("playground.full-knowledge")) {
-    system.actorOf(Props(classOf[FullKnowledgeExperimentRunner], api))
+  if (config.getString("brain-class").contains("DirectMovementExperiment")) {
+    system.actorOf(Props(classOf[DirectMovementExperimentRunner], api))
   } else {
-    config.getStringList("playground.car-ids").map(id => system.actorOf(Car(id, api), "Car" + id.substring(1)))
+    if (config.getBoolean("playground.full-knowledge")) {
+      system.actorOf(Props(classOf[DirectMovementExperimentRunner], api))
+    } else {
+      config.getStringList("playground.car-ids").map(id => system.actorOf(Car(id, api), "Car" + id.substring(1)))
+    }
   }
 
   api.simulation.start()
