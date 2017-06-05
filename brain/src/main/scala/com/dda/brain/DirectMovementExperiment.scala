@@ -6,6 +6,7 @@ import com.dda.brain.BrainMessages.FromAvatarToRobot
   * Created by dda on 04.06.17.
   */
 class DirectMovementExperiment(id: String) extends BrainActor(id) {
+
   override protected def handleSensory(payload: Set[BrainMessages.Position]): Unit = {
 
   }
@@ -17,4 +18,5 @@ class DirectMovementExperiment(id: String) extends BrainActor(id) {
   override protected def handleRobotMessage(message: String): Unit = {
 
   }
+
 }

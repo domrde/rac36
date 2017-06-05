@@ -128,6 +128,12 @@ class RobotMover(api: VRepAPI, id: String) extends Actor with ActorLogging {
         context.become(receiveWithTargetPoint(None, Stop))
       }
 
+    case FromAvatarToRobot(_id, "forward") if _id == id =>
+      if (previousCommand != Stop) {
+        robot.moveForward()
+        context.become(receiveWithTargetPoint(None, Stop))
+      }
+
     case FromAvatarToRobot(_id, command) if _id == id =>
       Try {
         val moveRegExp(yString, xString) = command

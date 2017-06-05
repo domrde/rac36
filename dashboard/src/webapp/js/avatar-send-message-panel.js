@@ -15,7 +15,7 @@ window.onload = function() {
                 console.log("Received form rasa: " + xhr.responseText + " sending " + command + " to robot");
                 avatarsWs.send(JSON.stringify({
                     id: idInputField.textContent,
-                    command: command,
+                    message: command,
                     $type: "dashboard.clients.ServerClient.MessageToAvatar"
                 }));
             }
@@ -25,6 +25,3 @@ window.onload = function() {
         xhr.send(data);
     };
 };
-
-
-

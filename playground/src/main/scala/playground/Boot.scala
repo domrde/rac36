@@ -22,7 +22,7 @@ object Boot extends App {
     system.actorOf(Props(classOf[DirectMovementExperimentRunner], api))
   } else {
     if (config.getBoolean("playground.full-knowledge")) {
-      system.actorOf(Props(classOf[DirectMovementExperimentRunner], api))
+      system.actorOf(Props(classOf[FullKnowledgeExperimentRunner], api))
     } else {
       config.getStringList("playground.car-ids").map(id => system.actorOf(Car(id, api), "Car" + id.substring(1)))
     }
