@@ -11,6 +11,10 @@ window.onload = function() {
         xhr.onreadystatechange = function () {
             if (xhr.readyState === 4 && xhr.status === 200) {
                 const response = JSON.parse(xhr.responseText);
+                console.log("Intent: " + response.intent.name);
+                response.entities.forEach(function (entity, idx) {
+                    console.log(idx + " " + entity.entity)
+                });
                 const command = response.entities[0].entity;
                 console.log("Received form rasa: " + xhr.responseText + " sending " + command + " to robot");
                 avatarsWs.send(JSON.stringify({
