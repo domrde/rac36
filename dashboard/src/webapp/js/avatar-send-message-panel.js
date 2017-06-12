@@ -16,6 +16,12 @@ let testResponse =
               "entity": "and"
           },
           {
+              "entity": "stop"
+          },
+          {
+              "entity": "and"
+          },
+          {
               "entity": "left"
           },
           {
@@ -54,22 +60,19 @@ window.onload = function() {
     };
 
     function parseResponse(responseText) {
-        console.log("Response: " + responseText);
-        const targetRobotId = response.entities[0];
-        const grouped = groupInChunksByN(response.entities);
+        const targetRobotId = responseText.entities[0];
 
-        return _.map(grouped, function (group) {
+        const asStrings = _.chain(responseText.entities.slice(1)).map(function (entity) {
+            return entity.entity
+        }).toArray().value().join(";").split(";and;");
+
+        return _.map(asStrings, function (group) {
+            console.log(asStrings + " -> " + group);
             return {
                 "targetId": targetRobotId,
-                "command": group[1] + ";" + group[2]
+                "command": group
             }
         });
-    }
-
-    function groupInChunksByN(n, array) {
-        return _.chain(array).groupBy(function(element, index) {
-            return Math.floor(index/n);
-        }).toArray().value();
     }
 
     function sendCommands(commands) {

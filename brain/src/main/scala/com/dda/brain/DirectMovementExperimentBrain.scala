@@ -41,12 +41,16 @@ class DirectMovementExperimentBrain(id: String) extends BrainActor(id) {
 
     def translateCommand(): Option[String] = {
       val partsOfCommand = command.split(";")
-      if (partsOfCommand(0) == "moveto") {
-        sensoryCache(partsOfCommand(1)).headOption.map { anotherRobotPosition =>
-          "move=" + anotherRobotPosition.y + "," + anotherRobotPosition.x
-        }
+      if (partsOfCommand.length == 1) {
+        Some(partsOfCommand(0))
       } else {
-        Some(partsOfCommand(0) + "=" + partsOfCommand(1))
+        if (partsOfCommand(0) == "moveto") {
+          sensoryCache(partsOfCommand(1)).headOption.map { anotherRobotPosition =>
+            "move=" + anotherRobotPosition.y + "," + anotherRobotPosition.x
+          }
+        } else {
+          Some(partsOfCommand(0) + "=" + partsOfCommand(1))
+        }
       }
     }
 
