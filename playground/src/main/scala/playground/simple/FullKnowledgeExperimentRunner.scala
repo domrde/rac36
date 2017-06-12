@@ -126,6 +126,7 @@ object RobotMover {
 
   sealed trait RobotCommand
   case object Forward extends RobotCommand
+  case object Backward extends RobotCommand
   case object RotateRight extends RobotCommand
   case object RotateLeft extends RobotCommand
   case object Stop extends RobotCommand
@@ -139,9 +140,9 @@ class RobotMover(api: VRepAPI, id: String) extends Actor with ActorLogging {
 
   private val moveRegExp = "move=([\\-\\d\\.]+),([\\-\\d\\.]+)".r
 
-  override def receive: Receive = receiveWithTargetPoint(None, Stop)
+  override def receive: Receive = receiveWithTargetPoint(None, None, Stop)
 
-  def receiveWithTargetPoint(targetPoint: Option[TargetPoint], previousCommand: RobotCommand): Receive = {
+  def receiveWithTargetPoint(targetPoint: Option[TargetPoint], currentPositionOpt: Option[Position], previousCommand: RobotCommand): Receive = {
     case robotPosition: Position =>
       val updatedAngle = robotPosition.angle
       if (targetPoint.isDefined) {
@@ -149,24 +150,24 @@ class RobotMover(api: VRepAPI, id: String) extends Actor with ActorLogging {
         val angleToPoint = Math.atan2(nextStep.y - robotPosition.y, nextStep.x - robotPosition.x) * 180.0 / Math.PI
         val angleDiff = updatedAngle - angleToPoint
         val angleAbsDiff = Math.abs(angleDiff)
-        if (angleAbsDiff < 10) {
+        if (angleAbsDiff < 5) {
           if (previousCommand != Forward) {
             log.info("{} -> Pos {}. Angle diff {}, forward", id, robotPosition, angleDiff)
             robot.moveForward()
-            context.become(receiveWithTargetPoint(targetPoint, Forward))
+            context.become(receiveWithTargetPoint(targetPoint, Some(robotPosition), Forward))
           }
         } else {
           if (angleDiff > 0) {
             if (previousCommand != RotateRight) {
               log.info("{} -> Pos {}. Angle diff {}, rotating right", id, robotPosition, angleDiff)
               robot.right()
-              context.become(receiveWithTargetPoint(targetPoint, RotateRight))
+              context.become(receiveWithTargetPoint(targetPoint, Some(robotPosition), RotateRight))
             }
           } else {
             if (previousCommand != RotateLeft) {
               log.info("{} -> Pos {}. Angle diff {}, rotating left", id, robotPosition, angleDiff)
               robot.left()
-              context.become(receiveWithTargetPoint(targetPoint, RotateLeft))
+              context.become(receiveWithTargetPoint(targetPoint, Some(robotPosition), RotateLeft))
             }
           }
         }
@@ -174,21 +175,57 @@ class RobotMover(api: VRepAPI, id: String) extends Actor with ActorLogging {
         if (previousCommand != Stop) {
           log.info("{} -> Stop", id)
           robot.stop()
-          context.become(receiveWithTargetPoint(targetPoint, Stop))
+          context.become(receiveWithTargetPoint(targetPoint, Some(robotPosition), Stop))
         }
+      }
+
+    case FromAvatarToRobot(_id, command) if _id == id && command.contains("forward") =>
+      currentPositionOpt.foreach { currentPosition =>
+        val partsOfCommand = command.split("=")
+        val distance = partsOfCommand(1).toDouble
+        val y = Math.sin(Math.toRadians(currentPosition.angle)) * distance + currentPosition.y
+        val x = Math.cos(Math.toRadians(currentPosition.angle)) * distance + currentPosition.x
+        context.become(receiveWithTargetPoint(Some(TargetPoint(y, x)), currentPositionOpt, Forward))
+      }
+
+    case FromAvatarToRobot(_id, command) if _id == id && command.contains("backward") =>
+      currentPositionOpt.foreach { currentPosition =>
+        val partsOfCommand = command.split("=")
+        val distance = partsOfCommand(1).toDouble
+        val y = currentPosition.y - Math.sin(Math.toRadians(currentPosition.angle)) * distance
+        val x = currentPosition.x - Math.cos(Math.toRadians(currentPosition.angle)) * distance
+        context.become(receiveWithTargetPoint(Some(TargetPoint(y, x)), currentPositionOpt, Forward))
+      }
+
+    case FromAvatarToRobot(_id, command) if _id == id && command.contains("left") =>
+      currentPositionOpt.foreach { currentPosition =>
+        val partsOfCommand = command.split("=")
+        val angle = partsOfCommand(1).toDouble
+        val y = currentPosition.y - Math.sin(Math.toRadians(currentPosition.angle - angle)) * 0.001
+        val x = currentPosition.x - Math.cos(Math.toRadians(currentPosition.angle - angle)) * 0.001
+        context.become(receiveWithTargetPoint(Some(TargetPoint(y, x)), currentPositionOpt, Forward))
+      }
+
+    case FromAvatarToRobot(_id, command) if _id == id && command.contains("right") =>
+      currentPositionOpt.foreach { currentPosition =>
+        val partsOfCommand = command.split("=")
+        val angle = partsOfCommand(1).toDouble
+        val y = currentPosition.y - Math.sin(Math.toRadians(currentPosition.angle + angle)) * 0.001
+        val x = currentPosition.x - Math.cos(Math.toRadians(currentPosition.angle + angle)) * 0.001
+        context.become(receiveWithTargetPoint(Some(TargetPoint(y, x)), currentPositionOpt, Forward))
       }
 
     case FromAvatarToRobot(_id, "stop") if _id == id =>
       if (previousCommand != Stop) {
         robot.stop()
-        context.become(receiveWithTargetPoint(None, Stop))
+        context.become(receiveWithTargetPoint(None, currentPositionOpt, Stop))
       }
 
     case FromAvatarToRobot(_id, command) if _id == id =>
       Try {
         val moveRegExp(yString, xString) = command
         log.info(id + " -> " + command)
-        context.become(receiveWithTargetPoint(Some(TargetPoint(yString.toDouble, xString.toDouble)), previousCommand))
+        context.become(receiveWithTargetPoint(Some(TargetPoint(yString.toDouble, xString.toDouble)), currentPositionOpt, previousCommand))
       }
 
     case other =>

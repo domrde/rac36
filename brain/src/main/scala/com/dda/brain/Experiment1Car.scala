@@ -32,7 +32,7 @@ class Experiment1Car(id: String) extends BrainActor(id) {
             }
             if (path.path.nonEmpty) {
               val nextStep = path.path.head
-              "move=" + nextStep.y + "," + nextStep.x + ""
+              "move=" + nextStep.y + "," + nextStep.x
             } else {
               "stop"
             }
